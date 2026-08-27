@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 权限</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/ui.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="admin" data-active="permissions"></aside>
+  <div class="page">
+    <header class="topbar"><strong>管理后台</strong><span>/</span><strong>权限</strong></header>
+    <main>
+      <div class="page-head"><div><h1>权限管理</h1><p>以用户组为主体，统一管理数据、数据组和管理后台的访问范围。</p></div><button class="primary" id="save">保存权限</button></div>
+      <section class="section-block"><div class="section-row"><h2>用户组权限</h2><span>变更即时写入权限图</span></div><div class="table-wrap"><table class="fields-table"><thead><tr><th>用户组</th><th>数据浏览</th><th>SQL 查询</th><th>数据组内容</th><th>后台管理</th></tr></thead><tbody id="matrix"></tbody></table></div></section>
+      <section class="section-block"><h2>权限说明</h2><p class="panel-help">管理员组始终拥有完整管理权限。同步自飞书、钉钉、企微的部门或群组，可在“办公平台与通知”中映射为此处的 Topbase 用户组。</p></section>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script>
+    let groups=[],graph={revision:1,data_graph:{},collection_graph:{}};
+    const choices=(value,opts)=>'<select>'+opts.map(x=>'<option value="'+x[0]+'" '+(value===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
+    function perm(id){return graph.data_graph[id]||{data:'none',sql:'none',collections:'none',admin:'none'}}
+    function draw(){ $('#matrix').innerHTML=groups.map(g=>{const p=perm(g.id);return '<tr data-id="'+g.id+'"><td><b>'+g.name+'</b><br><small>'+g.kind+'</small></td><td>'+choices(p.data,[['none','无访问'],['view','可浏览'],['curate','可管理']])+'</td><td>'+choices(p.sql,[['none','禁止'],['query','可查询'],['native','原生 SQL']])+'</td><td>'+choices(p.collections,[['none','无访问'],['view','可查看'],['edit','可编辑']])+'</td><td>'+choices(p.admin,[['none','无'],['admin','管理员']])+'</td></tr>'}).join('')||'<tr><td colspan="5">尚无用户组</td></tr>'; $('#matrix').querySelectorAll('tr[data-id]').forEach(row=>row.querySelectorAll('select').forEach(s=>s.disabled=row.dataset.id==='grp_admins')) }
+    async function load(){[groups,graph]=await Promise.all([api('/api/groups'),api('/api/permissions/graph')]);graph.data_graph=graph.data_graph||{};draw()}
+    $('#save').onclick=async()=>{ $('#matrix').querySelectorAll('tr[data-id]').forEach(row=>{const v=[...row.querySelectorAll('select')].map(x=>x.value);graph.data_graph[row.dataset.id]={data:v[0],sql:v[1],collections:v[2],admin:v[3]}});try{await api('/api/permissions/graph','PUT',graph);toast('权限已保存');load()}catch(e){toast(e.message)}};
+    load().catch(e=>toast(e.message));
+  </script>
+</body>
+</html>

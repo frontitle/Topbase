@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 登录</title>
+  <link rel="stylesheet" href="/auth/auth.css">
+</head>
+<body>
+  <main class="card">
+    <p class="eyebrow">TOPBASE</p>
+    <h1>登录工作区</h1>
+    <p class="lead" id="lead">选择工作区允许的登录方式。</p>
+    <form id="form">
+      <label>邮箱<input id="email" type="email" required autocomplete="username"></label>
+      <label>密码<input id="password" type="password" required autocomplete="current-password"></label>
+      <button type="submit">登录</button>
+      <p id="error" class="error" hidden></p>
+    </form>
+    <div id="providers" class="provider-list" hidden></div>
+    <p class="hint"><a href="/setup/">还没有工作区？去初始化</a></p>
+  </main>
+  <script src="/auth/login/login.js"></script>
+</body>
+</html>

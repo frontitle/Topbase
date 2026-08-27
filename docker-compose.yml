@@ -1,0 +1,20 @@
+services:
+  topbase:
+    build:
+      context: .
+    image: topbase/topbase:local
+    ports:
+      - "8080:8080"
+    environment:
+      TOPBASE_ADDR: ":8080"
+      TOPBASE_DATA_DIR: /data
+      TOPBASE_CRON: "on"
+      FEISHU_APP_ID: "${FEISHU_APP_ID:-}"
+      FEISHU_APP_SECRET: "${FEISHU_APP_SECRET:-}"
+      FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:-}"
+    volumes:
+      - topbase_data:/data
+    restart: unless-stopped
+
+volumes:
+  topbase_data:

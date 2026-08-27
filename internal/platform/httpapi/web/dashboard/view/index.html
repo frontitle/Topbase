@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 仪表盘</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/grid.css">
+  <link rel="stylesheet" href="/viz.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="dashboards"></aside>
+  <div class="page board-page">
+    <header class="topbar">
+      <a href="/dashboard/">仪表盘</a><span>/</span><strong id="title">加载中</strong>
+      <div class="top-actions">
+        <span id="view-actions">
+          <button class="secondary" id="fullscreen" type="button">全屏</button>
+          <button class="secondary" id="share" type="button">分享 / 嵌入</button>
+          <button class="secondary" id="more" type="button">更多</button>
+        </span>
+        <button class="primary" id="edit" type="button">编辑</button>
+      </div>
+    </header>
+    <main>
+      <div class="board-layout viewing" id="layout">
+        <aside class="board-palette" id="palette">
+          <div class="palette-section">
+            <h3>快速添加分析</h3>
+            <p class="hint">点击立即添加，也可以拖到右侧指定位置。</p>
+            <input id="qsearch" type="search" placeholder="搜索已创建的分析">
+            <div id="palette-questions"></div>
+          </div>
+          <div class="palette-section palette-components">
+            <h3>其它内容</h3>
+            <div class="palette-actions">
+              <button class="secondary" draggable="true" data-add="heading" type="button">标题</button>
+              <button class="secondary" draggable="true" data-add="text" type="button">文本</button>
+            </div>
+            <div class="palette-actions">
+              <button class="secondary" draggable="true" data-add="link" type="button">链接</button>
+              <button class="secondary" draggable="true" data-add="iframe" type="button">网页</button>
+            </div>
+            <div class="palette-actions">
+              <button class="secondary" draggable="true" data-add="metric" type="button">指标</button>
+              <button class="secondary" draggable="true" data-add="divider" type="button">分隔线</button>
+            </div>
+          </div>
+        </aside>
+        <div class="board-canvas" id="board-canvas">
+          <div class="board-toolbar">
+            <div id="tabs" class="tabs"></div>
+            <div id="filters" class="filters"></div>
+            <button class="secondary" id="add-filter" type="button" hidden>添加筛选</button>
+            <button class="primary" id="apply" type="button">应用筛选</button>
+          </div>
+          <div id="canvas-controls" class="canvas-controls" hidden></div>
+          <section id="grid" class="board-grid"></section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="more-menu" class="board-menu" hidden></div>
+  <div id="modal" class="board-modal" hidden></div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script src="/grid.js"></script>
+  <script src="/echarts.min.js"></script>
+  <script src="/viz.js"></script>
+  <script src="/dashboard-view.js"></script>
+</body>
+</html>

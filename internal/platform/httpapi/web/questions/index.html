@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 分析</title>
+  <link rel="stylesheet" href="/ui.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="questions"></aside>
+  <div class="page">
+    <header class="topbar"><strong>分析</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>分析</h1>
+          <p>集中查看可视化分析和 SQL 分析，并按数据组组织团队的分析资产。</p>
+        </div>
+        <a class="primary" href="/questions/new/">新建分析</a>
+      </div>
+      <section class="toolbar">
+        <label><span>⌕</span><input id="search" placeholder="搜索分析"></label>
+        <select id="collection"><option value="">全部数据组</option></select>
+      </section>
+      <section id="list" class="cards"></section>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script>
+    let questions=[], collections=[];
+    function typeLabel(q){return q.query_type==='native'?'SQL':'可视化'}
+    function colName(id){const c=collections.find(x=>x.id===id);return c?c.name:'我的分析'}
+    function render(){
+      const q=($('#search').value||'').toLowerCase();
+      const col=$('#collection').value;
+      const items=questions.filter(item=>(!col||item.collection_id===col)&&((item.name||'')+' '+(item.description||'')).toLowerCase().includes(q));
+      $('#list').innerHTML=items.map(item=>cardHTML({href:'/questions/'+item.id+'/',title:item.name,meta:typeLabel(item)+' · '+colName(item.collection_id)+' · '+new Date(item.created_at).toLocaleString('zh-CN')})).join('')||emptyHTML({icon:'◇',title:'还没有分析',body:'选择一个数据表，通过可视化构建器创建第一条分析。',href:'/questions/new/',cta:'新建分析'});
+    }
+    async function load(){
+      [questions, collections]=await Promise.all([api('/api/questions'), api('/api/collections')]);
+      $('#collection').innerHTML='<option value="">全部数据组</option>'+collections.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
+      render();
+    }
+    $('#search').oninput=render;$('#collection').onchange=render;
+    load().catch(e=>toast(e.message));
+  </script>
+</body>
+</html>

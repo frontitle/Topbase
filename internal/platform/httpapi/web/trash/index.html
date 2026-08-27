@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 回收站</title>
+  <link rel="stylesheet" href="/ui.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="trash"></aside>
+  <div class="page">
+    <header class="topbar"><strong>回收站</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>回收站</h1>
+          <p>归档的分析与仪表盘可以在这里恢复。</p>
+        </div>
+      </div>
+      <section id="list" class="cards"></section>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script>
+    const typeLabel={question:'分析',dashboard:'仪表盘'};
+    async function load(){
+      const items=await api('/api/trash');
+      $('#list').innerHTML=items.map(i=>cardHTML({title:i.name,meta:typeLabel[i.type]||i.type,action:'<button class="secondary" data-type="'+esc(i.type)+'" data-id="'+esc(i.id)+'" type="button">恢复</button>'})).join('')||emptyHTML({icon:'🗑',title:'回收站是空的',body:'归档分析或仪表盘后会出现在这里。'});
+      $$('button[data-id]').forEach(b=>b.onclick=async()=>{
+        try{
+          await api('/api/trash/'+b.dataset.type+'/'+b.dataset.id+'/restore','POST',{});
+          toast('已恢复');
+          load();
+        }catch(e){toast(e.message)}
+      });
+    }
+    load().catch(e=>toast(e.message));
+  </script>
+</body>
+</html>

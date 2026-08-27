@@ -1,0 +1,531 @@
+package appdb
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	_ "embed"
+	_ "modernc.org/sqlite"
+
+	"github.com/topbase/topbase/internal/core"
+	"github.com/topbase/topbase/internal/core/queryir"
+)
+
+//go:embed schema.sql
+var schemaSQL string
+
+type Store struct {
+	db *sql.DB
+}
+
+func Open(path string) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	dsn := "file:" + filepath.ToSlash(path) + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if _, err := db.Exec(schemaSQL); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate app db: %w", err)
+	}
+	_, _ = db.Exec(`ALTER TABLE questions ADD COLUMN dashboard_id TEXT`)
+	_, _ = db.Exec(`ALTER TABLE questions ADD COLUMN parameters TEXT`)
+	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN watermark_field TEXT`)
+	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN model_id TEXT`)
+	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN confirm_source_write INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE materialized_tables ADD COLUMN watermark TEXT`)
+	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN feishu_open_id TEXT`)
+	_, _ = db.Exec(`ALTER TABLE dashboards ADD COLUMN public_uuid TEXT`)
+	_, _ = db.Exec(`ALTER TABLE dashboards ADD COLUMN appearance TEXT`)
+	_, _ = db.Exec(`ALTER TABLE collections ADD COLUMN kind TEXT NOT NULL DEFAULT 'team_project'`)
+	_, _ = db.Exec(`ALTER TABLE collections ADD COLUMN owner_group_id TEXT`)
+	// Existing personal collections predate the explicit project-space kind.
+	// Preserve their ownership semantics during the additive migration.
+	_, _ = db.Exec(`UPDATE collections SET kind='personal_project' WHERE personal_owner_user_id IS NOT NULL AND personal_owner_user_id <> ''`)
+	// Keep the user-facing product terminology current without touching custom names.
+	_, _ = db.Exec(`UPDATE collections SET name='我的分析' WHERE name=? AND personal_owner_user_id IS NOT NULL AND personal_owner_user_id <> ''`, "我的\u95ee\u6570")
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS schema_snapshots (
+		database_id TEXT PRIMARY KEY,
+		tables_json TEXT NOT NULL,
+		synced_at TEXT NOT NULL
+	)`)
+	return &Store{db: db}, nil
+}
+
+func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) Get(key string) (string, bool, error) {
+	var value string
+	err := s.db.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	return value, err == nil, err
+}
+
+func (s *Store) Set(key, value string) error {
+	_, err := s.db.Exec(`INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
+}
+
+func (s *Store) Create(user core.User) error {
+	_, err := s.db.Exec(`INSERT INTO users(id, email, name, password_hash, locale, theme, is_active, created_at) VALUES(?,?,?,?,?,?,?,?)`,
+		user.ID, user.Email, user.Name, user.PasswordHash, user.Locale, user.Theme, boolInt(user.IsActive), user.CreatedAt.UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) ByEmail(email string) (core.User, error) {
+	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users WHERE email = ?`, email))
+}
+
+func (s *Store) ByID(id string) (core.User, error) {
+	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users WHERE id = ?`, id))
+}
+
+func (s *Store) ListUsers() ([]core.User, error) {
+	rows, err := s.db.Query(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []core.User{}
+	for rows.Next() {
+		user, err := scanUserRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, user)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) SetActive(id string, active bool) error {
+	res, err := s.db.Exec(`UPDATE users SET is_active=? WHERE id=?`, boolInt(active), id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return core.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetPassword(id, passwordHash string) error {
+	res, err := s.db.Exec(`UPDATE users SET password_hash=? WHERE id=?`, passwordHash, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return core.ErrNotFound
+	}
+	return nil
+}
+
+func scanUserRow(row scanner) (core.User, error) {
+	var user core.User
+	var hash sql.NullString
+	var created string
+	var active int
+	err := row.Scan(&user.ID, &user.Email, &user.Name, &hash, &user.Locale, &user.Theme, &active, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return core.User{}, core.ErrNotFound
+	}
+	if err != nil {
+		return core.User{}, err
+	}
+	user.PasswordHash = hash.String
+	user.IsActive = active == 1
+	user.CreatedAt, _ = time.Parse(time.RFC3339, created)
+	return user, nil
+}
+
+func (s *Store) scanUser(row *sql.Row) (core.User, error) {
+	return scanUserRow(row)
+}
+
+func (s *Store) CreateGroup(group core.Group) error {
+	_, err := s.db.Exec(`INSERT INTO groups(id, name, kind) VALUES(?,?,?)`, group.ID, group.Name, group.Kind)
+	return err
+}
+
+func (s *Store) AddMember(groupID, userID string) error {
+	_, err := s.db.Exec(`INSERT OR IGNORE INTO group_members(group_id, user_id) VALUES(?,?)`, groupID, userID)
+	return err
+}
+
+func (s *Store) CreateSession(session core.Session) error {
+	_, err := s.db.Exec(`INSERT INTO sessions(id, user_id, expires_at) VALUES(?,?,?)`, session.ID, session.UserID, session.ExpiresAt.UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) SessionByID(id string) (core.Session, error) {
+	var session core.Session
+	var expires string
+	err := s.db.QueryRow(`SELECT id, user_id, expires_at FROM sessions WHERE id = ?`, id).Scan(&session.ID, &session.UserID, &expires)
+	if errors.Is(err, sql.ErrNoRows) {
+		return core.Session{}, core.ErrNotFound
+	}
+	if err != nil {
+		return core.Session{}, err
+	}
+	session.ExpiresAt, _ = time.Parse(time.RFC3339, expires)
+	return session, nil
+}
+
+func (s *Store) DeleteSession(id string) error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
+	return err
+}
+
+func (s *Store) DeleteExpired(now time.Time) error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE expires_at < ?`, now.UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) CreateCollection(c core.Collection) error {
+	_, err := s.db.Exec(`INSERT INTO collections(id, parent_id, name, personal_owner_user_id, owner_group_id, kind, created_at) VALUES(?,?,?,?,?,?,?)`,
+		c.ID, nullString(c.ParentID), c.Name, nullString(c.PersonalOwnerUserID), nullString(c.OwnerGroupID), c.Kind, c.CreatedAt.UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) ListCollections() ([]core.Collection, error) {
+	rows, err := s.db.Query(`SELECT id, parent_id, name, personal_owner_user_id, owner_group_id, kind, created_at FROM collections ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []core.Collection{}
+	for rows.Next() {
+		var item core.Collection
+		var parent, owner, ownerGroup, kind, created sql.NullString
+		if err := rows.Scan(&item.ID, &parent, &item.Name, &owner, &ownerGroup, &kind, &created); err != nil {
+			return nil, err
+		}
+		item.ParentID = parent.String
+		item.PersonalOwnerUserID = owner.String
+		item.OwnerGroupID = ownerGroup.String
+		item.Kind = kind.String
+		if item.Kind == "" {
+			if item.PersonalOwnerUserID != "" {
+				item.Kind = "personal_project"
+			} else {
+				item.Kind = "team_project"
+			}
+		}
+		item.CreatedAt, _ = time.Parse(time.RFC3339, created.String)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) UpdateCollection(c core.Collection) error {
+	_, err := s.db.Exec(`UPDATE collections SET parent_id=?, name=? WHERE id=?`, nullString(c.ParentID), c.Name, c.ID)
+	return err
+}
+
+func (s *Store) DeleteCollection(id string) error {
+	_, err := s.db.Exec(`DELETE FROM collections WHERE id=?`, id)
+	return err
+}
+
+func (s *Store) CollectionByID(id string) (core.Collection, error) {
+	items, err := s.ListCollections()
+	if err != nil {
+		return core.Collection{}, err
+	}
+	for _, item := range items {
+		if item.ID == id {
+			return item, nil
+		}
+	}
+	return core.Collection{}, core.ErrNotFound
+}
+
+func (s *Store) CreateQuestion(q core.Question) error {
+	queryIR, chart, params, err := encodeQuestion(q)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO questions(id, collection_id, dashboard_id, name, description, queryir, native_sql, chartspec, query_type, database_id, created_by, created_at, archived_at, parameters) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		q.ID, nullString(q.CollectionID), nullString(q.DashboardID), q.Name, q.Description, queryIR, q.NativeSQL, chart, q.QueryType, nullString(q.DatabaseID), nullString(q.CreatedBy), q.CreatedAt.UTC().Format(time.RFC3339), nil, nullString(params))
+	return err
+}
+
+func (s *Store) UpdateQuestion(q core.Question) error {
+	queryIR, chart, params, err := encodeQuestion(q)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`UPDATE questions SET collection_id=?, dashboard_id=?, name=?, description=?, queryir=?, native_sql=?, chartspec=?, query_type=?, database_id=?, parameters=? WHERE id=?`,
+		nullString(q.CollectionID), nullString(q.DashboardID), q.Name, q.Description, queryIR, q.NativeSQL, chart, q.QueryType, nullString(q.DatabaseID), nullString(params), q.ID)
+	return err
+}
+
+func (s *Store) SetQuestionArchived(id string, archivedAt *time.Time) error {
+	var value any
+	if archivedAt != nil {
+		value = archivedAt.UTC().Format(time.RFC3339)
+	}
+	_, err := s.db.Exec(`UPDATE questions SET archived_at=? WHERE id=?`, value, id)
+	return err
+}
+
+func (s *Store) QuestionByID(id string) (core.Question, error) {
+	row := s.db.QueryRow(`SELECT id, collection_id, dashboard_id, name, description, queryir, native_sql, chartspec, query_type, database_id, created_by, created_at, archived_at, parameters FROM questions WHERE id = ?`, id)
+	q, err := scanQuestion(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return core.Question{}, core.ErrNotFound
+	}
+	return q, err
+}
+
+func (s *Store) ListQuestions(includeArchived bool) ([]core.Question, error) {
+	sqlText := `SELECT id, collection_id, dashboard_id, name, description, queryir, native_sql, chartspec, query_type, database_id, created_by, created_at, archived_at, parameters FROM questions`
+	if !includeArchived {
+		sqlText += ` WHERE archived_at IS NULL`
+	}
+	sqlText += ` ORDER BY created_at DESC`
+	rows, err := s.db.Query(sqlText)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []core.Question{}
+	for rows.Next() {
+		q, err := scanQuestionRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, q)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) List() ([]core.Database, error) {
+	rows, err := s.db.Query(`SELECT id, name, engine, host, status, created_at FROM catalog_databases ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []core.Database{}
+	for rows.Next() {
+		var item core.Database
+		var created string
+		if err := rows.Scan(&item.ID, &item.Name, &item.Engine, &item.Host, &item.Status, &created); err != nil {
+			return nil, err
+		}
+		item.CreatedAt, _ = time.Parse(time.RFC3339, created)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) Save(database core.Database) error {
+	_, err := s.db.Exec(`INSERT INTO catalog_databases(id, name, engine, host, status, created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, engine=excluded.engine, host=excluded.host, status=excluded.status`,
+		database.ID, database.Name, database.Engine, database.Host, database.Status, database.CreatedAt.UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) Delete(id string) error {
+	_, err := s.db.Exec(`DELETE FROM catalog_databases WHERE id = ?`, id)
+	return err
+}
+
+func (s *Store) GetTableAnnotation(databaseID, schema, table string) (core.TableAnnotation, error) {
+	var note core.TableAnnotation
+	var fieldTypes sql.NullString
+	err := s.db.QueryRow(`SELECT display_name, description, field_types FROM table_annotations WHERE database_id=? AND schema_name=? AND table_name=?`, databaseID, schema, table).
+		Scan(&note.DisplayName, &note.Description, &fieldTypes)
+	if errors.Is(err, sql.ErrNoRows) {
+		return core.TableAnnotation{FieldTypes: map[string]string{}}, nil
+	}
+	if err != nil {
+		return core.TableAnnotation{}, err
+	}
+	note.FieldTypes = map[string]string{}
+	if fieldTypes.String != "" {
+		_ = json.Unmarshal([]byte(fieldTypes.String), &note.FieldTypes)
+	}
+	return note, nil
+}
+
+func (s *Store) SaveTableAnnotation(databaseID, schema, table string, annotation core.TableAnnotation) error {
+	if annotation.FieldTypes == nil {
+		annotation.FieldTypes = map[string]string{}
+	}
+	raw, _ := json.Marshal(annotation.FieldTypes)
+	_, err := s.db.Exec(`INSERT INTO table_annotations(database_id, schema_name, table_name, display_name, description, field_types) VALUES(?,?,?,?,?,?) ON CONFLICT(database_id, schema_name, table_name) DO UPDATE SET display_name=excluded.display_name, description=excluded.description, field_types=excluded.field_types`,
+		databaseID, schema, table, annotation.DisplayName, annotation.Description, string(raw))
+	return err
+}
+
+func (s *Store) ImportCatalog(items []core.Database) error {
+	existing, err := s.List()
+	if err != nil || len(existing) > 0 {
+		return err
+	}
+	for _, item := range items {
+		if err := s.Save(item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type userAdapter struct{ *Store }
+
+func (s *Store) Users() core.UserStore { return userAdapter{s} }
+
+func (a userAdapter) Create(user core.User) error { return a.Store.Create(user) }
+func (a userAdapter) ByEmail(email string) (core.User, error) {
+	return a.Store.ByEmail(email)
+}
+func (a userAdapter) ByID(id string) (core.User, error) { return a.Store.ByID(id) }
+func (a userAdapter) List() ([]core.User, error)        { return a.ListUsers() }
+func (a userAdapter) SetActive(id string, active bool) error {
+	return a.Store.SetActive(id, active)
+}
+func (a userAdapter) SetPassword(id, passwordHash string) error {
+	return a.Store.SetPassword(id, passwordHash)
+}
+
+type groupAdapter struct{ *Store }
+
+func (s *Store) Groups() core.GroupStore { return groupAdapter{s} }
+
+func (g groupAdapter) Create(group core.Group) error { return g.CreateGroup(group) }
+
+type sessionAdapter struct{ *Store }
+
+func (s *Store) Sessions() core.SessionStore { return sessionAdapter{s} }
+
+func (a sessionAdapter) Create(session core.Session) error { return a.CreateSession(session) }
+func (a sessionAdapter) ByID(id string) (core.Session, error) {
+	return a.SessionByID(id)
+}
+func (a sessionAdapter) Delete(id string) error { return a.DeleteSession(id) }
+func (a sessionAdapter) DeleteExpired(now time.Time) error {
+	return a.Store.DeleteExpired(now)
+}
+
+type collectionAdapter struct{ *Store }
+
+func (s *Store) Collections() core.CollectionStore { return collectionAdapter{s} }
+
+func (a collectionAdapter) Create(c core.Collection) error { return a.CreateCollection(c) }
+func (a collectionAdapter) Update(c core.Collection) error { return a.UpdateCollection(c) }
+func (a collectionAdapter) List() ([]core.Collection, error) {
+	return a.ListCollections()
+}
+func (a collectionAdapter) ByID(id string) (core.Collection, error) {
+	return a.CollectionByID(id)
+}
+func (a collectionAdapter) Delete(id string) error { return a.DeleteCollection(id) }
+
+type questionAdapter struct{ *Store }
+
+func (s *Store) Questions() core.QuestionStore { return questionAdapter{s} }
+
+func (a questionAdapter) Create(q core.Question) error { return a.CreateQuestion(q) }
+func (a questionAdapter) Update(q core.Question) error { return a.UpdateQuestion(q) }
+func (a questionAdapter) ByID(id string) (core.Question, error) {
+	return a.QuestionByID(id)
+}
+func (a questionAdapter) List(includeArchived bool) ([]core.Question, error) {
+	return a.ListQuestions(includeArchived)
+}
+func (a questionAdapter) SetArchived(id string, archivedAt *time.Time) error {
+	return a.SetQuestionArchived(id, archivedAt)
+}
+
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+func scanQuestion(row scanner) (core.Question, error) {
+	var q core.Question
+	var collection, dashboard, desc, queryIR, native, chart, dbID, createdBy, created, archived, params sql.NullString
+	if err := row.Scan(&q.ID, &collection, &dashboard, &q.Name, &desc, &queryIR, &native, &chart, &q.QueryType, &dbID, &createdBy, &created, &archived, &params); err != nil {
+		return core.Question{}, err
+	}
+	q.CollectionID, q.DashboardID, q.Description, q.NativeSQL, q.DatabaseID, q.CreatedBy = collection.String, dashboard.String, desc.String, native.String, dbID.String, createdBy.String
+	q.CreatedAt, _ = time.Parse(time.RFC3339, created.String)
+	if archived.Valid {
+		t, _ := time.Parse(time.RFC3339, archived.String)
+		q.ArchivedAt = &t
+	}
+	if queryIR.String != "" {
+		var parsed queryir.Query
+		if err := json.Unmarshal([]byte(queryIR.String), &parsed); err == nil {
+			q.QueryIR = &parsed
+		}
+	}
+	if chart.String != "" {
+		var spec core.ChartSpec
+		if err := json.Unmarshal([]byte(chart.String), &spec); err == nil {
+			q.ChartSpec = &spec
+		}
+	}
+	if params.String != "" {
+		_ = json.Unmarshal([]byte(params.String), &q.Parameters)
+	}
+	return q, nil
+}
+
+func scanQuestionRows(rows *sql.Rows) (core.Question, error) {
+	return scanQuestion(rows)
+}
+
+func encodeQuestion(q core.Question) (queryIR string, chart string, params string, err error) {
+	if q.QueryIR != nil {
+		raw, e := json.Marshal(q.QueryIR)
+		if e != nil {
+			return "", "", "", e
+		}
+		queryIR = string(raw)
+	}
+	if q.ChartSpec != nil {
+		raw, e := json.Marshal(q.ChartSpec)
+		if e != nil {
+			return "", "", "", e
+		}
+		chart = string(raw)
+	}
+	if len(q.Parameters) > 0 {
+		raw, e := json.Marshal(q.Parameters)
+		if e != nil {
+			return "", "", "", e
+		}
+		params = string(raw)
+	}
+	return queryIR, chart, params, nil
+}
+
+func boolInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
+}
+
+func nullString(v string) any {
+	if strings.TrimSpace(v) == "" {
+		return nil
+	}
+	return v
+}

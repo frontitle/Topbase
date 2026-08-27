@@ -1,0 +1,43 @@
+# Local operating-system and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime state: may contain users, sessions, source credentials and business data
+/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Build and test output
+/topbase
+/bin/
+/dist/
+/coverage/
+coverage.out
+*.test
+*.prof
+
+# Local QA artifacts
+/audit/
+/design-qa.md
+/.qa-*.png
+/.qa-*.jpg
+/.qa-*.jpeg
+/.qa-*.webp
+/.tmp/
+/tmp/
