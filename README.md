@@ -2,11 +2,8 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 
-Topbase 是面向中国团队的 Go 数据智能与轻量数据仓库产品。它以 Metabase 开源版的业务能力为兼容方向，但采用独立领域模型和实现；不得复制或混入 Metabase 的商业版代码。
+Topbase 是面向中国团队的 Go 数据智能与轻量数据仓库产品，帮助技术、运营和业务人员通过可视化操作获取指标、持续观测数据，并将周期性分析物化为可维护的数据资产。
 
-Metabase 官方文档 `v0.63` 是当前产品行为基线。功能不能以“已有页面或 API”作为完成标准，必须按逐项 UX 与工程验收矩阵确认。
-
-- [`docs/metabase-parity-matrix.md`](docs/metabase-parity-matrix.md)：官方能力基线、当前差距与完成条件
 - [`docs/architecture.md`](docs/architecture.md)：依赖方向、扩展点、安全与 Definition of Done
 - [`docs/topbase-架构与功能清单.md`](docs/topbase-架构与功能清单.md)：完整产品和领域规格
 - [`docs/README.md`](docs/README.md)：快速开始、部署、配置、升级与数据库支持文档
@@ -112,8 +109,6 @@ docker compose cp topbase:/backups/topbase-manual ./backups/
 
 当前能力大多仍处于“部分实现”。短期按 `P0` 收口连接、查询构建器、可视化、分析和仪表盘的完整体验，再进入语义层、权限和分发；Topbase 的飞书、AI 与数仓能力复用同一领域和权限基础。
 
-## 合规
+## 开源许可
 
-Metabase 开源版采用 AGPL；若直接复制、修改或分发其代码，必须遵守该许可证。Topbase 应保持独立实现，并在导入任何上游代码前完成许可证审查。
-
-Topbase 自身的最终开源许可证尚待项目所有者确认；确认前不导入第三方源码。
+Topbase 的最终开源许可证尚待项目所有者确认。许可证确定前，引入第三方源码或依赖必须先完成许可证兼容性审查。
