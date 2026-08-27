@@ -30,6 +30,8 @@ Metabase 官方文档 `v0.63` 是当前产品行为基线。功能不能以“�
 - 仪表盘订阅：站内通知或飞书卡片，进程内 30s cron
 - 仪表盘：网格、Tab、分析/标题/文本卡、日期筛选映射、点击更新筛选
 - 搜索、书签、修订、回收站、CSV 导出、站内告警、API Key、权限图存储
+- 数据组对象级授权与数据浏览 / 原生 SQL 能力授权均由服务端执行；浏览器写请求启用 CSRF 防护
+- 应用库使用带校验和的顺序 migration；提供版本、就绪探针、优雅停止和在线一致性备份
 - 可视化查询构建器走 QueryIR，可保存为分析
 - schema / table / column 元数据发现与业务标注
 - 只读事务、30 秒超时、1,000 行上限的 Native SQL API
@@ -43,6 +45,7 @@ Docker Compose：
 ```bash
 cp .env.example .env
 docker compose up --build -d
+curl --fail http://localhost:8080/api/ready
 ```
 
 或从源代码运行：
@@ -61,6 +64,15 @@ make check
 
 数据目录默认 `data/`，可用 `TOPBASE_DATA_DIR` 覆盖（测试会写入临时目录）。
 
+运行中的 Docker 实例可以在线备份：
+
+```bash
+docker compose exec topbase /app/topbase-backup /backups/topbase-manual
+docker compose cp topbase:/backups/topbase-manual ./backups/
+```
+
+部署、升级和恢复细节见 [`docs/deployment.md`](docs/deployment.md) 与 [`docs/upgrading.md`](docs/upgrading.md)。
+
 数据库接入能力、兼容产品和边界见 [`docs/database-drivers.md`](docs/database-drivers.md)。当前查询层支持多数据库，但数仓物化目标仍限定为 PostgreSQL，避免在尚未验证各引擎 DDL、事务和增量语义前给出错误承诺。
 
 | 路径 | 用途 |
@@ -69,11 +81,12 @@ make check
 | `data/connection-secrets.json` | 数据源连接凭据，权限 `0600` |
 | `data/catalog.json` | 旧版目录，仅在应用库为空时导入一次 |
 
-生产环境应把应用库迁到 Postgres，并把密钥替换为 KMS。
+当前应用库支持单实例 SQLite 部署；横向扩展前需要完成 PostgreSQL 应用库适配。生产环境还应把文件密钥存储替换为 KMS 或 Vault。
 
 ## 关键 API
 
 - `GET /api/setup/status` · `POST /api/setup`
+- `GET /api/health` · `GET /api/ready` · `GET /api/version`
 - `GET /api/database-engines`（数据库驱动与能力声明）
 - `POST /api/session` · `DELETE /api/session` · `GET /api/user/current`
 - `POST /api/dataset` 提交 QueryIR

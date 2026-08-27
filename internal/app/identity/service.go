@@ -367,6 +367,42 @@ func (s Service) IsAdmin(userID string) bool {
 	return false
 }
 
+// HasCapability enforces the instance-wide group permission matrix. Project
+// roles still decide which saved analyses and dashboards a user can access;
+// these capabilities decide whether the user may operate on source data.
+func (s Service) HasCapability(userID, capability, required string) bool {
+	if s.IsAdmin(userID) {
+		return true
+	}
+	ranks := map[string]map[string]int{
+		"data": {"none": 0, "view": 1, "curate": 2},
+		"sql":  {"none": 0, "query": 1, "native": 2},
+	}
+	levels, ok := ranks[capability]
+	if !ok || levels[required] == 0 {
+		return false
+	}
+	graph, err := s.PermissionGraph()
+	if err != nil {
+		return false
+	}
+	groups, err := s.Groups.GroupsForUser(userID)
+	if err != nil {
+		return false
+	}
+	for _, group := range groups {
+		values, ok := graph.DataGraph[group.ID].(map[string]any)
+		if !ok {
+			continue
+		}
+		granted, _ := values[capability].(string)
+		if levels[granted] >= levels[required] {
+			return true
+		}
+	}
+	return false
+}
+
 func (s Service) WithRole(user core.User) core.User {
 	user.IsAdmin = s.IsAdmin(user.ID)
 	return user

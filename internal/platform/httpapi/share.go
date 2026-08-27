@@ -159,8 +159,25 @@ func (s *server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.currentUserOrKey(r); !ok {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	items, err := s.identity.ListAPIKeys(user.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	owned := false
+	for _, item := range items {
+		if item.ID == r.PathValue("id") {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "API key not found"})
 		return
 	}
 	if err := s.identity.DeleteAPIKey(r.PathValue("id")); err != nil {
@@ -199,12 +216,36 @@ func (s *server) putPermissionGraph(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
 	items, err := s.content.Search(r.URL.Query().Get("q"))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	visible := make([]core.SearchHit, 0, len(items))
+	for _, item := range items {
+		allowed := s.identity.IsAdmin(user.ID)
+		switch item.Type {
+		case "question":
+			if q, err := s.content.GetQuestion(item.ID); err == nil {
+				allowed = s.canAccessQuestion(user, q, "view")
+			}
+		case "dashboard":
+			if d, err := s.content.GetDashboard(item.ID); err == nil {
+				allowed = s.canAccessDashboard(user, d, "view")
+			}
+		case "collection":
+			allowed = s.canAccessCollection(user, item.ID, "view")
+		}
+		if allowed {
+			visible = append(visible, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *server) listBookmarks(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +259,24 @@ func (s *server) listBookmarks(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	visible := make([]core.Bookmark, 0, len(items))
+	for _, item := range items {
+		allowed := false
+		switch item.TargetType {
+		case "question":
+			if q, err := s.content.GetQuestion(item.TargetID); err == nil {
+				allowed = s.canAccessQuestion(user, q, "view")
+			}
+		case "dashboard":
+			if d, err := s.content.GetDashboard(item.TargetID); err == nil {
+				allowed = s.canAccessDashboard(user, d, "view")
+			}
+		}
+		if allowed {
+			visible = append(visible, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *server) createBookmark(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +290,21 @@ func (s *server) createBookmark(w http.ResponseWriter, r *http.Request) {
 		TargetID   string `json:"target_id"`
 	}
 	if !decodeJSON(w, r, &input) {
+		return
+	}
+	allowed := false
+	switch input.TargetType {
+	case "question":
+		if q, err := s.content.GetQuestion(input.TargetID); err == nil {
+			allowed = s.canAccessQuestion(user, q, "view")
+		}
+	case "dashboard":
+		if d, err := s.content.GetDashboard(input.TargetID); err == nil {
+			allowed = s.canAccessDashboard(user, d, "view")
+		}
+	}
+	if !allowed {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "bookmark target access denied"})
 		return
 	}
 	item, err := s.content.AddBookmark(user.ID, input.TargetType, input.TargetID)
@@ -256,7 +329,28 @@ func (s *server) deleteBookmark(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listRevisions(w http.ResponseWriter, r *http.Request) {
-	items, err := s.content.ListRevisions(r.URL.Query().Get("target_type"), r.URL.Query().Get("target_id"))
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	targetType, targetID := r.URL.Query().Get("target_type"), r.URL.Query().Get("target_id")
+	allowed := false
+	switch targetType {
+	case "question":
+		if q, err := s.content.GetQuestion(targetID); err == nil {
+			allowed = s.canAccessQuestion(user, q, "view")
+		}
+	case "dashboard":
+		if d, err := s.content.GetDashboard(targetID); err == nil {
+			allowed = s.canAccessDashboard(user, d, "view")
+		}
+	}
+	if !allowed {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "revision access denied"})
+		return
+	}
+	items, err := s.content.ListRevisions(targetType, targetID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -264,16 +358,49 @@ func (s *server) listRevisions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-func (s *server) listTrash(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listTrash(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
 	items, err := s.content.Trash()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	visible := make([]core.TrashItem, 0, len(items))
+	for _, item := range items {
+		allowed := false
+		if item.Type == "question" {
+			if q, err := s.content.GetQuestion(item.ID); err == nil {
+				allowed = s.canAccessQuestion(user, q, "view")
+			}
+		} else if item.Type == "dashboard" {
+			if d, err := s.content.GetDashboard(item.ID); err == nil {
+				allowed = s.canAccessDashboard(user, d, "view")
+			}
+		}
+		if allowed {
+			visible = append(visible, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *server) restoreTrash(w http.ResponseWriter, r *http.Request) {
+	allowed := false
+	if r.PathValue("type") == "question" {
+		_, _, allowed = s.requireQuestionAccess(w, r, r.PathValue("id"), "edit")
+	} else if r.PathValue("type") == "dashboard" {
+		_, _, allowed = s.requireDashboardAccess(w, r, r.PathValue("id"), "edit")
+	} else {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported trash type"})
+		return
+	}
+	if !allowed {
+		return
+	}
 	if err := s.content.Restore(r.PathValue("type"), r.PathValue("id")); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -282,6 +409,9 @@ func (s *server) restoreTrash(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) archiveQuestion(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "edit"); !ok {
+		return
+	}
 	if err := s.content.ArchiveQuestion(r.PathValue("id")); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -290,6 +420,9 @@ func (s *server) archiveQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportDataset(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	var q struct {
 		QueryIR json.RawMessage `json:"queryir"`
 	}
@@ -309,8 +442,14 @@ func (s *server) exportDataset(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportQuestion(w http.ResponseWriter, r *http.Request) {
-	question, err := s.content.GetQuestion(r.PathValue("id"))
-	if err != nil || question.QueryIR == nil {
+	_, question, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "view")
+	if !ok {
+		return
+	}
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
+	if question.QueryIR == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "question not exportable"})
 		return
 	}

@@ -10,7 +10,10 @@ import (
 	"github.com/topbase/topbase/internal/core"
 )
 
-func (s *server) listSchedules(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	items, err := s.warehouse.List()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -20,6 +23,10 @@ func (s *server) listSchedules(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.requireAdmin(w, r)
+	if !ok {
+		return
+	}
 	var input struct {
 		Name               string `json:"name"`
 		QuestionID         string `json:"question_id"`
@@ -36,10 +43,6 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
-	}
 	questionID := input.QuestionID
 	if questionID == "" {
 		questionID = input.QueryID
@@ -48,7 +51,7 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 		Name: input.Name, QuestionID: questionID, ModelID: input.ModelID, Cron: input.Cron, Timezone: input.Timezone,
 		MaterializeTo: input.MaterializeTo, Strategy: input.Strategy, DatabaseID: input.DatabaseID,
 		WatermarkField: input.WatermarkField, ConfirmSourceWrite: input.ConfirmSourceWrite,
-	}, userID)
+	}, user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -57,6 +60,9 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runSchedule(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	run, err := s.warehouse.Run(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "run": run})
@@ -66,6 +72,9 @@ func (s *server) runSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listRuns(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	items, err := s.warehouse.ListRuns(r.URL.Query().Get("schedule_id"))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -74,7 +83,10 @@ func (s *server) listRuns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-func (s *server) listWarehouseTables(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listWarehouseTables(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	items, err := s.warehouse.ListTables()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -84,6 +96,9 @@ func (s *server) listWarehouseTables(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) listLineage(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	items, err := s.warehouse.ListLineage(r.PathValue("type"), r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -93,6 +108,9 @@ func (s *server) listLineage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) proposeSchedule(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	var input struct {
 		QuestionID string `json:"question_id"`
 		Message    string `json:"message"`
@@ -108,10 +126,15 @@ func (s *server) proposeSchedule(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, appwarehouse.Propose(question, input.Message))
 }
 
-func (s *server) tickWarehouse() {
+func (s *server) tickWarehouse(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		items, err := s.warehouse.List()
 		if err != nil {
 			log.Printf("topbase: list schedules: %v", err)
@@ -125,10 +148,10 @@ func (s *server) tickWarehouse() {
 			if !appwarehouse.Due(item.Cron, item.Timezone, now, item.LastRunAt) {
 				continue
 			}
-			if _, err := s.warehouse.Run(context.Background(), item.ID); err != nil {
+			if _, err := s.warehouse.Run(ctx, item.ID); err != nil {
 				log.Printf("topbase: schedule %s: %v", item.ID, err)
 			}
 		}
-		s.notify.RunDueSubscriptions(context.Background(), now)
+		s.notify.RunDueSubscriptions(ctx, now)
 	}
 }

@@ -70,6 +70,9 @@ func (s *server) syncFeishuDepartments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view"); !ok {
+		return
+	}
 	items, err := s.notify.ListSubscriptions(r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -237,16 +240,19 @@ func (s *server) deliverNotification(title, body, channel string) {
 }
 
 func (s *server) createSubscription(w http.ResponseWriter, r *http.Request) {
+	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "edit")
+	if !ok {
+		return
+	}
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	var input core.Subscription
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 	input.DashboardID = r.PathValue("id")
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
-	}
-	saved, err := s.notify.CreateSubscription(input, userID)
+	saved, err := s.notify.CreateSubscription(input, user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -255,6 +261,28 @@ func (s *server) createSubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runSubscription(w http.ResponseWriter, r *http.Request) {
+	subscriptions, err := s.notify.ListSubscriptions("")
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	dashboardID := ""
+	for _, item := range subscriptions {
+		if item.ID == r.PathValue("id") {
+			dashboardID = item.DashboardID
+			break
+		}
+	}
+	if dashboardID == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscription not found"})
+		return
+	}
+	if _, _, ok := s.requireDashboardAccess(w, r, dashboardID, "edit"); !ok {
+		return
+	}
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	note, err := s.notify.RunSubscription(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})

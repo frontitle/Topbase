@@ -8,6 +8,9 @@ import (
 )
 
 func (s *server) visualQuery(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	var request struct {
 		Schema           string   `json:"schema"`
 		Table            string   `json:"table"`
@@ -40,6 +43,9 @@ func (s *server) visualQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runDataset(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	var q queryir.Query
 	if !decodeJSON(w, r, &q) {
 		return

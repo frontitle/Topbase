@@ -59,7 +59,7 @@ async function boot(){
     const user=await api('/api/user/current');
     $('#auth-link').textContent=user.name||user.email;
     $('#auth-link').href='#';
-    $('#auth-link').onclick=async ev=>{ev.preventDefault();await fetch('/api/session',{method:'DELETE'});location.reload()};
+    $('#auth-link').onclick=async ev=>{ev.preventDefault();await api('/api/session','DELETE');location.reload()};
   }catch(_){
     $('#auth-link').textContent='登录';
     $('#auth-link').href='/auth/login/';

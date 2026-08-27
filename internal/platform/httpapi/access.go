@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 )
 
 // accessControl is the server-side boundary for the workbench. UI redirects
@@ -15,6 +16,11 @@ func (s *server) accessControl(next http.Handler) http.Handler {
 			return
 		}
 		if _, ok := s.currentUserOrKey(r); ok {
+			if _, sessionAuth := s.currentSessionUser(r); sessionAuth {
+				if _, err := r.Cookie(csrfCookie); err != nil {
+					setCSRFCookie(w, newCSRFToken(), time.Now().Add(24*time.Hour))
+				}
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -28,7 +34,7 @@ func (s *server) accessControl(next http.Handler) http.Handler {
 
 func isPublicRequest(r *http.Request) bool {
 	p := r.URL.Path
-	if p == "/api/health" || p == "/api/setup/status" || p == "/api/setup" || p == "/api/session" || p == "/api/auth/options" || strings.HasPrefix(p, "/api/public/") {
+	if p == "/api/health" || p == "/api/ready" || p == "/api/version" || p == "/api/setup/status" || p == "/api/setup" || p == "/api/session" || p == "/api/auth/options" || strings.HasPrefix(p, "/api/public/") {
 		return true
 	}
 	if strings.HasPrefix(p, "/auth/") || strings.HasPrefix(p, "/setup/") || strings.HasPrefix(p, "/public/") || strings.HasPrefix(p, "/embed/") {

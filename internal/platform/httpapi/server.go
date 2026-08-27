@@ -3,12 +3,14 @@ package httpapi
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/topbase/topbase/internal/adapters"
@@ -19,6 +21,7 @@ import (
 	"github.com/topbase/topbase/internal/app/notify"
 	appquery "github.com/topbase/topbase/internal/app/query"
 	appwarehouse "github.com/topbase/topbase/internal/app/warehouse"
+	"github.com/topbase/topbase/internal/buildinfo"
 	"github.com/topbase/topbase/internal/core"
 )
 
@@ -38,7 +41,19 @@ type server struct {
 	warehouse *appwarehouse.Service
 	notify    notify.Service
 	static    fs.FS
+	store     *appdb.Store
+	connector *adapters.SQLConnector
+	cancel    context.CancelFunc
+	workers   sync.WaitGroup
 }
+
+type runtimeHandler struct {
+	handler http.Handler
+	close   func() error
+}
+
+func (h *runtimeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.handler.ServeHTTP(w, r) }
+func (h *runtimeHandler) Close() error                                     { return h.close() }
 
 func dataDir() string {
 	if dir := os.Getenv("TOPBASE_DATA_DIR"); dir != "" {
@@ -50,7 +65,7 @@ func dataDir() string {
 func NewServer() http.Handler {
 	dir := dataDir()
 	appPath := filepath.Join(dir, "app.db")
-	store, err := appdb.Open(appPath)
+	store, err := appdb.OpenWithVersion(appPath, buildinfo.Version)
 	if err != nil {
 		panic("open application database: " + err.Error())
 	}
@@ -98,6 +113,7 @@ func NewServer() http.Handler {
 		Edges: store.Lineage(), Questions: store.Questions(), Models: store.Models(), Writer: connector,
 		Compile: adapters.CompilePostgresWarehouse,
 	}
+	workerCtx, cancelWorkers := context.WithCancel(context.Background())
 	s := &server{
 		queries:   queries,
 		ai:        adapters.DemoAI{},
@@ -117,6 +133,7 @@ func NewServer() http.Handler {
 				}
 			},
 		},
+		store: store, connector: connector, cancel: cancelWorkers,
 	}
 	s.notify.Deliver = s.deliverNotification
 	wh.Notify = func(title, body string) {
@@ -127,10 +144,16 @@ func NewServer() http.Handler {
 	}
 	s.restoreConnections()
 	if os.Getenv("TOPBASE_CRON") != "off" {
-		go s.tickWarehouse()
+		s.workers.Add(1)
+		go func() {
+			defer s.workers.Done()
+			s.tickWarehouse(workerCtx)
+		}()
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("GET /api/ready", s.readiness)
+	mux.HandleFunc("GET /api/version", s.version)
 	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
 	mux.HandleFunc("POST /api/setup", s.completeSetup)
 	mux.HandleFunc("POST /api/session", s.createSession)
@@ -258,7 +281,8 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /questions/{id}/{$}", s.serveQuestionView)
 	mux.HandleFunc("GET /collections/{id}/{$}", s.serveCollectionView)
 	mux.Handle("GET /", http.FileServer(http.FS(static)))
-	return s.accessControl(securityHeaders(mux))
+	handler := s.accessControl(s.csrfProtection(securityHeaders(mux)))
+	return &runtimeHandler{handler: handler, close: s.close}
 }
 
 func (s *server) serveAdminStatic(w http.ResponseWriter, r *http.Request) {
@@ -289,7 +313,30 @@ func (s *server) restoreConnections() {
 }
 
 func (s *server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	info := buildinfo.Current(s.store.SchemaVersion())
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "version": info.Version, "commit": info.Commit})
+}
+
+func (s *server) readiness(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	if err := s.store.Ping(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "error": "application database unavailable"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ready", "schema_version": s.store.SchemaVersion()})
+}
+
+func (s *server) version(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, buildinfo.Current(s.store.SchemaVersion()))
+}
+
+func (s *server) close() error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.workers.Wait()
+	return errors.Join(s.connector.CloseAll(), s.store.Close())
 }
 
 func (s *server) currentSessionUser(r *http.Request) (core.User, bool) {
@@ -305,11 +352,20 @@ func (s *server) currentSessionUser(r *http.Request) (core.User, bool) {
 }
 
 func setSessionCookie(w http.ResponseWriter, sessionID string, expires time.Time) {
+	secure := strings.EqualFold(os.Getenv("TOPBASE_SECURE_COOKIES"), "true")
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: sessionID, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: expires,
+		Name: sessionCookie, Value: sessionID, Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, Expires: expires,
 	})
+	setCSRFCookie(w, newCSRFToken(), expires)
+}
+
+func setCSRFCookie(w http.ResponseWriter, token string, expires time.Time) {
+	secure := strings.EqualFold(os.Getenv("TOPBASE_SECURE_COOKIES"), "true")
+	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: token, Path: "/", Secure: secure, SameSite: http.SameSiteLaxMode, Expires: expires})
 }
 
 func clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1})
+	secure := strings.EqualFold(os.Getenv("TOPBASE_SECURE_COOKIES"), "true")
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: "/", Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }
