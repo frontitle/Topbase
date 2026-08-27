@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 初始化</title>
+  <link rel="stylesheet" href="/auth/auth.css">
+</head>
+<body>
+  <main class="card">
+    <p class="eyebrow">TOPBASE SETUP</p>
+    <h1>创建你的工作区</h1>
+    <p class="lead">设置管理员账号后即可连接数据源、提问并保存分析。</p>
+    <form id="form">
+      <label>工作区名称<input id="site_name" value="Topbase" autocomplete="organization"></label>
+      <label>管理员姓名<input id="admin_name" required placeholder="例如：王晨" autocomplete="name"></label>
+      <label>管理员邮箱<input id="admin_email" type="email" required placeholder="you@company.com" autocomplete="username"></label>
+      <label>密码（至少 8 位）<input id="admin_password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <button type="submit">完成初始化</button>
+      <p id="error" class="error" hidden></p>
+    </form>
+  </main>
+  <script src="/setup/setup.js"></script>
+</body>
+</html>

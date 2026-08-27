@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 数据浏览</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/data/data.css">
+  <link rel="stylesheet" href="/filter.css">
+  <link rel="stylesheet" href="/grid.css">
+</head>
+<body>
+<aside class="sidebar" data-shell="app" data-active="data"></aside>
+<div class="page">
+  <header class="topbar"><strong id="section-title">数据浏览</strong><span>/</span><strong id="crumb">选择数据库</strong></header>
+  <main class="browser">
+    <section id="db-view">
+      <div class="page-head">
+        <div>
+          <h1>浏览数据</h1>
+          <p>选中一个数据库，打开其中的表，即可像电子表格一样查看真实数据。</p>
+        </div>
+      </div>
+      <input id="db-search" class="browse-search" placeholder="搜索数据库">
+      <div id="db-cards" class="cards"></div>
+    </section>
+    <section id="table-view" hidden>
+      <div class="source">
+        <button class="secondary" id="back-dbs" type="button">← 所有数据库</button>
+        <strong id="db-title"></strong>
+        <input id="search" placeholder="搜索表">
+      </div>
+      <div class="browser-grid">
+        <aside class="tables">
+          <div class="side-title">数据表 <span id="table-count"></span></div>
+          <div id="table-list">正在读取表…</div>
+        </aside>
+        <section class="workbench">
+          <div id="empty-state">
+            <h1>选择一张表</h1>
+            <p>打开后会立刻拉取该表的数据，用表格展示前 100 行。</p>
+          </div>
+          <div id="table-workspace" hidden>
+            <header class="table-head">
+              <div>
+                <small id="source-name"></small>
+                <h1 id="table-name"></h1>
+                <p id="table-description"></p>
+              </div>
+              <div class="table-actions">
+                <button class="secondary" id="toggle-ask" type="button" aria-expanded="true">收起查询步骤</button>
+                <button class="primary" id="save-question" type="button">保存分析</button>
+                <a class="secondary admin-only" id="edit-meta" hidden href="/admin/datamodel/">编辑元数据</a>
+              </div>
+            </header>
+            <section id="ask-panel" class="query-builder" aria-labelledby="builder-title">
+              <header class="builder-head">
+                <div>
+                  <small>可视化查询</small>
+                  <h2 id="builder-title">用步骤构建分析</h2>
+                  <p>选择数据、添加筛选和汇总条件，Topbase 会生成只读查询并实时预览。</p>
+                </div>
+                <span id="builder-state">原始数据</span>
+              </header>
+
+              <section class="builder-step step-data" data-step="data">
+                <div class="step-heading"><span>01</span><div><b>数据</b><small>当前查询的数据来源和返回字段</small></div></div>
+                <div class="step-surface data-surface">
+                  <div class="source-pill" id="builder-source" title="当前数据表"></div>
+                  <details class="field-details">
+                    <summary><span id="selected-field-count">全部字段</span></summary>
+                    <div id="fields" class="field-checklist"></div>
+                  </details>
+                </div>
+              </section>
+
+              <section class="builder-step step-filter" data-step="filter">
+                <div class="step-heading"><span>02</span><div><b>筛选</b><small>只保留符合业务条件的记录</small></div></div>
+                <div class="step-surface filter-surface"><div id="filter-bar"></div></div>
+              </section>
+
+              <section class="builder-step step-summary" data-step="summary">
+                <div class="step-heading"><span>03</span><div><b>汇总</b><small>计算指标，并按维度拆分结果</small></div></div>
+                <div class="summary-layout">
+                  <label class="summary-surface">
+                    <span>计算</span>
+                    <select id="aggregation"><option value="">不汇总</option><option value="count">记录数</option><option value="sum">求和</option><option value="avg">平均值</option><option value="min">最小值</option><option value="max">最大值</option><option value="distinct">去重计数</option></select>
+                    <select id="aggregation-field"></select>
+                  </label>
+                  <span class="summary-by">按</span>
+                  <label class="summary-surface">
+                    <span>分组</span>
+                    <select id="group-by-field"></select>
+                    <select id="group-by-temporal" hidden><option value="">原始值</option><option value="day">日</option><option value="week">周</option><option value="month">月</option><option value="quarter">季度</option><option value="year">年</option></select>
+                  </label>
+                </div>
+              </section>
+
+              <div class="builder-actions" aria-label="更多查询步骤">
+                <button type="button" data-builder-target="join-builder"><b>关联数据</b><small>跨表匹配字段</small></button>
+                <button type="button" data-builder-target="sort-builder"><b>排序</b><small>控制结果顺序</small></button>
+                <button type="button" data-builder-target="limit-builder"><b>行数限制</b><small>控制返回记录数</small></button>
+                <button type="button" data-builder-target="expression-builder"><b>自定义字段</b><small>字段计算或拼接</small></button>
+              </div>
+
+              <section class="step-editor join-builder" id="join-builder" hidden aria-labelledby="join-title">
+                <header><div><h3 id="join-title">关联另一张表</h3><p>选择关联表和匹配字段；识别到外键时会自动推荐。</p></div><button type="button" class="close-step" data-close-step="join-builder">关闭</button></header>
+                <div class="join-grid">
+                  <label>关联表<select id="join-table"><option value="">不关联</option></select></label>
+                  <label>关联方式<select id="join-type"><option value="left">保留当前表全部记录</option><option value="inner">只保留匹配记录</option></select></label>
+                  <label>当前表字段<select id="join-left-field"><option value="">选择字段</option></select></label>
+                  <label>关联表字段<select id="join-right-field"><option value="">选择字段</option></select></label>
+                </div>
+                <label class="join-fields-label">显示关联表字段<div id="join-fields" class="field-picker">请先选择关联表。</div></label>
+                <p id="join-hint" class="join-hint">如果已在数据模型中标记外键，系统会预选推荐关联关系。</p>
+              </section>
+
+              <section class="step-editor" id="sort-builder" hidden>
+                <header><div><h3>排序</h3><p>选择一个字段和排列方向。</p></div><button type="button" class="close-step" data-close-step="sort-builder">关闭</button></header>
+                <div class="inline-editor"><label>排序字段<select id="sort-field"></select></label><label>方向<select id="sort-direction"><option value="asc">升序</option><option value="desc">降序</option></select></label></div>
+              </section>
+
+              <section class="step-editor" id="limit-builder" hidden>
+                <header><div><h3>行数限制</h3><p>最多返回 10,000 行；建议先用较小结果快速验证。</p></div><button type="button" class="close-step" data-close-step="limit-builder">关闭</button></header>
+                <div class="inline-editor"><label>返回行数<input id="row-limit" type="number" min="1" max="10000" step="1" value="1000"></label></div>
+              </section>
+
+              <section class="step-editor" id="expression-builder" hidden>
+                <header><div><h3>自定义字段</h3><p>用字段与另一个字段或常量完成安全计算。</p></div><button type="button" class="close-step" data-close-step="expression-builder">关闭</button></header>
+                <div class="expression-grid">
+                  <label>新字段名<input id="expression-alias" placeholder="例如：实付金额"></label>
+                  <label>左侧字段<select id="expression-left"></select></label>
+                  <label>运算<select id="expression-op"><option value="add">加</option><option value="sub">减</option><option value="mul">乘</option><option value="div">除</option><option value="concat">拼接</option></select></label>
+                  <label>右侧字段或常量<input id="expression-right" list="expression-field-options" placeholder="字段名或数值"><datalist id="expression-field-options"></datalist></label>
+                </div>
+              </section>
+
+              <footer class="builder-footer">
+                <div><b id="query-summary">显示原始数据</b><small>运行后会在下方更新预览，不会修改数据库。</small></div>
+                <button id="run-visual" class="primary" type="button">运行并预览</button>
+              </footer>
+            </section>
+            <div id="grid-status" class="grid-status">正在拉取数据…</div>
+            <div id="grid-wrap" class="grid-wrap"></div>
+            <section class="result-tools" aria-label="结果探索">
+              <label>下钻字段<select id="drill-field"><option value="">当前筛选字段</option></select></label>
+              <button id="drill-records" class="secondary" type="button">查看明细记录</button>
+              <button id="drill-filter" class="secondary" type="button">用当前值筛选</button>
+              <details><summary>查看生成的 SQL</summary><code id="generated-sql"></code></details>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+<script src="/ui.js"></script>
+<script src="/shell.js"></script>
+<script src="/filter.js"></script>
+<script src="/grid.js"></script>
+<script src="/data/data.js"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 设置</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/ui.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="admin" data-active="settings"></aside>
+  <div class="page">
+    <header class="topbar"><strong>管理后台</strong><span>/</span><strong>设置</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>工作区设置</h1>
+          <p>管理工作区名称、默认时区，以及公开分享与嵌入的实例级安全开关。</p>
+        </div>
+      </div>
+      <form id="form" class="create-box">
+        <label>站点名称<input id="site_name" required></label>
+        <label>默认时区<select id="timezone"><option value="Asia/Shanghai">Asia/Shanghai（中国标准时间）</option><option value="Asia/Singapore">Asia/Singapore（新加坡时间）</option><option value="UTC">UTC</option></select></label>
+        <label><input id="public_sharing_enabled" type="checkbox"> 允许创建公开仪表盘链接</label>
+        <label><input id="embedding_enabled" type="checkbox"> 允许通过 iframe 嵌入公开仪表盘</label>
+        <div class="actions"><button class="primary" type="submit">保存</button></div>
+      </form>
+      <p class="page-meta" style="margin-top:20px">身份平台、Webhook 与订阅通道请在“办公平台与通知”中配置。关闭公开链接会立即拒绝所有公开访问；关闭嵌入只影响 <code>/embed/</code> 页面。</p>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script>
+    api('/api/admin/settings').then(s=>{ $('#site_name').value=s.site_name||'Topbase';$('#timezone').value=s.timezone||'Asia/Shanghai';$('#public_sharing_enabled').checked=!!s.public_sharing_enabled;$('#embedding_enabled').checked=!!s.embedding_enabled; }).catch(e=>toast(e.message));
+    $('#form').onsubmit=async ev=>{
+      ev.preventDefault();
+      try{await api('/api/admin/settings','PUT',{site_name:$('#site_name').value,timezone:$('#timezone').value,public_sharing_enabled:$('#public_sharing_enabled').checked,embedding_enabled:$('#embedding_enabled').checked});toast('已保存')}catch(e){toast(e.message)}
+    };
+  </script>
+</body>
+</html>

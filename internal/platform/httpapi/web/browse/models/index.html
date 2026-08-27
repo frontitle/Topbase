@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 模型与指标</title>
+  <link rel="stylesheet" href="/ui.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="models"></aside>
+  <div class="page">
+    <header class="topbar"><strong>模型</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>模型 / 指标 / 分段 / 术语</h1>
+          <p>先在数据浏览打开一张表并保存为分析，再在此把分析做成可复用模型。</p>
+        </div>
+      </div>
+      <section id="models" class="cards"></section>
+      <section class="section-block">
+        <h2>从当前分析保存为模型</h2>
+        <form id="form" class="create-box">
+          <label>名称<input id="name" required></label>
+          <label>已保存分析<select id="questions"></select></label>
+          <div class="actions"><button class="primary" type="submit">创建模型</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script>
+    async function load(){
+      const [models, metrics, segments, glossary, questions]=await Promise.all([
+        api('/api/models'), api('/api/metrics'), api('/api/segments'), api('/api/glossary'), api('/api/questions')
+      ]);
+      const cards=[
+        ...models.map(i=>cardHTML({title:i.name,meta:'模型'})),
+        ...metrics.map(i=>cardHTML({title:i.name,meta:'指标'})),
+        ...segments.map(i=>cardHTML({title:i.name,meta:'分段'})),
+        ...glossary.map(i=>cardHTML({title:i.name,meta:i.definition||'术语'}))
+      ];
+      $('#models').innerHTML=cards.join('')||emptyHTML({icon:'⌘',title:'还没有模型或指标',body:'保存一条分析后，可以在下方把它做成可复用模型。',href:'/questions/',cta:'打开分析'});
+      $('#questions').innerHTML=questions.filter(q=>q.queryir).map(q=>'<option value="'+q.id+'">'+esc(q.name)+'</option>').join('');
+    }
+    $('#form').onsubmit=async ev=>{
+      ev.preventDefault();
+      const id=$('#questions').value;
+      if(!id)return toast('请先保存一条可视化分析');
+      try{
+        const q=await api('/api/questions/'+id);
+        await api('/api/models','POST',{name:$('#name').value, queryir:q.queryir});
+        toast('已创建模型');
+        $('#name').value='';
+        load();
+      }catch(e){toast(e.message)}
+    };
+    load().catch(e=>toast(e.message));
+  </script>
+</body>
+</html>

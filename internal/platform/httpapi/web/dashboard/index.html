@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 仪表盘</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="dashboards"></aside>
+  <div class="page">
+    <header class="topbar"><strong>仪表盘</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>仪表盘</h1>
+          <p>集中查看所有仪表盘；新建后可直接添加分析并编排布局。</p>
+        </div>
+        <button class="primary" id="show-create" type="button">新建仪表盘</button>
+      </div>
+      <section id="list" class="cards"></section>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script src="/dashboard-list.js"></script>
+</body>
+</html>

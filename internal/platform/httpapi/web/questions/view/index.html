@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 分析</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/filter.css">
+  <link rel="stylesheet" href="/grid.css">
+  <link rel="stylesheet" href="/viz.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="questions"></aside>
+  <div class="page">
+    <header class="topbar">
+      <a href="/questions/">分析</a><span>/</span><strong id="title">加载中</strong>
+      <div class="top-actions">
+        <button class="secondary" id="rerun" type="button">重新运行</button>
+        <button class="secondary" id="rename" type="button">重命名</button>
+        <button class="secondary" id="move" type="button">移动到数据组</button>
+        <button class="secondary" id="archive" type="button">归档</button>
+      </div>
+    </header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1 id="heading">分析</h1>
+          <p id="meta">正在加载这条分析。</p>
+        </div>
+      </div>
+      <div id="filter-bar"></div>
+      <div id="error" class="viz-error" hidden></div>
+      <div class="viz-workspace">
+        <div class="viz-main">
+          <div id="viz-types" class="viz-types"></div>
+          <div id="viz-stage" class="viz-stage"></div>
+        </div>
+        <aside id="viz-settings" class="viz-settings"></aside>
+      </div>
+      <details id="query-debug" class="query-debug">
+        <summary>查看查询</summary>
+        <pre id="query-json"></pre>
+      </details>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script src="/filter.js"></script>
+  <script src="/grid.js"></script>
+  <script src="/echarts.min.js"></script>
+  <script src="/viz.js"></script>
+  <script src="/question-view.js"></script>
+</body>
+</html>

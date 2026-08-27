@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 数据源</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/admin/ssh.css">
+  <link rel="stylesheet" href="/admin/modal.css">
+  <link rel="stylesheet" href="/admin/form-label.css">
+</head>
+<body>
+<aside class="sidebar" data-shell="admin" data-active="databases"></aside>
+<div class="page">
+  <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据源</strong></header>
+  <main>
+    <div id="list-view">
+      <div class="page-head">
+        <div>
+          <h1>数据源</h1>
+          <p>连接、查看表结构，并重新扫描字段。普通成员在工作台浏览数据，不进入此后台。</p>
+        </div>
+        <button class="primary" id="show-form">添加数据库 <span>⌄</span></button>
+      </div>
+      <section class="toolbar">
+        <label><span>⌕</span><input id="search" placeholder="搜索数据源"></label>
+      </section>
+      <section id="empty" class="empty">
+        <div class="empty-mark">T</div>
+        <h2>连接你的第一个数据库</h2>
+        <p>连接后，Topbase 会同步表和字段，团队成员便可开始探索与可视化数据。</p>
+        <button class="primary" id="empty-add">连接数据库</button>
+        <small>支持 PostgreSQL、MySQL / MariaDB、ClickHouse、SQL Server、Oracle 与 SQLite。</small>
+      </section>
+      <section id="list" class="database-list">
+        <div class="section-row"><h2>数据源</h2><span id="count">0 个数据库</span></div>
+        <div id="cards" class="cards"></div>
+      </section>
+    </div>
+    <div id="detail-view" hidden>
+      <div class="page-head">
+        <div>
+          <button class="secondary" id="back-list" type="button">← 返回列表</button>
+          <h1 id="detail-name">数据源</h1>
+          <p id="detail-meta">尚未扫描</p>
+        </div>
+        <div class="top-actions">
+          <button class="secondary" id="edit-connection" type="button">编辑连接</button>
+          <button class="secondary" id="sync-schema" type="button">同步全部结构</button>
+          <button class="remove" id="remove-db" type="button">移除</button>
+        </div>
+      </div>
+      <div class="schema-layout">
+        <aside class="schema-tables">
+          <div class="side-title">数据表 <span id="table-count"></span></div>
+          <div id="table-list">先同步结构。</div>
+        </aside>
+        <section class="schema-fields">
+          <header class="table-head">
+            <div>
+              <h2 id="table-title">选择一张表</h2>
+              <p id="table-sub">查看字段类型，或重新扫描这一张表。</p>
+            </div>
+            <button class="secondary" id="rescan-table" type="button" hidden>重新扫描此表</button>
+          </header>
+          <div id="field-table"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<dialog id="wizard">
+  <form method="dialog">
+    <header class="modal-head">
+      <div>
+        <small id="wizard-kicker">添加数据库</small>
+        <h2 id="wizard-title">连接 PostgreSQL</h2>
+        <p id="wizard-help">按需填写连接与网络设置，然后测试并保存。</p>
+      </div>
+      <button class="close" value="cancel">×</button>
+    </header>
+    <div class="tabbar" role="tablist">
+      <button class="tab active" type="button" data-tab="connection">连接信息</button>
+      <button class="tab" type="button" data-tab="security">SSL 与高级</button>
+      <button class="tab" type="button" data-tab="ssh">SSH 跳板机</button>
+    </div>
+    <div class="panel active" data-panel="connection">
+      <div class="form-grid">
+        <label class="full">数据库类型 <em>*</em><select id="engine"><option value="postgres">PostgreSQL</option><option value="mysql">MySQL / MariaDB</option><option value="clickhouse">ClickHouse</option><option value="sqlserver">SQL Server</option><option value="oracle">Oracle Database</option><option value="sqlite">SQLite</option></select></label>
+        <label>显示名称 <em>*</em><input id="name" placeholder="例如：生产业务库"></label>
+        <label data-network>服务器地址 <em>*</em><input id="host" placeholder="例如：db.company.com"></label>
+        <label data-network>端口<input id="port" type="number" value="5432"></label>
+        <label id="database-label">数据库名称 <em>*</em><input id="database" placeholder="例如：analytics"></label>
+        <label data-username>用户名 <em>*</em><input id="username" placeholder="例如：topbase_reader"></label>
+        <label data-password>密码<input id="password" type="password" placeholder="没有密码时可留空"></label>
+      </div>
+      <p class="panel-help">建议创建一个专用于 Topbase 的只读账号，只授予需要分析的数据表权限。</p>
+    </div>
+    <div class="panel" data-panel="security">
+      <div class="form-grid">
+        <label data-network>传输加密<select id="ssl"><option value="prefer">自动 / 优先加密</option><option value="require">必须验证加密</option><option value="skip-verify">加密但不校验证书</option><option value="disable">不加密（仅内网测试）</option></select></label>
+        <label>连接字符串（可选）<input id="dsn" type="password" placeholder="postgres://user:password@host:5432/database?sslmode=require"></label>
+      </div>
+      <p class="panel-help">填写连接字符串时，它将覆盖“连接信息”内的数据库参数。</p>
+    </div>
+    <div class="panel" data-panel="ssh">
+      <div class="ssh-intro"><b>通过 SSH 跳板机连接</b><span>数据库地址请保持内网地址；Topbase 将经由跳板机建立临时安全隧道。</span></div>
+      <div class="form-grid">
+        <label>SSH 主机 <em>*</em><input id="ssh-host" placeholder="bastion.company.com"></label>
+        <label>SSH 端口<input id="ssh-port" type="number" value="22"></label>
+        <label>SSH 用户名 <em>*</em><input id="ssh-username" placeholder="ubuntu"></label>
+        <label>认证方式<select id="ssh-auth"><option value="key">私钥</option><option value="password">密码</option></select></label>
+        <label class="ssh-key full">SSH 私钥 <em>*</em><textarea id="ssh-private-key" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></label>
+        <label class="ssh-password">SSH 密码 <em>*</em><input id="ssh-password" type="password" placeholder="SSH 用户密码"></label>
+        <label>私钥密码（可选）<input id="ssh-key-password" type="password" placeholder="私钥已加密时填写"></label>
+        <label>服务器主机密钥指纹（可选）<input id="ssh-fingerprint" placeholder="SHA256:xxxxxxxx"></label>
+      </div>
+      <p class="panel-help">建议填写跳板机的 SHA256 主机密钥指纹；留空时仍可连接，但不会验证跳板机身份。</p>
+    </div>
+    <div id="connection-status" class="connection-status" aria-live="polite">尚未测试连接</div>
+    <footer class="modal-footer">
+      <button class="secondary" value="cancel">取消</button>
+      <button class="secondary" type="button" id="test">测试连接</button>
+      <button class="primary" id="save" value="default" disabled>保存数据库</button>
+    </footer>
+  </form>
+</dialog>
+<div id="toast"></div>
+<script src="/ui.js"></script>
+<script src="/shell.js"></script>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

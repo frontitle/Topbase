@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 数据模型</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/admin/datamodel/datamodel.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="admin" data-active="datamodel"></aside>
+  <div class="page">
+    <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据模型</strong></header>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>数据模型</h1>
+          <p>为表和字段设置显示名称（别称）、说明、语义类型和外键。工作台浏览数据时会使用这些别称。</p>
+        </div>
+      </div>
+      <div class="schema-layout">
+        <aside class="schema-tables">
+          <label class="side-select">数据源<select id="database"></select></label>
+          <input id="search" placeholder="搜索表">
+          <div class="side-title">数据表 <span id="table-count"></span></div>
+          <div id="table-list">先选择数据源。</div>
+        </aside>
+        <section class="schema-fields" id="editor">
+          <div id="empty-editor">
+            <h2>选择一张表</h2>
+            <p>在这里管理表的业务名称、字段别称和语义，不会改动源数据库。</p>
+          </div>
+          <div id="meta-editor" hidden>
+            <header class="table-head">
+              <div>
+                <small id="physical-name"></small>
+                <h2 id="editor-title">表元数据</h2>
+              </div>
+              <button class="primary" id="save-all" type="button">保存表与字段</button>
+            </header>
+            <div class="meta-grid">
+              <label>表显示名称（别称）<input id="display-name" placeholder="例如：订单明细"></label>
+              <label class="full">表说明<textarea id="description" placeholder="优先读取数据库表注释，也可以在这里补充用途、刷新频率和口径"></textarea></label>
+            </div>
+            <h3>字段</h3>
+            <div class="field-scroll">
+              <table class="fields-table" id="field-table">
+                <thead>
+                  <tr>
+                    <th>物理名</th>
+                    <th>别称</th>
+                    <th>类型</th>
+                    <th>字段说明</th>
+                    <th>语义</th>
+                    <th>外键表</th>
+                    <th>外键字段</th>
+                  </tr>
+                </thead>
+                <tbody id="field-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script src="/admin/datamodel/datamodel.js"></script>
+</body>
+</html>

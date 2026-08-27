@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 仪表盘</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/grid.css">
+  <link rel="stylesheet" href="/viz.css">
+</head>
+<body class="embed-page">
+  <div class="embed-canvas" id="board-canvas">
+    <div class="board-toolbar">
+      <div id="tabs" class="tabs"></div>
+      <div id="filters" class="filters"></div>
+      <button class="primary" id="apply" type="button">应用筛选</button>
+    </div>
+    <section id="grid" class="board-grid"></section>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/grid.js"></script>
+  <script src="/echarts.min.js"></script>
+  <script src="/viz.js"></script>
+  <script src="/dashboard-view.js"></script>
+</body>
+</html>

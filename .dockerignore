@@ -1,0 +1,14 @@
+.git
+.github
+.DS_Store
+.env
+.env.*
+data
+topbase
+bin
+dist
+coverage
+*.db
+*.db-shm
+*.db-wal
+.qa-*

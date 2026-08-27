@@ -1,0 +1,41 @@
+.analysis-start-page { background: #fff; }
+.analysis-start { width: min(920px, calc(100% - 48px)); max-width: 920px; margin: 0 auto; padding: 54px 0 70px; }
+.analysis-start-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.analysis-start-head small { color: #777; font-size: 11px; letter-spacing: .04em; }
+.analysis-start-head h1 { margin: 7px 0 8px; font-size: 30px; letter-spacing: -.04em; }
+.analysis-start-head p { max-width: 650px; margin: 0; color: #6b6b6b; line-height: 1.55; }
+.analysis-picker { overflow: hidden; border: 1px solid #dedede; border-radius: 12px; background: #fff; box-shadow: 0 12px 38px #0000000a; }
+.picker-tabs { display: flex; gap: 4px; padding: 10px 12px 0; border-bottom: 1px solid #ededed; }
+.picker-tab { position: relative; border: 0; background: transparent; color: #737373; padding: 10px 12px 12px; font: 500 13px var(--tb-font); }
+.picker-tab:hover { color: #111; }
+.picker-tab.active { color: #111; }
+.picker-tab.active::after { content: ""; position: absolute; right: 12px; bottom: -1px; left: 12px; height: 1px; background: #111; }
+.picker-search { height: 56px; display: flex; align-items: center; gap: 11px; margin: 18px; padding: 0 14px; border: 1px solid #dfe2e6; border-radius: 9px; background: #f7f9fb; }
+.picker-search:focus-within { border-color: #999; background: #fff; box-shadow: 0 0 0 3px #0000000b; }
+.picker-search > span { color: #4d535b; font-size: 23px; line-height: 1; }
+.picker-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #222; font: 14px var(--tb-font); }
+.picker-search kbd { border: 1px solid #dfe1e4; border-radius: 5px; background: #fff; color: #777; padding: 3px 7px; font: 11px var(--tb-font); }
+.picker-path { display: flex; align-items: center; gap: 8px; margin: -2px 18px 12px; color: #aaa; font-size: 12px; }
+.picker-path[hidden] { display: none; }
+.picker-path strong { color: #333; font-weight: 500; }
+.picker-back { border: 0; background: transparent; color: #555; padding: 5px 0; font: 500 12px var(--tb-font); }
+.picker-back:hover { color: #000; }
+.picker-status { padding: 15px 20px; border-top: 1px solid #ededed; color: #777; font-size: 12px; }
+.source-list { min-height: 210px; max-height: min(480px, calc(100vh - 340px)); overflow: auto; border-top: 1px solid #ededed; }
+.source-group-title { padding: 15px 20px 7px; color: #858585; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .055em; }
+.source-row { width: 100%; min-height: 64px; display: flex; align-items: center; gap: 13px; padding: 11px 20px; border: 0; border-top: 1px solid #f0f0f0; background: #fff; color: inherit; text-align: left; font: 13px var(--tb-font); }
+.source-group-title + .source-row { border-top: 0; }
+.source-row:hover { background: #fafafa; }
+.source-symbol { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 1px solid #e1e1e1; border-radius: 8px; background: #fff; color: #333; font-size: 14px; }
+.source-copy { min-width: 0; flex: 1; }
+.source-copy b, .source-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-copy b { color: #222; font-size: 13px; font-weight: 550; }
+.source-copy small { margin-top: 4px; color: #858585; font-size: 11px; }
+.source-arrow { color: #aaa; font-size: 18px; }
+.source-empty { padding: 48px 24px; text-align: center; }
+.source-empty b { display: block; margin-bottom: 7px; font-size: 15px; }
+.source-empty p { margin: 0 auto 16px; max-width: 410px; color: #777; font-size: 12px; line-height: 1.5; }
+.analysis-start-note { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: #777; font-size: 12px; }
+.analysis-start-note span { border: 1px solid #ddd; border-radius: 999px; padding: 3px 8px; color: #444; font-size: 10px; font-weight: 600; }
+.analysis-start-note p { margin: 0; }
+@media(max-width:780px){.analysis-start{width:auto;margin:0;padding:30px 18px 50px}.analysis-start-head{align-items:flex-start;flex-direction:column}.analysis-start-head h1{font-size:25px}.source-list{max-height:none}.picker-search{margin:14px}.source-row{padding:11px 15px}}

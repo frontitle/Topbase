@@ -1,0 +1,1 @@
+.form-grid label>.field-label{display:flex;align-items:center;gap:3px;line-height:16px}.form-grid label>.field-label em{display:inline;color:#b42318;font-style:normal;line-height:1}.form-grid label>.field-label+.field-control{margin-top:0}.form-grid label[hidden],.tabbar .tab[hidden]{display:none!important}

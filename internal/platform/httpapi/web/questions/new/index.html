@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 新建分析</title>
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/questions/new/new.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="app" data-active="questions"></aside>
+  <div class="page analysis-start-page">
+    <header class="topbar">
+      <a href="/questions/">分析</a><span>/</span><strong>新建分析</strong>
+    </header>
+    <main class="analysis-start">
+      <div class="analysis-start-head">
+        <div>
+          <small>可视化查询构建器</small>
+          <h1 id="picker-title">选择起始数据</h1>
+          <p id="picker-description">先选择要分析的数据，接着通过字段、筛选、汇总和关联逐步构建结果。</p>
+        </div>
+        <a class="secondary" href="/">使用 SQL 或 AI</a>
+      </div>
+
+      <section class="analysis-picker" aria-labelledby="picker-title">
+        <div class="picker-tabs" role="tablist" aria-label="数据来源类型">
+          <button class="picker-tab active" type="button" role="tab" aria-selected="true" data-picker-tab="tables">数据表</button>
+          <button class="picker-tab" type="button" role="tab" aria-selected="false" data-picker-tab="analyses">已保存分析</button>
+        </div>
+        <label class="picker-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="source-search" type="search" autocomplete="off" placeholder="搜索数据库、数据表或分析">
+          <kbd>/</kbd>
+        </label>
+        <div class="picker-path" id="picker-path" hidden>
+          <button class="picker-back" id="picker-back" type="button">← 所有数据源</button>
+          <span>/</span><strong id="picker-current"></strong>
+        </div>
+        <div id="source-status" class="picker-status">正在读取可用数据…</div>
+        <div id="source-list" class="source-list" aria-live="polite"></div>
+      </section>
+
+      <div class="analysis-start-note">
+        <span>安全</span>
+        <p>选择数据不会修改源数据库。Topbase 只会生成并执行只读查询。</p>
+      </div>
+    </main>
+  </div>
+  <div id="toast"></div>
+  <script src="/ui.js"></script>
+  <script src="/shell.js"></script>
+  <script src="/questions/new/new.js"></script>
+</body>
+</html>

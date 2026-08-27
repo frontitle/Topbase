@@ -1,0 +1,669 @@
+package identity
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/topbase/topbase/internal/core"
+)
+
+type Service struct {
+	Users    core.UserStore
+	Groups   core.GroupStore
+	Sessions core.SessionStore
+	Settings core.SettingStore
+	APIKeys  core.APIKeyStore
+}
+
+func (s Service) SetupCompleted() (bool, error) {
+	value, ok, err := s.Settings.Get("setup_completed")
+	if err != nil {
+		return false, err
+	}
+	return ok && value == "true", nil
+}
+
+func (s Service) CompleteSetup(input core.SetupRequest) (core.User, error) {
+	done, err := s.SetupCompleted()
+	if err != nil {
+		return core.User{}, err
+	}
+	if done {
+		return core.User{}, fmt.Errorf("setup is already completed")
+	}
+	email := strings.ToLower(strings.TrimSpace(input.AdminEmail))
+	name := strings.TrimSpace(input.AdminName)
+	if email == "" || name == "" {
+		return core.User{}, fmt.Errorf("admin name and email are required")
+	}
+	hash, err := core.HashPassword(input.AdminPassword)
+	if err != nil {
+		return core.User{}, err
+	}
+	now := time.Now().UTC()
+	user := core.User{
+		ID: core.NewID("usr"), Email: email, Name: name, Locale: localeOrDefault(input.Language),
+		Theme: "dark", IsActive: true, PasswordHash: hash, CreatedAt: now,
+	}
+	if err := s.Users.Create(user); err != nil {
+		return core.User{}, err
+	}
+	allUsers := core.Group{ID: "grp_all_users", Name: "所有人", Kind: "all_users"}
+	admins := core.Group{ID: "grp_admins", Name: "管理员", Kind: "admins"}
+	if err := s.Groups.Create(allUsers); err != nil {
+		return core.User{}, err
+	}
+	if err := s.Groups.Create(admins); err != nil {
+		return core.User{}, err
+	}
+	if err := s.Groups.AddMember(allUsers.ID, user.ID); err != nil {
+		return core.User{}, err
+	}
+	if err := s.Groups.AddMember(admins.ID, user.ID); err != nil {
+		return core.User{}, err
+	}
+	siteName := strings.TrimSpace(input.SiteName)
+	if siteName == "" {
+		siteName = "Topbase"
+	}
+	if err := s.Settings.Set("site_name", siteName); err != nil {
+		return core.User{}, err
+	}
+	if err := s.Settings.Set("setup_completed", "true"); err != nil {
+		return core.User{}, err
+	}
+	return user, nil
+}
+
+func (s Service) Login(email, password string) (core.Session, core.User, error) {
+	settings, err := s.AuthSettings()
+	if err != nil {
+		return core.Session{}, core.User{}, err
+	}
+	if !settings.PasswordLoginEnabled {
+		return core.Session{}, core.User{}, fmt.Errorf("password login is disabled by administrator")
+	}
+	user, err := s.Users.ByEmail(strings.ToLower(strings.TrimSpace(email)))
+	if err != nil {
+		return core.Session{}, core.User{}, fmt.Errorf("invalid email or password")
+	}
+	if !user.IsActive || !core.VerifyPassword(user.PasswordHash, password) {
+		return core.Session{}, core.User{}, fmt.Errorf("invalid email or password")
+	}
+	session := core.Session{ID: core.NewID("ses"), UserID: user.ID, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}
+	if err := s.Sessions.Create(session); err != nil {
+		return core.Session{}, core.User{}, err
+	}
+	return session, user, nil
+}
+
+func (s Service) LoginExternal(email string) (core.Session, core.User, error) {
+	user, err := s.Users.ByEmail(strings.ToLower(strings.TrimSpace(email)))
+	if err != nil || !user.IsActive {
+		return core.Session{}, core.User{}, fmt.Errorf("this third-party account is not linked to an active member")
+	}
+	session := core.Session{ID: core.NewID("ses"), UserID: user.ID, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}
+	if err := s.Sessions.Create(session); err != nil {
+		return core.Session{}, core.User{}, err
+	}
+	return session, user, nil
+}
+
+func (s Service) LoginExternalIdentity(providerID, subject, email string) (core.Session, core.User, error) {
+	links, err := s.ExternalIdentityLinks()
+	if err != nil {
+		return core.Session{}, core.User{}, err
+	}
+	for _, link := range links {
+		if link.ProviderID == providerID && link.Subject == subject {
+			user, err := s.Users.ByID(link.UserID)
+			if err != nil || !user.IsActive {
+				return core.Session{}, core.User{}, fmt.Errorf("this third-party account is not linked to an active member")
+			}
+			session := core.Session{ID: core.NewID("ses"), UserID: user.ID, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}
+			if err := s.Sessions.Create(session); err != nil {
+				return core.Session{}, core.User{}, err
+			}
+			return session, user, nil
+		}
+	}
+	if email != "" {
+		return s.LoginExternal(email)
+	}
+	return core.Session{}, core.User{}, fmt.Errorf("this third-party account has not been bound by an administrator")
+}
+
+func (s Service) UserForSession(sessionID string) (core.User, error) {
+	session, err := s.Sessions.ByID(sessionID)
+	if err != nil {
+		return core.User{}, err
+	}
+	if time.Now().UTC().After(session.ExpiresAt) {
+		_ = s.Sessions.Delete(sessionID)
+		return core.User{}, fmt.Errorf("session expired")
+	}
+	return s.Users.ByID(session.UserID)
+}
+
+func (s Service) Logout(sessionID string) error {
+	if sessionID == "" {
+		return nil
+	}
+	return s.Sessions.Delete(sessionID)
+}
+
+func localeOrDefault(language string) string {
+	if strings.HasPrefix(strings.ToLower(language), "en") {
+		return "en"
+	}
+	return "zh-CN"
+}
+
+func (s Service) ListUsers() ([]core.User, error) {
+	return s.Users.List()
+}
+
+func (s Service) CreateGroup(name string) (core.Group, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return core.Group{}, fmt.Errorf("group name is required")
+	}
+	group := core.Group{ID: core.NewID("grp"), Name: name, Kind: "manual"}
+	if err := s.Groups.Create(group); err != nil {
+		return core.Group{}, err
+	}
+	return group, nil
+}
+
+func (s Service) ReplaceGroupMembers(id string, memberIDs []string) (core.Group, error) {
+	groups, err := s.Groups.List()
+	if err != nil {
+		return core.Group{}, err
+	}
+	var group core.Group
+	found := false
+	for _, item := range groups {
+		if item.ID == id {
+			group = item
+			found = true
+			break
+		}
+	}
+	if !found {
+		return core.Group{}, core.ErrNotFound
+	}
+	if group.Kind != "manual" {
+		return core.Group{}, fmt.Errorf("system or synchronized groups cannot be edited manually")
+	}
+	seen := map[string]bool{}
+	valid := []string{}
+	for _, id := range memberIDs {
+		if id == "" || seen[id] {
+			continue
+		}
+		if _, err := s.Users.ByID(id); err != nil {
+			return core.Group{}, fmt.Errorf("member not found")
+		}
+		seen[id] = true
+		valid = append(valid, id)
+	}
+	if err := s.Groups.ReplaceMembers(group.ID, valid); err != nil {
+		return core.Group{}, err
+	}
+	group.MemberIDs = valid
+	return group, nil
+}
+
+func (s Service) InviteUser(name, email, password string) (core.User, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	name = strings.TrimSpace(name)
+	if email == "" || name == "" {
+		return core.User{}, fmt.Errorf("name and email are required")
+	}
+	if password == "" {
+		password = core.NewID("tmp") + "A1"
+	}
+	hash, err := core.HashPassword(password)
+	if err != nil {
+		return core.User{}, err
+	}
+	user := core.User{
+		ID: core.NewID("usr"), Email: email, Name: name, Locale: "zh-CN",
+		Theme: "dark", IsActive: true, PasswordHash: hash, CreatedAt: time.Now().UTC(),
+	}
+	if err := s.Users.Create(user); err != nil {
+		return core.User{}, err
+	}
+	if s.Groups != nil {
+		_ = s.Groups.AddMember("grp_all_users", user.ID)
+	}
+	return user, nil
+}
+
+func (s Service) SetUserActive(id string, active bool) error {
+	return s.Users.SetActive(id, active)
+}
+
+func (s Service) ResetUserPassword(id, password string) error {
+	if strings.TrimSpace(password) == "" {
+		return fmt.Errorf("password is required")
+	}
+	hash, err := core.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	return s.Users.SetPassword(id, hash)
+}
+
+// ReplaceUserManualGroups updates only manually managed groups. System and
+// synchronized memberships remain owned by their respective sources.
+func (s Service) ReplaceUserManualGroups(userID string, groupIDs []string) error {
+	if _, err := s.Users.ByID(userID); err != nil {
+		return err
+	}
+	groups, err := s.ListGroups()
+	if err != nil {
+		return err
+	}
+	manualGroups := map[string]bool{}
+	for _, group := range groups {
+		if group.Kind == "manual" {
+			manualGroups[group.ID] = true
+		}
+	}
+	desired := map[string]bool{}
+	for _, groupID := range groupIDs {
+		if !manualGroups[groupID] {
+			return fmt.Errorf("group not found or cannot be edited manually")
+		}
+		desired[groupID] = true
+	}
+	for _, group := range groups {
+		if group.Kind != "manual" {
+			continue
+		}
+		members := make([]string, 0, len(group.MemberIDs)+1)
+		for _, memberID := range group.MemberIDs {
+			if memberID != userID {
+				members = append(members, memberID)
+			}
+		}
+		if desired[group.ID] {
+			members = append(members, userID)
+		}
+		if err := s.Groups.ReplaceMembers(group.ID, members); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s Service) CreateAPIKey(userID, name string) (core.APIKey, error) {
+	if s.APIKeys == nil {
+		return core.APIKey{}, fmt.Errorf("api keys are not configured")
+	}
+	if strings.TrimSpace(name) == "" {
+		return core.APIKey{}, fmt.Errorf("name is required")
+	}
+	raw, prefix, hash, err := core.NewAPIKeySecret()
+	if err != nil {
+		return core.APIKey{}, err
+	}
+	key := core.APIKey{ID: core.NewID("key"), Name: name, Prefix: prefix, Hash: hash, UserID: userID, Key: raw, CreatedAt: time.Now().UTC()}
+	if err := s.APIKeys.Create(key); err != nil {
+		return core.APIKey{}, err
+	}
+	return key, nil
+}
+
+func (s Service) ListAPIKeys(userID string) ([]core.APIKey, error) {
+	if s.APIKeys == nil {
+		return nil, nil
+	}
+	return s.APIKeys.ListByUser(userID)
+}
+
+func (s Service) DeleteAPIKey(id string) error {
+	if s.APIKeys == nil {
+		return nil
+	}
+	return s.APIKeys.Delete(id)
+}
+
+func (s Service) IsAdmin(userID string) bool {
+	if s.Groups == nil || userID == "" {
+		return false
+	}
+	ok, err := s.Groups.HasMember("grp_admins", userID)
+	if err == nil && ok {
+		return true
+	}
+	if s.Settings == nil {
+		return false
+	}
+	graph, err := s.PermissionGraph()
+	if err != nil {
+		return false
+	}
+	groups, err := s.Groups.GroupsForUser(userID)
+	if err != nil {
+		return false
+	}
+	for _, group := range groups {
+		raw, ok := graph.DataGraph[group.ID]
+		if !ok {
+			continue
+		}
+		values, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if role, _ := values["admin"].(string); role == "admin" {
+			return true
+		}
+	}
+	return false
+}
+
+func (s Service) WithRole(user core.User) core.User {
+	user.IsAdmin = s.IsAdmin(user.ID)
+	return user
+}
+
+func (s Service) SiteName() string {
+	if s.Settings == nil {
+		return "Topbase"
+	}
+	value, ok, err := s.Settings.Get("site_name")
+	if err != nil || !ok || strings.TrimSpace(value) == "" {
+		return "Topbase"
+	}
+	return value
+}
+
+func (s Service) SetSiteName(name string) error {
+	if s.Settings == nil {
+		return fmt.Errorf("settings are not configured")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("site_name is required")
+	}
+	return s.Settings.Set("site_name", name)
+}
+
+func (s Service) AdminSettings() (core.AdminSettings, error) {
+	settings := core.AdminSettings{SiteName: s.SiteName(), Timezone: "Asia/Shanghai", PublicSharingEnabled: true, EmbeddingEnabled: true}
+	if s.Settings == nil {
+		return settings, nil
+	}
+	raw, ok, err := s.Settings.Get("admin_settings")
+	if err != nil || !ok || raw == "" {
+		return settings, err
+	}
+	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
+		return core.AdminSettings{}, err
+	}
+	if settings.SiteName == "" {
+		settings.SiteName = s.SiteName()
+	}
+	if settings.Timezone == "" {
+		settings.Timezone = "Asia/Shanghai"
+	}
+	return settings, nil
+}
+
+func (s Service) SaveAdminSettings(settings core.AdminSettings) (core.AdminSettings, error) {
+	settings.SiteName = strings.TrimSpace(settings.SiteName)
+	settings.Timezone = strings.TrimSpace(settings.Timezone)
+	if settings.SiteName == "" {
+		return core.AdminSettings{}, fmt.Errorf("site_name is required")
+	}
+	if settings.Timezone == "" {
+		settings.Timezone = "Asia/Shanghai"
+	}
+	if _, err := time.LoadLocation(settings.Timezone); err != nil {
+		return core.AdminSettings{}, fmt.Errorf("invalid timezone")
+	}
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		return core.AdminSettings{}, err
+	}
+	if s.Settings == nil {
+		return core.AdminSettings{}, fmt.Errorf("settings are not configured")
+	}
+	if err := s.Settings.Set("admin_settings", string(raw)); err != nil {
+		return core.AdminSettings{}, err
+	}
+	if err := s.Settings.Set("site_name", settings.SiteName); err != nil {
+		return core.AdminSettings{}, err
+	}
+	return settings, nil
+}
+
+func (s Service) IdentityProviders() ([]core.IdentityProvider, error) {
+	return readSettingsJSON[core.IdentityProvider](s.Settings, "identity_providers")
+}
+
+func (s Service) AuthSettings() (core.AuthSettings, error) {
+	value, ok, err := s.Settings.Get("auth_settings")
+	if err != nil || !ok || strings.TrimSpace(value) == "" {
+		return core.AuthSettings{PasswordLoginEnabled: true}, err
+	}
+	var settings core.AuthSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return core.AuthSettings{}, err
+	}
+	return settings, nil
+}
+
+func (s Service) SaveAuthSettings(settings core.AuthSettings) error {
+	if !settings.PasswordLoginEnabled {
+		providers, err := s.IdentityProviders()
+		if err != nil {
+			return err
+		}
+		enabled := false
+		for _, provider := range providers {
+			if supportsBrowserLogin(provider.Type) && provider.Enabled && strings.TrimSpace(provider.ClientID) != "" && strings.TrimSpace(provider.ClientSecret) != "" {
+				enabled = true
+				break
+			}
+		}
+		if !enabled {
+			return fmt.Errorf("enable and configure at least one third-party login before disabling password login")
+		}
+	}
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return s.Settings.Set("auth_settings", string(raw))
+}
+
+func (s Service) ExternalIdentityLinks() ([]core.ExternalIdentityLink, error) {
+	return readSettingsJSON[core.ExternalIdentityLink](s.Settings, "external_identity_links")
+}
+
+func (s Service) BindExternalIdentity(link core.ExternalIdentityLink) error {
+	link.ProviderID, link.Subject, link.UserID = strings.TrimSpace(link.ProviderID), strings.TrimSpace(link.Subject), strings.TrimSpace(link.UserID)
+	if link.ProviderID == "" || link.Subject == "" || link.UserID == "" {
+		return fmt.Errorf("provider, account ID and member are required")
+	}
+	if _, err := s.Users.ByID(link.UserID); err != nil {
+		return err
+	}
+	links, err := s.ExternalIdentityLinks()
+	if err != nil {
+		return err
+	}
+	for i := range links {
+		if links[i].ProviderID == link.ProviderID && links[i].Subject == link.Subject {
+			links[i].UserID = link.UserID
+			return writeSettingsJSON(s.Settings, "external_identity_links", links)
+		}
+	}
+	return writeSettingsJSON(s.Settings, "external_identity_links", append(links, link))
+}
+
+func (s Service) SaveIdentityProviders(items []core.IdentityProvider) error {
+	for i := range items {
+		items[i].ID = strings.TrimSpace(items[i].ID)
+		items[i].Type = strings.TrimSpace(items[i].Type)
+		items[i].Name = strings.TrimSpace(items[i].Name)
+		if items[i].ID == "" || items[i].Type == "" || items[i].Name == "" {
+			return fmt.Errorf("provider id, type and name are required")
+		}
+		if items[i].GroupMappings == nil {
+			items[i].GroupMappings = map[string]string{}
+		}
+	}
+	settings, err := s.AuthSettings()
+	if err != nil {
+		return err
+	}
+	if !settings.PasswordLoginEnabled {
+		hasLogin := false
+		for _, item := range items {
+			if supportsBrowserLogin(item.Type) && item.Enabled && item.ClientID != "" && item.ClientSecret != "" {
+				hasLogin = true
+				break
+			}
+		}
+		if !hasLogin {
+			return fmt.Errorf("cannot remove the last configured third-party login while password login is disabled")
+		}
+	}
+	return writeSettingsJSON(s.Settings, "identity_providers", items)
+}
+
+func supportsBrowserLogin(providerType string) bool {
+	return providerType == "google" || providerType == "wechat"
+}
+
+func (s Service) Webhooks() ([]core.WebhookEndpoint, error) {
+	return readSettingsJSON[core.WebhookEndpoint](s.Settings, "webhooks")
+}
+func (s Service) SaveWebhooks(items []core.WebhookEndpoint) error {
+	for i := range items {
+		items[i].ID, items[i].Name, items[i].Provider = strings.TrimSpace(items[i].ID), strings.TrimSpace(items[i].Name), strings.TrimSpace(items[i].Provider)
+		if items[i].ID == "" || items[i].Name == "" || items[i].Provider == "" || strings.TrimSpace(items[i].URL) == "" {
+			return fmt.Errorf("webhook id, name, provider and url are required")
+		}
+		if items[i].CreatedAt.IsZero() {
+			items[i].CreatedAt = time.Now().UTC()
+		}
+	}
+	return writeSettingsJSON(s.Settings, "webhooks", items)
+}
+
+func (s Service) ProjectAccessRules() ([]core.ProjectAccessRule, error) {
+	return readSettingsJSON[core.ProjectAccessRule](s.Settings, "project_access_rules")
+}
+func (s Service) SaveProjectAccessRules(items []core.ProjectAccessRule) error {
+	for _, item := range items {
+		if item.ProjectID == "" || item.GroupID == "" || (item.Role != "view" && item.Role != "edit" && item.Role != "manage") {
+			return fmt.Errorf("invalid project access rule")
+		}
+	}
+	return writeSettingsJSON(s.Settings, "project_access_rules", items)
+}
+
+func (s Service) CanAccessProject(user core.User, project core.Collection, required string) bool {
+	if user.ID == "" {
+		return false
+	}
+	if s.IsAdmin(user.ID) {
+		return true
+	}
+	if project.Kind == "personal_project" {
+		return project.PersonalOwnerUserID == user.ID
+	}
+	roles := map[string]int{"view": 1, "edit": 2, "manage": 3}
+	need := roles[required]
+	if project.OwnerGroupID != "" {
+		if ok, _ := s.Groups.HasMember(project.OwnerGroupID, user.ID); ok {
+			return true
+		}
+	}
+	rules, err := s.ProjectAccessRules()
+	if err != nil {
+		return false
+	}
+	for _, rule := range rules {
+		if rule.ProjectID == project.ID && roles[rule.Role] >= need {
+			if ok, _ := s.Groups.HasMember(rule.GroupID, user.ID); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func readSettingsJSON[T any](settings core.SettingStore, key string) ([]T, error) {
+	if settings == nil {
+		return []T{}, nil
+	}
+	raw, ok, err := settings.Get(key)
+	if err != nil || !ok || raw == "" {
+		return []T{}, err
+	}
+	var items []T
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+func writeSettingsJSON[T any](settings core.SettingStore, key string, items []T) error {
+	if settings == nil {
+		return fmt.Errorf("settings are not configured")
+	}
+	raw, err := json.Marshal(items)
+	if err != nil {
+		return err
+	}
+	return settings.Set(key, string(raw))
+}
+
+func (s Service) UserForAPIKey(raw string) (core.User, error) {
+	if s.APIKeys == nil {
+		return core.User{}, fmt.Errorf("not signed in")
+	}
+	key, err := s.APIKeys.ByHash(core.HashAPIKey(raw))
+	if err != nil {
+		return core.User{}, fmt.Errorf("invalid api key")
+	}
+	return s.Users.ByID(key.UserID)
+}
+
+func (s Service) PermissionGraph() (core.PermissionGraph, error) {
+	raw, ok, err := s.Settings.Get("permission_graph")
+	if err != nil || !ok || raw == "" {
+		return core.PermissionGraph{Revision: 1, DataGraph: map[string]any{}, CollectionGraph: map[string]any{}}, err
+	}
+	var graph core.PermissionGraph
+	if err := json.Unmarshal([]byte(raw), &graph); err != nil {
+		return core.PermissionGraph{}, err
+	}
+	return graph, nil
+}
+
+func (s Service) SavePermissionGraph(graph core.PermissionGraph) (core.PermissionGraph, error) {
+	graph.Revision++
+	if graph.DataGraph == nil {
+		graph.DataGraph = map[string]any{}
+	}
+	if graph.CollectionGraph == nil {
+		graph.CollectionGraph = map[string]any{}
+	}
+	raw, err := json.Marshal(graph)
+	if err != nil {
+		return core.PermissionGraph{}, err
+	}
+	if err := s.Settings.Set("permission_graph", string(raw)); err != nil {
+		return core.PermissionGraph{}, err
+	}
+	return graph, nil
+}
