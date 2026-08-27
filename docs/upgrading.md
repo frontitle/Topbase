@@ -12,28 +12,49 @@ Topbase 使用语义化版本：
 
 ## 数据迁移原则
 
-- `migrations/` 中的 migration 只追加，不修改已发布文件。
-- 应用启动时按顺序初始化和升级应用库；任何需要长时间运行的数据改造应拆成可恢复后台任务。
+- `migrations/` 中的 migration 只追加，不修改已发布文件；应用会校验已执行 migration 的 SHA-256，发现历史文件被改写时拒绝启动。
+- 应用启动时在事务中按版本顺序升级应用库，并把版本、校验和、应用版本写入 `schema_migrations`；失败时不会以半升级状态继续提供服务。
 - QueryIR、图表设置和连接配置分别保存版本号；读取旧数据时迁移到内存新结构，确认成功后再持久化。
 - 源数据库不属于 Topbase 升级范围，默认只读；数仓物化表需要独立备份策略。
 
 ## 升级前备份
 
-1. 停止 Topbase，避免复制 SQLite 时仍有写入。
-2. 备份整个 `TOPBASE_DATA_DIR`，并对备份加密。
+1. 使用内置备份命令生成 SQLite 一致性快照；运行中的服务无需停机。
+2. 将备份导出到宿主机的加密存储。
 3. 记录当前镜像 tag 或 Git commit。
 4. 在备份副本或预发布环境运行新版本，验证登录、数据库重连、分析、仪表盘和调度。
 5. 再升级生产实例并检查 `/api/health` 和运行日志。
 
-Docker Compose 示例：
+Docker Compose 示例（备份名不能与已有目录重复）：
 
 ```bash
-docker compose stop topbase
-docker run --rm -v topbase_topbase_data:/source:ro -v "$PWD/backups:/backup" alpine tar -czf /backup/topbase-data.tgz -C /source .
-docker compose up --build -d
+docker compose exec topbase /app/topbase-backup /backups/topbase-before-upgrade
+mkdir -p backups
+docker compose cp topbase:/backups/topbase-before-upgrade ./backups/
 ```
 
-命名卷前缀取决于 Compose 项目名；执行备份前先用 `docker volume ls` 确认精确名称。
+备份包含一致性的 `app.db`、连接 Secret、兼容目录文件和 `manifest.json`，文件权限为 `0600`。备份中含数据库密码和 SSH 私钥，必须加密并限制访问。不要只复制 `app.db-wal` 或 `app.db-shm`。
+
+非 Docker 部署可以执行：
+
+```bash
+make backup
+# 或指定不可已存在的目标目录
+TOPBASE_DATA_DIR=/var/lib/topbase ./bin/topbase-backup /secure/backups/topbase-before-upgrade
+```
+
+## Docker 升级
+
+```bash
+git fetch --tags
+git checkout <目标版本标签>
+docker compose build --pull
+docker compose up -d
+curl --fail http://localhost:8080/api/ready
+curl --fail http://localhost:8080/api/version
+```
+
+升级时 `/data` 和 `/backups` 命名卷不会随容器替换而删除。不要执行 `docker compose down -v`，该命令会删除命名卷。
 
 ## 回滚
 

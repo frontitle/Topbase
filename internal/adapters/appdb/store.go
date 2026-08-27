@@ -1,6 +1,7 @@
 package appdb
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,21 +11,22 @@ import (
 	"strings"
 	"time"
 
-	_ "embed"
 	_ "modernc.org/sqlite"
 
 	"github.com/topbase/topbase/internal/core"
 	"github.com/topbase/topbase/internal/core/queryir"
 )
 
-//go:embed schema.sql
-var schemaSQL string
-
 type Store struct {
-	db *sql.DB
+	db            *sql.DB
+	schemaVersion int
 }
 
 func Open(path string) (*Store, error) {
+	return OpenWithVersion(path, "dev")
+}
+
+func OpenWithVersion(path, appVersion string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -37,35 +39,21 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	if _, err := db.Exec(schemaSQL); err != nil {
+	migrationCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	schemaVersion, err := applyMigrations(migrationCtx, db, appVersion)
+	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate app db: %w", err)
 	}
-	_, _ = db.Exec(`ALTER TABLE questions ADD COLUMN dashboard_id TEXT`)
-	_, _ = db.Exec(`ALTER TABLE questions ADD COLUMN parameters TEXT`)
-	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN watermark_field TEXT`)
-	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN model_id TEXT`)
-	_, _ = db.Exec(`ALTER TABLE schedules ADD COLUMN confirm_source_write INTEGER NOT NULL DEFAULT 0`)
-	_, _ = db.Exec(`ALTER TABLE materialized_tables ADD COLUMN watermark TEXT`)
-	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN feishu_open_id TEXT`)
-	_, _ = db.Exec(`ALTER TABLE dashboards ADD COLUMN public_uuid TEXT`)
-	_, _ = db.Exec(`ALTER TABLE dashboards ADD COLUMN appearance TEXT`)
-	_, _ = db.Exec(`ALTER TABLE collections ADD COLUMN kind TEXT NOT NULL DEFAULT 'team_project'`)
-	_, _ = db.Exec(`ALTER TABLE collections ADD COLUMN owner_group_id TEXT`)
-	// Existing personal collections predate the explicit project-space kind.
-	// Preserve their ownership semantics during the additive migration.
-	_, _ = db.Exec(`UPDATE collections SET kind='personal_project' WHERE personal_owner_user_id IS NOT NULL AND personal_owner_user_id <> ''`)
-	// Keep the user-facing product terminology current without touching custom names.
-	_, _ = db.Exec(`UPDATE collections SET name='我的分析' WHERE name=? AND personal_owner_user_id IS NOT NULL AND personal_owner_user_id <> ''`, "我的\u95ee\u6570")
-	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS schema_snapshots (
-		database_id TEXT PRIMARY KEY,
-		tables_json TEXT NOT NULL,
-		synced_at TEXT NOT NULL
-	)`)
-	return &Store{db: db}, nil
+	return &Store{db: db, schemaVersion: schemaVersion}, nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
+func (s *Store) SchemaVersion() int { return s.schemaVersion }
 
 func (s *Store) Get(key string) (string, bool, error) {
 	var value string

@@ -1,4 +1,6 @@
 -- Topbase application database (SQLite for local; SQL kept portable).
+-- Reference snapshot for maintainers. Runtime schema changes are applied only
+-- through the append-only numbered files in /migrations.
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

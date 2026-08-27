@@ -115,7 +115,7 @@ func (s Service) ListCollections() ([]core.Collection, error) {
 	return s.Collections.List()
 }
 
-func (s Service) CreateCollection(name, parentID, ownerID string) (core.Collection, error) {
+func (s Service) CreateCollection(name, parentID, ownerID, ownerGroupID string) (core.Collection, error) {
 	if strings.TrimSpace(name) == "" {
 		return core.Collection{}, fmt.Errorf("name is required")
 	}
@@ -128,9 +128,9 @@ func (s Service) CreateCollection(name, parentID, ownerID string) (core.Collecti
 		if err != nil {
 			return core.Collection{}, err
 		}
-		kind, ownerID = parent.Kind, parent.PersonalOwnerUserID
+		kind, ownerID, ownerGroupID = parent.Kind, parent.PersonalOwnerUserID, parent.OwnerGroupID
 	}
-	collection := core.Collection{ID: core.NewID("col"), ParentID: parentID, Name: name, PersonalOwnerUserID: ownerID, Kind: kind, CreatedAt: time.Now().UTC()}
+	collection := core.Collection{ID: core.NewID("col"), ParentID: parentID, Name: name, PersonalOwnerUserID: ownerID, OwnerGroupID: ownerGroupID, Kind: kind, CreatedAt: time.Now().UTC()}
 	if err := s.Collections.Create(collection); err != nil {
 		return core.Collection{}, err
 	}

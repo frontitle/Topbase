@@ -18,9 +18,17 @@ docker compose up --build -d
 ```bash
 docker compose ps
 docker compose logs -f topbase
+curl --fail http://localhost:8080/api/ready
 ```
 
 应用状态保存在命名卷 `topbase_data`。删除容器不会删除数据；执行 `docker compose down -v` 会删除数据卷，不应在生产环境使用。
+
+需要备份时使用镜像内置工具，不要直接复制运行中的 SQLite 文件：
+
+```bash
+docker compose exec topbase /app/topbase-backup /backups/topbase-first-backup
+docker compose cp topbase:/backups/topbase-first-backup ./backups/
+```
 
 ## 从源代码运行
 

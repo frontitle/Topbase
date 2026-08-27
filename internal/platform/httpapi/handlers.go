@@ -25,6 +25,9 @@ func (s *server) requireAdmin(w http.ResponseWriter, r *http.Request) (core.User
 }
 
 func (s *server) databases(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	databases, err := s.catalog.Store.List()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "read catalog: " + err.Error()})
@@ -41,10 +44,16 @@ func (s *server) databases(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) databaseEngines(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
 	writeJSON(w, http.StatusOK, adapters.EngineDefinitions())
 }
 
 func (s *server) getDatabase(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	id := r.PathValue("id")
 	databases, err := s.catalog.Store.List()
 	if err != nil {
@@ -159,6 +168,9 @@ func (s *server) updateDatabase(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) tables(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	id := r.PathValue("id")
 	var tables []core.Table
 	var err error
@@ -237,6 +249,9 @@ func (s *server) rescanTable(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getAnnotation(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	annotation, err := s.metadata.GetTableAnnotation(r.PathValue("id"), r.PathValue("schema"), r.PathValue("table"))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -264,6 +279,9 @@ func (s *server) saveAnnotation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runQuery(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "sql", "native"); !ok {
+		return
+	}
 	var request map[string]string
 	if !decodeJSON(w, r, &request) {
 		return
@@ -283,6 +301,9 @@ func (s *server) runQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) chat(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
 	var request map[string]string
 	if !decodeJSON(w, r, &request) {
 		return

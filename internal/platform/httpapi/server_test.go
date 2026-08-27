@@ -7,13 +7,19 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/topbase/topbase/internal/core"
 )
 
 func testServer(t *testing.T) http.Handler {
 	t.Helper()
 	t.Setenv("TOPBASE_DATA_DIR", t.TempDir())
 	t.Setenv("TOPBASE_CRON", "off")
-	return NewServer()
+	handler := NewServer()
+	if closer, ok := handler.(interface{ Close() error }); ok {
+		t.Cleanup(func() { _ = closer.Close() })
+	}
+	return handler
 }
 
 func adminSession(t *testing.T, handler http.Handler) *http.Cookie {
@@ -25,6 +31,28 @@ func adminSession(t *testing.T, handler http.Handler) *http.Cookie {
 		t.Fatalf("setup %d: %s", rec.Code, rec.Body.String())
 	}
 	return rec.Result().Cookies()[0]
+}
+
+func setupCookies(t *testing.T, handler http.Handler) []*http.Cookie {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/setup", bytes.NewBufferString(`{"language":"zh-CN","admin_name":"Ada","admin_email":"ada@example.com","admin_password":"secret123"}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("setup %d: %s", rec.Code, rec.Body.String())
+	}
+	return rec.Result().Cookies()
+}
+
+func cookieNamed(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie {
+	t.Helper()
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	t.Fatalf("cookie %q not found", name)
+	return nil
 }
 
 func TestQueryRejectsMutation(t *testing.T) {
@@ -281,6 +309,149 @@ func TestSetupLoginAndSaveQuestion(t *testing.T) {
 	handler.ServeHTTP(trashRec, trashReq)
 	if trashRec.Code != http.StatusOK || !bytes.Contains(trashRec.Body.Bytes(), []byte(boardID)) {
 		t.Fatalf("trash %d %s", trashRec.Code, trashRec.Body.String())
+	}
+}
+
+func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
+	handler := testServer(t)
+	for _, path := range []string{"/api/health", "/api/ready", "/api/version"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d: %s", path, rec.Code, rec.Body.String())
+		}
+	}
+	versionReq := httptest.NewRequest(http.MethodGet, "/api/version", nil)
+	versionRec := httptest.NewRecorder()
+	handler.ServeHTTP(versionRec, versionReq)
+	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":7`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
+		t.Fatalf("unexpected version payload: %s", versionRec.Body.String())
+	}
+}
+
+func TestBrowserMutationRequiresCSRFToken(t *testing.T) {
+	handler := testServer(t)
+	cookies := setupCookies(t, handler)
+	session := cookieNamed(t, cookies, sessionCookie)
+	csrf := cookieNamed(t, cookies, csrfCookie)
+
+	blocked := httptest.NewRequest(http.MethodPost, "/api/dashboards", bytes.NewBufferString(`{}`))
+	blocked.AddCookie(session)
+	blocked.Header.Set("Origin", "http://example.com")
+	blocked.Header.Set("Sec-Fetch-Site", "same-origin")
+	blockedRec := httptest.NewRecorder()
+	handler.ServeHTTP(blockedRec, blocked)
+	if blockedRec.Code != http.StatusForbidden {
+		t.Fatalf("missing CSRF token = %d: %s", blockedRec.Code, blockedRec.Body.String())
+	}
+
+	allowed := httptest.NewRequest(http.MethodPost, "/api/dashboards", bytes.NewBufferString(`{}`))
+	allowed.AddCookie(session)
+	allowed.AddCookie(csrf)
+	allowed.Header.Set("Origin", "http://example.com")
+	allowed.Header.Set("Sec-Fetch-Site", "same-origin")
+	allowed.Header.Set("X-Topbase-CSRF", csrf.Value)
+	allowedRec := httptest.NewRecorder()
+	handler.ServeHTTP(allowedRec, allowed)
+	if allowedRec.Code != http.StatusCreated {
+		t.Fatalf("valid CSRF token = %d: %s", allowedRec.Code, allowedRec.Body.String())
+	}
+}
+
+func TestPersonalAnalysisAndDashboardAreIsolatedByDataGroup(t *testing.T) {
+	handler := testServer(t)
+	adminCookie := adminSession(t, handler)
+
+	questionBody := `{"name":"管理员分析","query_type":"queryir","queryir":{"version":1,"source":{"database_id":"pg_demo","table":{"schema":"public","name":"orders"}},"limit":10}}`
+	createQuestion := httptest.NewRequest(http.MethodPost, "/api/questions", bytes.NewBufferString(questionBody))
+	createQuestion.AddCookie(adminCookie)
+	createQuestionRec := httptest.NewRecorder()
+	handler.ServeHTTP(createQuestionRec, createQuestion)
+	if createQuestionRec.Code != http.StatusCreated {
+		t.Fatalf("create admin analysis %d: %s", createQuestionRec.Code, createQuestionRec.Body.String())
+	}
+	var adminQuestion core.Question
+	if err := json.Unmarshal(createQuestionRec.Body.Bytes(), &adminQuestion); err != nil {
+		t.Fatal(err)
+	}
+
+	createDashboard := httptest.NewRequest(http.MethodPost, "/api/dashboards", bytes.NewBufferString(`{}`))
+	createDashboard.AddCookie(adminCookie)
+	createDashboardRec := httptest.NewRecorder()
+	handler.ServeHTTP(createDashboardRec, createDashboard)
+	if createDashboardRec.Code != http.StatusCreated {
+		t.Fatalf("create admin dashboard %d: %s", createDashboardRec.Code, createDashboardRec.Body.String())
+	}
+	var adminDashboard core.Dashboard
+	if err := json.Unmarshal(createDashboardRec.Body.Bytes(), &adminDashboard); err != nil {
+		t.Fatal(err)
+	}
+
+	invite := httptest.NewRequest(http.MethodPost, "/api/users", bytes.NewBufferString(`{"name":"Ben","email":"ben@example.com","password":"secret123"}`))
+	invite.AddCookie(adminCookie)
+	inviteRec := httptest.NewRecorder()
+	handler.ServeHTTP(inviteRec, invite)
+	if inviteRec.Code != http.StatusCreated {
+		t.Fatalf("invite member %d: %s", inviteRec.Code, inviteRec.Body.String())
+	}
+	login := httptest.NewRequest(http.MethodPost, "/api/session", bytes.NewBufferString(`{"email":"ben@example.com","password":"secret123"}`))
+	loginRec := httptest.NewRecorder()
+	handler.ServeHTTP(loginRec, login)
+	memberCookie := cookieNamed(t, loginRec.Result().Cookies(), sessionCookie)
+
+	deniedData := httptest.NewRequest(http.MethodGet, "/api/databases", nil)
+	deniedData.AddCookie(memberCookie)
+	deniedDataRec := httptest.NewRecorder()
+	handler.ServeHTTP(deniedDataRec, deniedData)
+	if deniedDataRec.Code != http.StatusForbidden {
+		t.Fatalf("member data access before grant = %d: %s", deniedDataRec.Code, deniedDataRec.Body.String())
+	}
+	grantBody := `{"revision":1,"data_graph":{"grp_all_users":{"data":"view","sql":"query","collections":"none","admin":"none"}},"collection_graph":{}}`
+	grant := httptest.NewRequest(http.MethodPut, "/api/permissions/graph", bytes.NewBufferString(grantBody))
+	grant.AddCookie(adminCookie)
+	grantRec := httptest.NewRecorder()
+	handler.ServeHTTP(grantRec, grant)
+	if grantRec.Code != http.StatusOK {
+		t.Fatalf("grant data capability %d: %s", grantRec.Code, grantRec.Body.String())
+	}
+	allowedData := httptest.NewRequest(http.MethodGet, "/api/databases", nil)
+	allowedData.AddCookie(memberCookie)
+	allowedDataRec := httptest.NewRecorder()
+	handler.ServeHTTP(allowedDataRec, allowedData)
+	if allowedDataRec.Code != http.StatusOK {
+		t.Fatalf("member data access after grant = %d: %s", allowedDataRec.Code, allowedDataRec.Body.String())
+	}
+	deniedNative := httptest.NewRequest(http.MethodPost, "/api/queries/run", bytes.NewBufferString(`{"database_id":"demo","sql":"select 1"}`))
+	deniedNative.AddCookie(memberCookie)
+	deniedNativeRec := httptest.NewRecorder()
+	handler.ServeHTTP(deniedNativeRec, deniedNative)
+	if deniedNativeRec.Code != http.StatusForbidden {
+		t.Fatalf("member native SQL access = %d: %s", deniedNativeRec.Code, deniedNativeRec.Body.String())
+	}
+
+	for _, path := range []string{"/api/questions/" + adminQuestion.ID, "/api/dashboards/" + adminDashboard.ID} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.AddCookie(memberCookie)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("member access %s = %d: %s", path, rec.Code, rec.Body.String())
+		}
+	}
+	listQuestions := httptest.NewRequest(http.MethodGet, "/api/questions", nil)
+	listQuestions.AddCookie(memberCookie)
+	listQuestionsRec := httptest.NewRecorder()
+	handler.ServeHTTP(listQuestionsRec, listQuestions)
+	if bytes.Contains(listQuestionsRec.Body.Bytes(), []byte(adminQuestion.ID)) {
+		t.Fatalf("private analysis leaked in list: %s", listQuestionsRec.Body.String())
+	}
+	listDashboards := httptest.NewRequest(http.MethodGet, "/api/dashboards", nil)
+	listDashboards.AddCookie(memberCookie)
+	listDashboardsRec := httptest.NewRecorder()
+	handler.ServeHTTP(listDashboardsRec, listDashboards)
+	if bytes.Contains(listDashboardsRec.Body.Bytes(), []byte(adminDashboard.ID)) {
+		t.Fatalf("private dashboard leaked in list: %s", listDashboardsRec.Body.String())
 	}
 }
 

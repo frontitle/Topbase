@@ -17,6 +17,7 @@ Thumbs.db
 
 # Runtime state: may contain users, sessions, source credentials and business data
 /data/
+/backups/
 *.db
 *.db-shm
 *.db-wal

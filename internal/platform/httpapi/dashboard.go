@@ -9,13 +9,24 @@ import (
 	"github.com/topbase/topbase/internal/core"
 )
 
-func (s *server) listDashboards(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listDashboards(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
 	items, err := s.content.ListDashboards()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	visible := make([]core.Dashboard, 0, len(items))
+	for _, item := range items {
+		if s.canAccessDashboard(user, item, "view") {
+			visible = append(visible, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *server) createDashboard(w http.ResponseWriter, r *http.Request) {
@@ -23,16 +34,24 @@ func (s *server) createDashboard(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &d) {
 		return
 	}
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
-		if d.CollectionID == "" {
-			if project, err := s.content.EnsurePersonalCollection(user); err == nil {
-				d.CollectionID = project.ID
-			}
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	if d.CollectionID == "" {
+		if project, err := s.content.EnsurePersonalCollection(user); err == nil {
+			d.CollectionID = project.ID
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
 		}
 	}
-	saved, err := s.content.CreateDashboard(d, userID)
+	if !s.canAccessCollection(user, d.CollectionID, "edit") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "data-group edit permission required"})
+		return
+	}
+	saved, err := s.content.CreateDashboard(d, user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -41,30 +60,31 @@ func (s *server) createDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getDashboard(w http.ResponseWriter, r *http.Request) {
-	item, err := s.content.GetDashboard(r.PathValue("id"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+	_, item, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view")
+	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
 }
 
 func (s *server) updateDashboard(w http.ResponseWriter, r *http.Request) {
+	user, existing, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "edit")
+	if !ok {
+		return
+	}
 	var d core.Dashboard
 	if !decodeJSON(w, r, &d) {
 		return
 	}
 	d.ID = r.PathValue("id")
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
-		if d.CollectionID == "" {
-			if project, err := s.content.EnsurePersonalCollection(user); err == nil {
-				d.CollectionID = project.ID
-			}
-		}
+	if d.CollectionID == "" {
+		d.CollectionID = existing.CollectionID
 	}
-	saved, err := s.content.UpdateDashboard(d, userID)
+	if d.CollectionID != existing.CollectionID && !s.canAccessCollection(user, d.CollectionID, "edit") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "destination data-group edit permission required"})
+		return
+	}
+	saved, err := s.content.UpdateDashboard(d, user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -73,6 +93,9 @@ func (s *server) updateDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) archiveDashboard(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "edit"); !ok {
+		return
+	}
 	if err := s.content.ArchiveDashboard(r.PathValue("id")); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -81,9 +104,11 @@ func (s *server) archiveDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runDashboardCard(w http.ResponseWriter, r *http.Request) {
-	board, err := s.content.GetDashboard(r.PathValue("id"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+	_, board, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view")
+	if !ok {
+		return
+	}
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
 		return
 	}
 	var input struct {
@@ -101,25 +126,42 @@ func (s *server) runDashboardCard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (s *server) listAlerts(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listAlerts(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
 	items, err := s.content.ListAlerts()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	visible := make([]core.Alert, 0, len(items))
+	for _, item := range items {
+		if q, err := s.content.GetQuestion(item.QuestionID); err == nil && s.canAccessQuestion(user, q, "view") {
+			visible = append(visible, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *server) createAlert(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
 	var a core.Alert
 	if !decodeJSON(w, r, &a) {
 		return
 	}
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
+	question, err := s.content.GetQuestion(a.QuestionID)
+	if err != nil || !s.canAccessQuestion(user, question, "edit") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "analysis edit permission required"})
+		return
 	}
-	saved, err := s.content.CreateAlert(a, userID)
+	saved, err := s.content.CreateAlert(a, user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -128,6 +170,14 @@ func (s *server) createAlert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) deleteAlert(w http.ResponseWriter, r *http.Request) {
+	alert, err := s.content.GetAlert(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "alert not found"})
+		return
+	}
+	if _, _, ok := s.requireQuestionAccess(w, r, alert.QuestionID, "edit"); !ok {
+		return
+	}
 	if err := s.content.DeleteAlert(r.PathValue("id")); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -136,6 +186,14 @@ func (s *server) deleteAlert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runAlert(w http.ResponseWriter, r *http.Request) {
+	alert, err := s.content.GetAlert(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "alert not found"})
+		return
+	}
+	if _, _, ok := s.requireQuestionAccess(w, r, alert.QuestionID, "edit"); !ok {
+		return
+	}
 	note, err := s.notify.RunAlert(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -158,16 +216,16 @@ func (s *server) listNotifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) enableDashboardPublicLink(w http.ResponseWriter, r *http.Request) {
+	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "manage")
+	if !ok {
+		return
+	}
 	settings, err := s.identity.AdminSettings()
 	if err != nil || !settings.PublicSharingEnabled {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "public sharing is disabled by the administrator"})
 		return
 	}
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
-	}
-	saved, err := s.content.EnableDashboardPublicLink(r.PathValue("id"), userID)
+	saved, err := s.content.EnableDashboardPublicLink(r.PathValue("id"), user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -176,11 +234,11 @@ func (s *server) enableDashboardPublicLink(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *server) disableDashboardPublicLink(w http.ResponseWriter, r *http.Request) {
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
+	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "manage")
+	if !ok {
+		return
 	}
-	saved, err := s.content.DisableDashboardPublicLink(r.PathValue("id"), userID)
+	saved, err := s.content.DisableDashboardPublicLink(r.PathValue("id"), user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -189,11 +247,11 @@ func (s *server) disableDashboardPublicLink(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *server) copyDashboard(w http.ResponseWriter, r *http.Request) {
-	userID := ""
-	if user, ok := s.currentUserOrKey(r); ok {
-		userID = user.ID
+	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "edit")
+	if !ok {
+		return
 	}
-	saved, err := s.content.DuplicateDashboard(r.PathValue("id"), userID)
+	saved, err := s.content.DuplicateDashboard(r.PathValue("id"), user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return

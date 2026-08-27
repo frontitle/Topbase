@@ -166,9 +166,15 @@
     return result ? result.value : null;
   }
   async function api(path, method, body) {
+    var requestMethod = (method || 'GET').toUpperCase();
+    var headers = body ? { 'Content-Type': 'application/json' } : {};
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(requestMethod)) {
+      var match = document.cookie.match(/(?:^|; )topbase_csrf=([^;]+)/);
+      if (match) headers['X-Topbase-CSRF'] = decodeURIComponent(match[1]);
+    }
     var res = await fetch(path, {
-      method: method || 'GET',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      method: requestMethod,
+      headers: headers,
       body: body ? JSON.stringify(body) : undefined,
       credentials: 'same-origin'
     });

@@ -2,6 +2,10 @@ services:
   topbase:
     build:
       context: .
+      args:
+        VERSION: "${TOPBASE_VERSION:-0.1.0-alpha.0-dev}"
+        COMMIT: "${TOPBASE_COMMIT:-unknown}"
+        BUILD_TIME: "${TOPBASE_BUILD_TIME:-unknown}"
     image: topbase/topbase:local
     ports:
       - "8080:8080"
@@ -9,12 +13,24 @@ services:
       TOPBASE_ADDR: ":8080"
       TOPBASE_DATA_DIR: /data
       TOPBASE_CRON: "on"
+      TOPBASE_SECURE_COOKIES: "${TOPBASE_SECURE_COOKIES:-false}"
       FEISHU_APP_ID: "${FEISHU_APP_ID:-}"
       FEISHU_APP_SECRET: "${FEISHU_APP_SECRET:-}"
       FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:-}"
     volumes:
       - topbase_data:/data
+      - topbase_backups:/backups
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    stop_grace_period: 30s
     restart: unless-stopped
 
 volumes:
   topbase_data:
+  topbase_backups:

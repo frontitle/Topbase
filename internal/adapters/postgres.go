@@ -445,3 +445,26 @@ func (p *SQLConnector) Close(id string) error {
 	}
 	return errors.Join(closeErrors...)
 }
+
+// CloseAll releases every source connection and SSH tunnel owned by this
+// process. Container shutdown calls this after HTTP requests have drained.
+func (p *SQLConnector) CloseAll() error {
+	p.mu.Lock()
+	items := p.databases
+	p.databases = map[string]databaseConnection{}
+	p.mu.Unlock()
+	var closeErrors []error
+	for id, connection := range items {
+		if connection.db != nil {
+			if err := connection.db.Close(); err != nil {
+				closeErrors = append(closeErrors, fmt.Errorf("close database %s: %w", id, err))
+			}
+		}
+		if connection.tunnel != nil {
+			if err := connection.tunnel.Close(); err != nil {
+				closeErrors = append(closeErrors, fmt.Errorf("close SSH tunnel %s: %w", id, err))
+			}
+		}
+	}
+	return errors.Join(closeErrors...)
+}
