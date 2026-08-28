@@ -43,7 +43,7 @@ function renderTables(items){
   const groups={};
   items.forEach(t=>{ (groups[t.schema]||(groups[t.schema]=[])).push(t) });
   const html=Object.keys(groups).sort().map(schema=>{
-    const rows=groups[schema].map(t=>`<button class="table-item ${active&&key(active)===key(t)?'active':''}" data-key="${esc(key(t))}" title="${esc(t.description||'')}"><b>${esc(t.name)}${t.warehouse?' · 数仓':''}</b><small>${esc(t.description||((t.columns||[]).length+' 个字段'))}</small></button>`).join('');
+    const rows=groups[schema].map(t=>`<button class="table-item ${active&&key(active)===key(t)?'active':''}" data-key="${esc(key(t))}" title="${esc(t.description||'')}"><b>${esc(t.name)}${t.warehouse?' · 已沉淀':''}</b><small>${esc(t.description||((t.columns||[]).length+' 个字段'))}</small></button>`).join('');
     return `<div class="schema-label">${esc(schema)}</div>${rows}`;
   }).join('');
   $('#table-list').innerHTML=html||'没有可读取的数据表。';

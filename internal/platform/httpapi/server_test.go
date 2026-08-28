@@ -580,7 +580,7 @@ func TestQuestionAndCollectionManagement(t *testing.T) {
 	collectionsPageReq := httptest.NewRequest(http.MethodGet, "/collections/", nil)
 	collectionsPageReq.AddCookie(cookie)
 	handler.ServeHTTP(collectionsPage, collectionsPageReq)
-	if collectionsPage.Code != http.StatusOK || !bytes.Contains(collectionsPage.Body.Bytes(), []byte("数据组")) {
+	if collectionsPage.Code != http.StatusOK || !bytes.Contains(collectionsPage.Body.Bytes(), []byte("分析分组")) {
 		t.Fatalf("collections page %d", collectionsPage.Code)
 	}
 
@@ -663,7 +663,7 @@ func TestQuestionAndCollectionManagement(t *testing.T) {
 	colViewReq := httptest.NewRequest(http.MethodGet, "/collections/"+colID+"/", nil)
 	colViewReq.AddCookie(cookie)
 	handler.ServeHTTP(colViewRec, colViewReq)
-	if colViewRec.Code != http.StatusOK || !bytes.Contains(colViewRec.Body.Bytes(), []byte("子数据组")) {
+	if colViewRec.Code != http.StatusOK || !bytes.Contains(colViewRec.Body.Bytes(), []byte("子分组")) {
 		t.Fatalf("collection view %d", colViewRec.Code)
 	}
 

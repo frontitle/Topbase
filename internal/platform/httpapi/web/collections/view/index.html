@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Topbase · 数据组</title>
+  <title>Topbase · 分析分组</title>
   <link rel="stylesheet" href="/ui.css">
 </head>
 <body>
-  <aside class="sidebar" data-shell="app" data-active="collections"></aside>
+  <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
     <header class="topbar">
-      <a href="/collections/">数据组</a><span>/</span><strong id="title">加载中</strong>
+      <a href="/questions/">分析</a><span>/</span><a href="/questions/?view=groups">分组</a><span>/</span><strong id="title">加载中</strong>
       <div class="top-actions">
         <button class="secondary" id="rename" type="button">重命名</button>
-        <button class="secondary" id="add-child" type="button">新建子数据组</button>
+        <button class="secondary" id="add-child" type="button">新建子分组</button>
         <button class="secondary" id="access" type="button">成员权限</button>
         <button class="secondary" id="remove" type="button">删除</button>
       </div>
@@ -21,12 +21,12 @@
     <main>
       <div class="page-head">
         <div>
-          <h1 id="heading">数据组</h1>
-          <p id="project-meta">数据组内的分析与仪表盘可按子数据组继续整理。</p>
+          <h1 id="heading">分析分组</h1>
+          <p id="project-meta">分组内的分析与仪表盘可继续按子分组整理。</p>
         </div>
       </div>
       <section class="section-block">
-        <h2>子数据组</h2>
+        <h2>子分组</h2>
         <div id="children" class="cards"></div>
       </section>
       <section class="section-block">
@@ -50,21 +50,21 @@
       const c=payload.collection;
       $('#title').textContent=c.name;
       $('#heading').textContent=c.name;
-      $('#project-meta').textContent=c.kind==='personal_project'?'这是你的个人数据组；分析和仪表盘默认先保存在这里。':'这是团队数据组；适合发布可复用的分析和仪表盘。';
-      $('#children').innerHTML=(payload.children||[]).map(x=>cardHTML({href:'/collections/'+x.id+'/',title:x.name,meta:'子数据组'})).join('')||emptyHTML({icon:'☰',title:'没有子数据组',body:'可以用右上角「新建子数据组」继续分层整理。'});
-      $('#questions').innerHTML=(payload.questions||[]).map(q=>cardHTML({href:'/questions/'+q.id+'/',title:q.name,meta:q.query_type==='native'?'SQL 分析':'可视化分析'})).join('')||emptyHTML({icon:'◇',title:'还没有分析',body:'新建分析会默认保存在「我的分析」中，也可移动到团队数据组。',href:'/questions/new/',cta:'新建分析'});
-      $('#dashboards').innerHTML=(payload.dashboards||[]).map(d=>cardHTML({href:'/dashboard/'+d.id+'/',title:d.name,meta:(d.cards||[]).length+' 张卡片'})).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'新建仪表盘默认保存在个人数据组，可在编辑时发布到团队数据组。',href:'/dashboard/',cta:'新建仪表盘'});
+      $('#project-meta').textContent=c.kind==='personal_project'?'这是你的个人分组；用于整理自己的分析和仪表盘。':'这是团队分组；适合发布可复用的分析和仪表盘。';
+      $('#children').innerHTML=(payload.children||[]).map(x=>cardHTML({href:'/collections/'+x.id+'/',title:x.name,meta:'子分组'})).join('')||emptyHTML({icon:'☰',title:'没有子分组',body:'可以用右上角「新建子分组」继续分层整理。'});
+      $('#questions').innerHTML=(payload.questions||[]).map(q=>cardHTML({href:'/questions/'+q.id+'/',title:q.name,meta:q.query_type==='native'?'SQL 分析':'可视化分析'})).join('')||emptyHTML({icon:'◇',title:'还没有分析',body:'新建分析后，可以移动到当前分组。',href:'/questions/new/',cta:'新建分析'});
+      $('#dashboards').innerHTML=(payload.dashboards||[]).map(d=>cardHTML({href:'/dashboard/'+d.id+'/',title:d.name,meta:(d.cards||[]).length+' 张卡片'})).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'可将仪表盘发布到当前分组，供团队共同查看。',href:'/dashboard/',cta:'新建仪表盘'});
       $('#remove').hidden=!!c.personal_owner_user_id;
       $('#access').hidden=c.kind==='personal_project';
     }
     $('#rename').onclick=async()=>{
-      const name=await promptDialog({kicker:'数据组设置',title:'重命名数据组',label:'数据组名称',value:payload.collection.name,confirmText:'保存名称'});
+      const name=await promptDialog({kicker:'分析分组',title:'重命名分组',label:'分组名称',value:payload.collection.name,confirmText:'保存名称'});
       if(!name)return;
       await api('/api/collections/'+id,'PUT',{name,parent_id:payload.collection.parent_id||''});
       load();
     };
     $('#add-child').onclick=async()=>{
-      const name=await promptDialog({kicker:'新建子数据组',title:'创建子数据组',description:'子数据组会创建在“'+payload.collection.name+'”下面。',label:'子数据组名称',placeholder:'例如：月度报表',confirmText:'创建子数据组'});
+      const name=await promptDialog({kicker:'分析分组',title:'创建子分组',description:'子分组会创建在“'+payload.collection.name+'”下面。',label:'子分组名称',placeholder:'例如：月度报表',confirmText:'创建子分组'});
       if(!name)return;
       const item=await api('/api/collections','POST',{name,parent_id:id});
       location.href='/collections/'+item.id+'/';
@@ -73,15 +73,15 @@
       try{
         const [rules,groups]=await Promise.all([api('/api/projects/'+id+'/access'),api('/api/groups')]);
         const roleOptions=[{value:'',label:'无权限'},{value:'view',label:'可查看'},{value:'edit',label:'可编辑'},{value:'manage',label:'可管理'}];
-        const values=await formDialog({kicker:'数据组权限',title:'管理用户组访问权限',description:'为每个用户组设置在当前团队数据组中的最高权限。',size:'wide',confirmText:'保存权限',fields:groups.map((g,i)=>{const rule=rules.find(r=>r.group_id===g.id);return {name:'group_'+i,label:g.name,type:'select',value:rule&&rule.role||'',options:roleOptions}})});
+        const values=await formDialog({kicker:'分析分组权限',title:'管理用户组访问权限',description:'为每个用户组设置在当前团队分组中的最高权限。',size:'wide',confirmText:'保存权限',fields:groups.map((g,i)=>{const rule=rules.find(r=>r.group_id===g.id);return {name:'group_'+i,label:g.name,type:'select',value:rule&&rule.role||'',options:roleOptions}})});
         if(!values)return;
         const next=groups.map((g,i)=>values['group_'+i]?{group_id:g.id,role:values['group_'+i]}:null).filter(Boolean);
         await api('/api/projects/'+id+'/access','PUT',next);toast('项目权限已保存');
       }catch(e){toast(e.message)}
     };
     $('#remove').onclick=async()=>{
-      if(!await confirmDialog({kicker:'删除数据组',title:'删除“'+payload.collection.name+'”？',description:'只有空的数据组可以删除；其中的分析、仪表盘或子数据组需要先移动。',confirmText:'删除数据组',tone:'danger'}))return;
-      try{await api('/api/collections/'+id,'DELETE');location.href='/collections/'}catch(e){toast(e.message)}
+      if(!await confirmDialog({kicker:'删除分组',title:'删除“'+payload.collection.name+'”？',description:'只有空分组可以删除；其中的分析、仪表盘或子分组需要先移动。',confirmText:'删除分组',tone:'danger'}))return;
+      try{await api('/api/collections/'+id,'DELETE');location.href='/questions/?view=groups'}catch(e){toast(e.message)}
     };
     load().catch(e=>toast(e.message));
   </script>

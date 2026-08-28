@@ -16,11 +16,10 @@ window.topbaseRememberDatabase = function (id) {
 (function () {
   const appItems = [
     { id: 'home', href: '/', icon: '▦', label: '首页' },
-    { id: 'collections', href: '/collections/', icon: '☰', label: '数据组' },
     { id: 'questions', href: '/questions/', icon: '◇', label: '分析' },
-    { id: 'data', href: '/data/', icon: '▣', label: '数据浏览' },
     { id: 'dashboards', href: '/dashboard/', icon: '☷', label: '仪表盘' },
-    { id: 'warehouse', href: '/warehouse/', icon: '▣', label: '数仓' },
+    { id: 'data', href: '/data/', icon: '▣', label: '源数据' },
+    { id: 'warehouse', href: '/warehouse/', icon: '▤', label: '数据沉淀' },
     { id: 'trash', href: '/trash/', icon: '⌫', label: '回收站' }
   ];
   const adminItems = [

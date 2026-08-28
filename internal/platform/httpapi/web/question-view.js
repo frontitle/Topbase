@@ -201,13 +201,13 @@ on('rename', async () => {
 });
 on('move', async () => {
   const collection_id = await choiceDialog({
-    kicker: '整理分析',
-    title: '移动到数据组',
+    kicker: '分析分组',
+    title: '移动到分组',
     description: '选择分析的新位置。移动不会影响查询或仪表盘中的引用。',
     label: '目标位置',
     value: question.collection_id || '',
     confirmText: '移动分析',
-    options: [{ value: '', label: '我的分析', description: '仅自己默认使用的个人位置' }].concat(collections.map(c => ({ value: c.id, label: c.name, description: c.kind === 'personal_project' ? '个人数据组' : '团队数据组' })))
+    options: [{ value: '', label: '未分组', description: '暂不放入任何分析分组' }].concat(collections.map(c => ({ value: c.id, label: c.name, description: c.kind === 'personal_project' ? '个人分组' : '团队分组' })))
   });
   if (collection_id === null) return;
   question = await api('/api/questions/' + id, 'PUT', {
@@ -216,7 +216,7 @@ on('move', async () => {
     collection_id,
     chartspec: spec || question.chartspec
   });
-  toast(collection_id ? '已移动到数据组' : '已移回我的分析');
+  toast(collection_id ? '已移动到分组' : '已移出分组');
   setMeta();
 });
 on('archive', async () => {
