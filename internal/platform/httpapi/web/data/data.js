@@ -194,7 +194,6 @@ function updateBuilderSummary(){
   if(Number($('#row-limit').value)!==1000)parts.push(`最多 ${Number($('#row-limit').value)||1000} 行`);
   const text=parts.length?parts.join(' · '):'显示原始数据';
   $('#query-summary').textContent=text;
-  $('#builder-state').textContent=parts.length?`${parts.length} 个步骤`:'原始数据';
 }
 function configureJoinBuilder(){
   if(!active)return;
@@ -280,7 +279,6 @@ function renderGrid(d, mode){
   lastResultMode=mode;
   const cols=d.columns||[];
   const rows=d.rows||[];
-  TopbaseCode.setCode('#generated-sql',d.sql||'',{language:'sql',label:'本次执行的 SQL'});
   queryEditor.setGeneratedSQL(d.sql||'');
   const n=mode==='visual'?(lastQueryIR&&lastQueryIR.filters||[]).length:0;
   $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(mode==='sql'?'（SQL 实时查询）':(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。'));
@@ -299,14 +297,12 @@ queryEditor=TopbaseQueryEditor.mount('#ask-panel',{
     $$('.visual-result-action').forEach(item=>item.hidden=mode==='sql');
     if(mode==='sql'){
       queryEditor&&queryEditor.setSummary('执行自定义 SQL');
-      $('#builder-state').textContent='SQL 模式';
     }else{
       updateBuilderSummary();
     }
   },
   onRun:mode=>mode==='sql'?runNativeSQL():runVisualQuery()
 });
-TopbaseCode.mountBlock('#generated-sql',{language:'sql',label:'本次执行的 SQL'});
 $('#back-dbs').onclick=()=>creationMode?location.assign('/questions/new/'):showDatabases();
 $('#db-search').oninput=renderDatabases;
 $('#search').oninput=e=>renderTables(tables.filter(t=>(t.name+' '+t.schema+' '+(t.description||'')+' '+(t.columns||[]).map(c=>c.name+' '+(c.description||'')).join(' ')).toLowerCase().includes(e.target.value.toLowerCase())));

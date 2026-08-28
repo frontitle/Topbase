@@ -84,6 +84,7 @@ const editor = TopbaseCode.mountEditor('#sql-editor', {
 ### 应用外壳与 UI 基础设施
 
 - 应用外壳统一生成侧栏、用户入口、活动菜单与管理权限入口。
+- 菜单图标统一使用随应用发布的 Lucide 线性图标精简集，不依赖网络字体或运行时 CDN。
 - 所有 HTTP 请求通过 `api`，核心动作通过 `toast` 反馈。
 - 需要输入、选择或确认时使用 Topbase 对话框组件，禁止 `alert`、`confirm`、`prompt`。
 
