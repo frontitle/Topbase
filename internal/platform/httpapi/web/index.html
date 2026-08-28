@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据工作台</title>
   <link rel="stylesheet" href="/ui.css">
-  <link rel="stylesheet" href="/grid.css">
 </head>
 <body>
   <aside class="sidebar" data-shell="app" data-active="home"></aside>
@@ -14,56 +13,107 @@
       <strong>首页</strong>
       <div class="top-actions">
         <a class="secondary" id="auth-link" href="/auth/login/">登录</a>
-        <button class="secondary" id="feishu" type="button">飞书登录</button>
       </div>
     </header>
-    <main>
-      <div class="page-head">
+    <main class="home-overview">
+      <div class="page-head home-head">
         <div>
-          <h1>数据工作台</h1>
-          <p>用 AI 或 SQL 提问。结果可以保存为分析、铺进仪表盘，或升级成数仓表。</p>
+          <span class="home-kicker">工作台概览</span>
+          <h1 id="welcome">欢迎回来</h1>
+          <p>从数据源到分析、仪表盘和数仓任务，在一个工作台持续掌握数据资产。</p>
+        </div>
+        <div class="home-head-actions">
+          <a class="secondary" href="/data/">浏览数据</a>
+          <a class="primary" href="/questions/new/">创建分析</a>
         </div>
       </div>
-      <section class="ask-bar">
-        <input id="question" value="过去 30 天每日新增用户趋势" placeholder="用自然语言描述你想看的数据">
-        <button class="primary" id="ask" type="button">生成查询</button>
+
+      <section class="home-stats" aria-label="核心数据统计">
+        <a class="home-stat" href="/data/">
+          <span><i class="stat-mark">▣</i>数据源</span>
+          <strong id="stat-databases">—</strong>
+          <small id="stat-databases-meta">正在读取连接状态</small>
+        </a>
+        <a class="home-stat" href="/questions/">
+          <span><i class="stat-mark">◇</i>分析</span>
+          <strong id="stat-questions">—</strong>
+          <small>可复用的数据分析</small>
+        </a>
+        <a class="home-stat" href="/dashboard/">
+          <span><i class="stat-mark">☷</i>仪表盘</span>
+          <strong id="stat-dashboards">—</strong>
+          <small>持续观测业务指标</small>
+        </a>
+        <a class="home-stat" href="/collections/">
+          <span><i class="stat-mark">☰</i>数据组</span>
+          <strong id="stat-collections">—</strong>
+          <small>个人与团队数据资产</small>
+        </a>
       </section>
-      <section class="home-grid">
-        <article class="panel">
-          <div class="panel-head">
-            <h2>查询工作台</h2>
-            <select id="database"></select>
-          </div>
-          <textarea id="sql" class="home-sql">SELECT date_trunc('day', created_at) AS day, count(*) AS users FROM users GROUP BY 1 ORDER BY 1 DESC LIMIT 30</textarea>
-          <div class="actions">
-            <button class="secondary" id="save" type="button">保存为分析</button>
-            <button class="secondary" id="schedule" type="button">设为周期任务</button>
-            <button class="primary" id="run" type="button">运行查询</button>
-          </div>
-          <div class="visualization"><canvas id="chart" width="640" height="170"></canvas></div>
-          <pre id="result" hidden></pre>
-          <div id="result-grid" class="tb-grid-host"></div>
-        </article>
-        <article class="panel">
-          <div class="panel-head">
-            <h2>最近内容</h2>
-            <a href="/questions/">全部分析</a>
-          </div>
-          <div id="questions" class="stack-list">尚未保存分析。</div>
-          <div id="schema" class="muted-box">将显示当前数据源中的表。</div>
-          <ol class="step-list">
-            <li><b>01</b><div><strong>添加数据源</strong><p>管理员在后台连接数据库后即可查询</p></div></li>
-            <li><b>02</b><div><strong>可视化或 AI 查询</strong><p>生成可审查的只读 SQL，保存为分析</p></div></li>
-            <li><b>03</b><div><strong>计划任务与物化</strong><p>按 Cron 写入数仓并记录血缘</p></div></li>
-          </ol>
-        </article>
+
+      <section class="home-layout">
+        <div class="home-main-column">
+          <section class="home-section">
+            <div class="home-section-head">
+              <div><h2>快捷开始</h2><p>选择下一步要完成的工作</p></div>
+            </div>
+            <div class="home-quick-grid">
+              <a class="home-quick" href="/questions/new/">
+                <i>＋</i><span><strong>创建分析</strong><small>通过可视化步骤获取指标</small></span><b>→</b>
+              </a>
+              <a class="home-quick" href="/data/">
+                <i>▦</i><span><strong>浏览数据</strong><small>查看数据库、表和字段</small></span><b>→</b>
+              </a>
+              <button class="home-quick" id="create-dashboard" type="button">
+                <i>☷</i><span><strong>新建仪表盘</strong><small>汇总分析并持续观测</small></span><b>→</b>
+              </button>
+              <a class="home-quick" href="/collections/">
+                <i>☰</i><span><strong>管理数据组</strong><small>组织个人与团队内容</small></span><b>→</b>
+              </a>
+              <a class="home-quick" id="admin-database-link" href="/admin/" hidden>
+                <i>⚙</i><span><strong>连接数据源</strong><small>添加或维护数据库连接</small></span><b>→</b>
+              </a>
+            </div>
+          </section>
+
+          <section class="home-section">
+            <div class="home-section-head">
+              <div><h2>最近内容</h2><p>继续处理最近创建的数据资产</p></div>
+              <a href="/questions/">查看全部</a>
+            </div>
+            <div id="recent-content" class="home-recent-list">
+              <div class="home-loading">正在读取最近内容…</div>
+            </div>
+          </section>
+        </div>
+
+        <div class="home-side-column">
+          <section class="home-section home-health">
+            <div class="home-section-head">
+              <div><h2>数据连接</h2><p>当前可用数据源状态</p></div>
+              <span id="ready-badge" class="home-status">检查中</span>
+            </div>
+            <div id="database-health" class="home-health-list">
+              <div class="home-loading">正在读取连接状态…</div>
+            </div>
+            <a class="home-section-link" href="/data/">打开数据浏览 <span>→</span></a>
+          </section>
+
+          <section class="home-section">
+            <div class="home-section-head">
+              <div><h2>最新动态</h2><p>任务与订阅通知</p></div>
+            </div>
+            <div id="notifications" class="home-notification-list">
+              <div class="home-loading">正在读取动态…</div>
+            </div>
+          </section>
+        </div>
       </section>
     </main>
   </div>
   <div id="toast"></div>
   <script src="/ui.js"></script>
   <script src="/shell.js"></script>
-  <script src="/grid.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

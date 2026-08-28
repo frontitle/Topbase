@@ -1,114 +1,120 @@
-function currentDatabaseID(){return $('#database').value || (window.topbasePickDatabase?topbasePickDatabase(databases):'')}
-let databases=[];
-function draw(rows){
-  const c=$('#chart'),x=c.getContext('2d'),w=c.width,h=c.height;
-  x.clearRect(0,0,w,h);
-  const v=rows.map(r=>Number(r[1])).filter(Number.isFinite);
-  if(!v.length)return;
-  const a=Math.max(...v),b=Math.min(...v),p=18;
-  x.strokeStyle='#1d1d1f';x.lineWidth=2;x.beginPath();
-  v.forEach((n,i)=>{const px=p+i*(w-2*p)/Math.max(v.length-1,1),py=h-p-(n-b)/Math.max(a-b,1)*(h-2*p);i?x.lineTo(px,py):x.moveTo(px,py)});
-  x.stroke();
+function optional(path, fallback) {
+  return api(path).catch(() => fallback);
 }
-async function loadTables(){
-  const id=currentDatabaseID();
-  if(!id){$('#schema').textContent='还没有数据源。管理员可在管理后台添加数据库。';return}
-  try{
-    const tables=await api('/api/databases/'+id+'/tables');
-    $('#schema').innerHTML=tables.slice(0,12).map(t=>'<b>'+esc(t.schema+'.'+t.name)+'</b><br><span>'+esc(t.columns.map(c=>c.name+': '+c.data_type).join(' · '))+'</span>').join('<hr>')||'这个数据源里还没有表。';
-  }catch(e){$('#schema').textContent=e.message}
+
+function dateLabel(value) {
+  if (!value) return '最近更新';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '最近更新';
+  const diff = Date.now() - date.getTime();
+  if (diff >= 0 && diff < 60 * 60 * 1000) return Math.max(1, Math.floor(diff / 60000)) + ' 分钟前';
+  if (diff >= 0 && diff < 24 * 60 * 60 * 1000) return Math.floor(diff / 3600000) + ' 小时前';
+  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date);
 }
-async function loadDatabases(){
-  try{
-    databases=await api('/api/databases');
-    const s=$('#database');
-    if(!databases.length){
-      s.innerHTML='<option value="">暂无数据源</option>';
-      s.hidden=false;
-      $('#result-grid').innerHTML='<p class="page-meta">还没有数据源。管理员可在管理后台添加数据库。</p>';
-      $('#schema').textContent='添加数据源后，这里会显示可查询的表。';
+
+function recentRow(item) {
+  return `<a href="${esc(item.href)}"><i>${esc(item.icon)}</i><span><strong>${esc(item.name)}</strong><small>${esc(item.type)} · ${esc(dateLabel(item.created_at))}</small></span><b>→</b></a>`;
+}
+
+function renderRecent(questions, dashboards) {
+  const items = [
+    ...questions.map(item => ({ ...item, type: '分析', icon: '◇', href: `/questions/${item.id}/` })),
+    ...dashboards.map(item => ({ ...item, type: '仪表盘', icon: '☷', href: `/dashboard/${item.id}/` }))
+  ].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).slice(0, 8);
+  $('#recent-content').innerHTML = items.length
+    ? items.map(recentRow).join('')
+    : emptyHTML({ icon: '◇', title: '还没有分析或仪表盘', body: '从一张数据表开始创建第一个分析。', href: '/questions/new/', cta: '创建分析' });
+}
+
+function renderDatabaseHealth(databases, allowed) {
+  if (!allowed) {
+    $('#database-health').innerHTML = '<div class="home-permission-note"><i>◌</i><span><strong>数据浏览尚未授权</strong><small>联系管理员授予数据浏览权限。</small></span></div>';
+    $('#stat-databases').textContent = '—';
+    $('#stat-databases-meta').textContent = '当前账号无数据浏览权限';
+    return;
+  }
+  const connected = databases.filter(item => item.connected || item.status === 'connected').length;
+  $('#stat-databases').textContent = databases.length;
+  $('#stat-databases-meta').textContent = databases.length ? `${connected} 个连接正常` : '等待添加第一个数据源';
+  $('#database-health').innerHTML = databases.length
+    ? databases.slice(0, 6).map(item => {
+      const healthy = item.connected || item.status === 'connected';
+      return `<a href="/data/?db=${encodeURIComponent(item.id)}"><span class="health-dot ${healthy ? 'healthy' : ''}"></span><span><strong>${esc(item.name)}</strong><small>${esc(item.engine || '数据库')} · ${healthy ? '连接正常' : '需要检查'}</small></span><b>→</b></a>`;
+    }).join('')
+    : '<div class="home-permission-note"><i>＋</i><span><strong>还没有数据源</strong><small>管理员连接数据库后即可开始分析。</small></span></div>';
+}
+
+function renderNotifications(items) {
+  $('#notifications').innerHTML = items.length
+    ? items.slice(0, 6).map(item => `<div><i>◴</i><span><strong>${esc(item.title || '任务动态')}</strong><small>${esc(item.body || '')}</small></span></div>`).join('')
+    : '<div class="home-quiet"><i>✓</i><strong>暂无待处理动态</strong><small>计划任务、告警和订阅结果会显示在这里。</small></div>';
+}
+
+async function loadOverview(user) {
+  const databaseRequest = api('/api/databases').then(items => ({ allowed: true, items })).catch(() => ({ allowed: false, items: [] }));
+  const [questions, dashboards, collections, notifications, databaseResult, readiness] = await Promise.all([
+    optional('/api/questions', []),
+    optional('/api/dashboards', []),
+    optional('/api/collections', []),
+    optional('/api/notifications', []),
+    databaseRequest,
+    optional('/api/ready', null)
+  ]);
+
+  $('#stat-questions').textContent = questions.length;
+  $('#stat-dashboards').textContent = dashboards.length;
+  $('#stat-collections').textContent = collections.length;
+  renderRecent(questions, dashboards);
+  renderDatabaseHealth(databaseResult.items, databaseResult.allowed);
+  renderNotifications(notifications);
+
+  const ready = readiness && readiness.status === 'ready';
+  $('#ready-badge').textContent = ready ? '运行正常' : '需要检查';
+  $('#ready-badge').classList.toggle('healthy', ready);
+  if (user.is_admin) $('#admin-database-link').hidden = false;
+}
+
+async function boot() {
+  try {
+    const status = await api('/api/setup/status');
+    if (!status.completed) {
+      location.replace('/setup/');
       return;
     }
-    const id=topbasePickDatabase(databases, s.value);
-    s.innerHTML=databases.map(d=>'<option value="'+d.id+'">'+esc(d.name)+(databases.length>1?' · '+(d.engine||'postgres'):'')+'</option>').join('');
-    s.value=id;
-    s.hidden=databases.length===1;
-    topbaseRememberDatabase(id);
-    s.onchange=()=>{topbaseRememberDatabase(s.value);loadTables()};
-    await loadTables();
-  }catch(e){toast(e.message)}
-}
-async function loadQuestions(){
-  try{
-    const items=await api('/api/questions');
-    const boards=await api('/api/dashboards');
-    const notes=await api('/api/notifications').catch(()=>[]);
-    const parts=[];
-    if(boards.length)parts.push('<b>仪表盘</b>'+boards.map(d=>'<a href="/dashboard/'+d.id+'/">'+esc(d.name)+'</a>').join(''));
-    if(items.length)parts.push('<b>分析</b>'+items.map(q=>'<a href="/questions/'+q.id+'/">'+esc(q.name)+'<small>'+esc(q.query_type||'')+'</small></a>').join(''));
-    if(notes.length)parts.push('<b>站内通知</b>'+notes.slice(0,5).map(n=>'<div>'+esc(n.title)+' · '+esc(n.body||'')+'</div>').join(''));
-    $('#questions').innerHTML=parts.join('')||emptyHTML({icon:'◇',title:'尚未保存分析',body:'打开数据浏览查看一张表，或在左侧运行 SQL 后保存。',href:'/questions/',cta:'打开分析列表'});
-  }catch(e){$('#questions').textContent=e.message}
-}
-async function boot(){
-  try{
-    const status=await api('/api/setup/status');
-    if(!status.completed){location.replace('/setup/');return}
-  }catch(e){toast(e.message);return}
-  try{
-    const user=await api('/api/user/current');
-    $('#auth-link').textContent=user.name||user.email;
-    $('#auth-link').href='#';
-    $('#auth-link').onclick=async ev=>{ev.preventDefault();await api('/api/session','DELETE');location.reload()};
-  }catch(_){
-    $('#auth-link').textContent='登录';
-    $('#auth-link').href='/auth/login/';
+  } catch (error) {
+    toast(error.message);
+    return;
   }
-  loadDatabases();
-  loadQuestions();
+
+  let user;
+  try {
+    user = await api('/api/user/current');
+  } catch (_) {
+    location.replace('/auth/login/');
+    return;
+  }
+  const name = user.name || user.email || '';
+  $('#welcome').textContent = name ? `欢迎回来，${name}` : '欢迎回来';
+  $('#auth-link').textContent = name || '账户';
+  $('#auth-link').href = '#';
+  $('#auth-link').onclick = async event => {
+    event.preventDefault();
+    await api('/api/session', 'DELETE');
+    location.replace('/auth/login/');
+  };
+  await loadOverview(user);
 }
-$('#ask').onclick=async()=>{
-  const id=currentDatabaseID();
-  if(!id)return toast('还没有数据源，请先在管理后台添加');
-  try{
-    const d=await api('/api/ai/chat','POST',{message:$('#question').value,database_id:id});
-    $('#sql').value=d.sql;
-    $('#result-grid').innerHTML='<p class="page-meta">'+esc(d.answer)+'</p>';
-    toast('已生成可审查的只读查询');
-  }catch(e){toast(e.message)}
+
+$('#create-dashboard').onclick = async () => {
+  const button = $('#create-dashboard');
+  button.disabled = true;
+  try {
+    const dashboard = await api('/api/dashboards', 'POST', {});
+    location.href = `/dashboard/${dashboard.id}/`;
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
+  }
 };
-$('#run').onclick=async()=>{
-  const id=currentDatabaseID();
-  if(!id)return toast('还没有数据源，请先在管理后台添加');
-  try{
-    const d=await api('/api/queries/run','POST',{database_id:id,sql:$('#sql').value});
-    TopbaseGrid('#result-grid',{columns:d.columns||[], rows:d.rows||[]});
-    draw(d.rows);
-    toast('查询已完成');
-  }catch(e){toast(e.message)}
-};
-$('#save').onclick=async()=>{
-  const id=currentDatabaseID();
-  if(!id)return toast('还没有数据源，请先在管理后台添加');
-  const sql=$('#sql').value.trim();
-  if(!sql)return toast('先写一条 SQL');
-  const name=await promptDialog({kicker:'保存分析',title:'为这条 SQL 分析命名',label:'分析名称',value:'SQL 分析',placeholder:'例如：每日订单趋势',confirmText:'保存分析'});
-  if(!name)return;
-  try{
-    const saved=await api('/api/questions','POST',{name,query_type:'native',native_sql:sql,database_id:id});
-    location.href='/questions/'+saved.id+'/';
-  }catch(e){toast(e.message)}
-};
-$('#schedule').onclick=async()=>{
-  try{
-    const items=await api('/api/questions');
-    if(!items.length) return toast('请先保存一条分析');
-    const q=items[0];
-    const proposed=await api('/api/ai/propose-schedule','POST',{question_id:q.id,message:$('#question').value||'每天早上九点写入数仓'});
-    if(!await confirmDialog({kicker:'AI 调度建议',title:'创建周期性查询任务？',description:proposed.rationale,confirmText:'创建调度',details:[{label:'执行周期',value:proposed.cron},{label:'写入目标',value:proposed.materialize_to},{label:'时区',value:proposed.timezone||'Asia/Shanghai'}]})) return;
-    await api('/api/schedules','POST',{name:proposed.name,question_id:q.id,cron:proposed.cron,timezone:proposed.timezone,materialize_to:proposed.materialize_to,strategy:proposed.strategy});
-    toast('已创建物化调度，打开数仓页可立即运行');
-  }catch(e){toast(e.message)}
-};
-$('#feishu').onclick=()=>toast('请先在部署配置中填写飞书应用凭据');
+
 boot();
