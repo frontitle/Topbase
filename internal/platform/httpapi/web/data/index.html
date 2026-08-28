@@ -60,16 +60,7 @@
                 <a class="secondary admin-only" id="edit-meta" hidden href="/admin/datamodel/">编辑元数据</a>
               </div>
             </header>
-            <section id="ask-panel" class="query-builder" aria-labelledby="builder-title">
-              <header class="builder-head">
-                <div>
-                  <small>查询编辑器</small>
-                  <h2 id="builder-title">可视化构建，或直接编写 SQL</h2>
-                  <p>按业务步骤完成分析；需要精确控制时，可切换到 SQL 模式运行只读查询。</p>
-                </div>
-                <span id="builder-state">原始数据</span>
-              </header>
-
+            <section id="ask-panel" class="query-builder" aria-label="查询编辑器">
               <div class="tb-query-modebar">
                 <div class="tb-query-tabs" role="tablist" aria-label="查询模式">
                   <button class="tb-query-tab active" type="button" role="tab" aria-selected="true" data-query-mode="visual">可视化查询</button>
@@ -173,7 +164,6 @@
               <label class="visual-result-action">下钻字段<select id="drill-field"><option value="">当前筛选字段</option></select></label>
               <button id="drill-records" class="secondary visual-result-action" type="button">查看明细记录</button>
               <button id="drill-filter" class="secondary visual-result-action" type="button">用当前值筛选</button>
-              <details><summary>查看本次执行的 SQL</summary><div id="generated-sql"></div></details>
             </section>
           </div>
         </section>

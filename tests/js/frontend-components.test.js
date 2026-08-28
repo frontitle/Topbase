@@ -30,9 +30,9 @@ test('SQL surfaces use the shared code component with copy feedback', () => {
   assert.match(code, /已复制/);
   assert.match(dataHTML, /components\/code\/code\.js/);
   assert.match(questionHTML, /components\/code\/code\.js/);
-  assert.match(dataJS, /TopbaseCode\.setCode\('#generated-sql'/);
+  assert.match(dataJS, /queryEditor\.setGeneratedSQL/);
   assert.match(questionJS, /TopbaseCode\.setCode\('#query-json'/);
-  assert.doesNotMatch(dataHTML, /<code id="generated-sql"/);
+  assert.doesNotMatch(dataHTML, /id="generated-sql"|查看本次执行的 SQL|class="builder-head"/);
   assert.doesNotMatch(questionHTML, /<pre id="query-json"/);
 });
 
@@ -40,4 +40,18 @@ test('developer documentation registers every shared functional component', () =
   for (const name of ['应用外壳', 'UI 基础设施', '查询编辑器', '代码展示与编辑', '筛选构建器', '数据表格', '可视化渲染器']) {
     assert.match(docs, new RegExp(name));
   }
+});
+
+test('application shell uses the vendored icon system instead of text glyphs', () => {
+  const shell = read('internal/platform/httpapi/web/shell.js');
+  const icons = read('internal/platform/httpapi/web/vendor/lucide-nav.svg');
+  const shellCSS = read('internal/platform/httpapi/web/shell.css');
+  assert.match(shell, /lucide-nav\.svg#/);
+  assert.match(shell, /shell\.css/);
+  assert.match(shellCSS, /--tb-admin-sidebar:\s*190px/);
+  const iconNames = Array.from(shell.matchAll(/icon:\s*'([^']+)'/g), match => match[1]);
+  for (const name of [...iconNames, 'panel-left-close', 'panel-left-open', 'search']) {
+    assert.match(icons, new RegExp(`symbol id="${name}"`), `missing icon ${name}`);
+  }
+  assert.doesNotMatch(shell, /icon:\s*'[▦◇☷▣▤⌫☺⚿◴⚙]'/);
 });

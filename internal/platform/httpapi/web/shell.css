@@ -1,0 +1,54 @@
+.sidebar nav .nav-icon,
+.sidebar-toggle-icon,
+.sidebar-search-icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar-toggle-icon,
+.sidebar-search-icon {
+  width: 16px;
+  height: 16px;
+}
+
+:root { --tb-admin-sidebar: 190px; }
+
+html body .sidebar.sidebar-admin {
+  width: var(--tb-admin-sidebar) !important;
+}
+
+html body .sidebar.sidebar-admin + .page {
+  margin-left: var(--tb-admin-sidebar) !important;
+}
+
+html body .sidebar.sidebar-admin .workspace strong {
+  display: none;
+}
+
+html body.sidebar-collapsed .sidebar.sidebar-admin {
+  width: 62px !important;
+}
+
+html body.sidebar-collapsed .sidebar.sidebar-admin + .page {
+  margin-left: 62px !important;
+}
+
+body.sidebar-collapsed .sidebar-toggle:has(.sidebar-toggle-icon) {
+  transform: none;
+}
+
+@media (max-width: 780px) {
+  html body .sidebar.sidebar-admin {
+    width: 58px !important;
+  }
+
+  html body .sidebar.sidebar-admin + .page {
+    margin-left: 58px !important;
+  }
+}
