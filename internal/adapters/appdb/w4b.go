@@ -43,7 +43,7 @@ func (s *Store) ReplaceMembers(groupID string, userIDs []string) error {
 }
 
 func (s *Store) UserByFeishuOpenID(openID string) (core.User, error) {
-	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users WHERE feishu_open_id = ?`, openID))
+	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, avatar_url, password_hash, locale, theme, is_active, created_at FROM users WHERE feishu_open_id = ?`, openID))
 }
 
 func (s *Store) CreateSubscription(item core.Subscription) error {

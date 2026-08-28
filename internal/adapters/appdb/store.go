@@ -70,21 +70,21 @@ func (s *Store) Set(key, value string) error {
 }
 
 func (s *Store) Create(user core.User) error {
-	_, err := s.db.Exec(`INSERT INTO users(id, email, name, password_hash, locale, theme, is_active, created_at) VALUES(?,?,?,?,?,?,?,?)`,
-		user.ID, user.Email, user.Name, user.PasswordHash, user.Locale, user.Theme, boolInt(user.IsActive), user.CreatedAt.UTC().Format(time.RFC3339))
+	_, err := s.db.Exec(`INSERT INTO users(id, email, name, avatar_url, password_hash, locale, theme, is_active, created_at) VALUES(?,?,?,?,?,?,?,?,?)`,
+		user.ID, user.Email, user.Name, user.AvatarURL, user.PasswordHash, user.Locale, user.Theme, boolInt(user.IsActive), user.CreatedAt.UTC().Format(time.RFC3339))
 	return err
 }
 
 func (s *Store) ByEmail(email string) (core.User, error) {
-	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users WHERE email = ?`, email))
+	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, avatar_url, password_hash, locale, theme, is_active, created_at FROM users WHERE email = ?`, email))
 }
 
 func (s *Store) ByID(id string) (core.User, error) {
-	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users WHERE id = ?`, id))
+	return s.scanUser(s.db.QueryRow(`SELECT id, email, name, avatar_url, password_hash, locale, theme, is_active, created_at FROM users WHERE id = ?`, id))
 }
 
 func (s *Store) ListUsers() ([]core.User, error) {
-	rows, err := s.db.Query(`SELECT id, email, name, password_hash, locale, theme, is_active, created_at FROM users ORDER BY created_at`)
+	rows, err := s.db.Query(`SELECT id, email, name, avatar_url, password_hash, locale, theme, is_active, created_at FROM users ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -124,12 +124,24 @@ func (s *Store) SetPassword(id, passwordHash string) error {
 	return nil
 }
 
+func (s *Store) UpdateUserProfile(id, name, email, locale, theme, avatarURL string) error {
+	res, err := s.db.Exec(`UPDATE users SET name=?, email=?, locale=?, theme=?, avatar_url=? WHERE id=?`, name, email, locale, theme, avatarURL, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return core.ErrNotFound
+	}
+	return nil
+}
+
 func scanUserRow(row scanner) (core.User, error) {
 	var user core.User
 	var hash sql.NullString
 	var created string
 	var active int
-	err := row.Scan(&user.ID, &user.Email, &user.Name, &hash, &user.Locale, &user.Theme, &active, &created)
+	err := row.Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &hash, &user.Locale, &user.Theme, &active, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return core.User{}, core.ErrNotFound
 	}
@@ -390,6 +402,9 @@ func (a userAdapter) SetActive(id string, active bool) error {
 }
 func (a userAdapter) SetPassword(id, passwordHash string) error {
 	return a.Store.SetPassword(id, passwordHash)
+}
+func (a userAdapter) UpdateProfile(id, name, email, locale, theme, avatarURL string) error {
+	return a.Store.UpdateUserProfile(id, name, email, locale, theme, avatarURL)
 }
 
 type groupAdapter struct{ *Store }

@@ -1,0 +1,31 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '../..');
+const html = fs.readFileSync(path.join(root, 'internal/platform/httpapi/web/account/index.html'), 'utf8');
+const script = fs.readFileSync(path.join(root, 'internal/platform/httpapi/web/account/account.js'), 'utf8');
+const shell = fs.readFileSync(path.join(root, 'internal/platform/httpapi/web/shell.js'), 'utf8');
+
+test('personal center exposes profile, security and account binding tabs', () => {
+  assert.match(html, /data-tab="profile"/);
+  assert.match(html, /data-tab="security"/);
+  assert.match(html, /data-tab="bindings"/);
+  assert.match(html, /id="avatar-file"/);
+  assert.match(html, /id="password-form"/);
+});
+
+test('personal center uses real profile APIs and custom interaction components', () => {
+  assert.match(script, /api\('\/api\/user\/profile'/);
+  assert.match(script, /api\('\/api\/user\/password', 'PUT'/);
+  assert.match(script, /\/api\/user\/external-identities\//);
+  assert.match(script, /confirmDialog\(/);
+  assert.doesNotMatch(script, /\b(?:alert|confirm|prompt)\s*\(/);
+  assert.match(script, /canvas\.toDataURL\('image\/jpeg'/);
+});
+
+test('global account entry links the signed-in user to the personal center', () => {
+  assert.match(shell, /class="sidebar-profile" href="\/account\/"/);
+  assert.match(shell, /user\.avatar_url/);
+});

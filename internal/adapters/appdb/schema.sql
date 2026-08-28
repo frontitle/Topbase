@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  avatar_url TEXT NOT NULL DEFAULT '',
   password_hash TEXT,
   feishu_open_id TEXT UNIQUE,
   locale TEXT NOT NULL DEFAULT 'zh-CN',

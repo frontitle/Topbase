@@ -1,7 +1,9 @@
 package identity
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -255,6 +257,91 @@ func (s Service) ResetUserPassword(id, password string) error {
 		return err
 	}
 	return s.Users.SetPassword(id, hash)
+}
+
+func (s Service) UpdateProfile(userID, name, email, locale, theme, avatarURL, currentPassword string) (core.User, error) {
+	user, err := s.Users.ByID(userID)
+	if err != nil {
+		return core.User{}, err
+	}
+	name = strings.TrimSpace(name)
+	email = strings.ToLower(strings.TrimSpace(email))
+	locale = strings.TrimSpace(locale)
+	theme = strings.TrimSpace(theme)
+	if name == "" || email == "" {
+		return core.User{}, fmt.Errorf("name and email are required")
+	}
+	if locale != "zh-CN" && locale != "en" {
+		return core.User{}, fmt.Errorf("unsupported language")
+	}
+	if theme != "system" && theme != "light" && theme != "dark" {
+		return core.User{}, fmt.Errorf("unsupported theme")
+	}
+	if err := validateAvatar(avatarURL); err != nil {
+		return core.User{}, err
+	}
+	if email != user.Email && (user.PasswordHash == "" || !core.VerifyPassword(user.PasswordHash, currentPassword)) {
+		return core.User{}, fmt.Errorf("current password is required to change email")
+	}
+	if existing, lookupErr := s.Users.ByEmail(email); lookupErr == nil && existing.ID != userID {
+		return core.User{}, fmt.Errorf("email is already in use")
+	} else if lookupErr != nil && !errors.Is(lookupErr, core.ErrNotFound) {
+		return core.User{}, lookupErr
+	}
+	if err := s.Users.UpdateProfile(userID, name, email, locale, theme, avatarURL); err != nil {
+		return core.User{}, err
+	}
+	user.Name, user.Email, user.Locale, user.Theme, user.AvatarURL = name, email, locale, theme, avatarURL
+	return s.WithRole(user), nil
+}
+
+func validateAvatar(value string) error {
+	if value == "" {
+		return nil
+	}
+	if len(value) > 350_000 {
+		return fmt.Errorf("avatar image is too large")
+	}
+	allowed := []string{"data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"}
+	raw := ""
+	for _, prefix := range allowed {
+		if strings.HasPrefix(value, prefix) {
+			raw = strings.TrimPrefix(value, prefix)
+			break
+		}
+	}
+	if raw == "" {
+		return fmt.Errorf("avatar must be a PNG, JPEG or WebP image")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(decoded) == 0 || len(decoded) > 256*1024 {
+		return fmt.Errorf("avatar image is invalid or too large")
+	}
+	isPNG := len(decoded) >= 8 && string(decoded[:8]) == "\x89PNG\r\n\x1a\n"
+	isJPEG := len(decoded) >= 3 && decoded[0] == 0xff && decoded[1] == 0xd8 && decoded[2] == 0xff
+	isWebP := len(decoded) >= 12 && string(decoded[:4]) == "RIFF" && string(decoded[8:12]) == "WEBP"
+	if !isPNG && !isJPEG && !isWebP {
+		return fmt.Errorf("avatar image is invalid or too large")
+	}
+	return nil
+}
+
+func (s Service) ChangePassword(userID, currentPassword, newPassword string) error {
+	user, err := s.Users.ByID(userID)
+	if err != nil {
+		return err
+	}
+	if user.PasswordHash == "" || !core.VerifyPassword(user.PasswordHash, currentPassword) {
+		return fmt.Errorf("current password is incorrect")
+	}
+	if currentPassword == newPassword {
+		return fmt.Errorf("new password must be different")
+	}
+	hash, err := core.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return s.Users.SetPassword(userID, hash)
 }
 
 // ReplaceUserManualGroups updates only manually managed groups. System and
@@ -537,11 +624,47 @@ func (s Service) BindExternalIdentity(link core.ExternalIdentityLink) error {
 	}
 	for i := range links {
 		if links[i].ProviderID == link.ProviderID && links[i].Subject == link.Subject {
-			links[i].UserID = link.UserID
-			return writeSettingsJSON(s.Settings, "external_identity_links", links)
+			if links[i].UserID != link.UserID {
+				return fmt.Errorf("this third-party account is already linked to another member")
+			}
+			return nil
 		}
 	}
 	return writeSettingsJSON(s.Settings, "external_identity_links", append(links, link))
+}
+
+func (s Service) ExternalIdentityLinksForUser(userID string) ([]core.ExternalIdentityLink, error) {
+	links, err := s.ExternalIdentityLinks()
+	if err != nil {
+		return nil, err
+	}
+	out := []core.ExternalIdentityLink{}
+	for _, link := range links {
+		if link.UserID == userID {
+			out = append(out, link)
+		}
+	}
+	return out, nil
+}
+
+func (s Service) UnbindExternalIdentity(userID, providerID string) error {
+	links, err := s.ExternalIdentityLinks()
+	if err != nil {
+		return err
+	}
+	found := false
+	kept := make([]core.ExternalIdentityLink, 0, len(links))
+	for _, link := range links {
+		if link.UserID == userID && link.ProviderID == providerID {
+			found = true
+			continue
+		}
+		kept = append(kept, link)
+	}
+	if !found {
+		return core.ErrNotFound
+	}
+	return writeSettingsJSON(s.Settings, "external_identity_links", kept)
 }
 
 func (s Service) SaveIdentityProviders(items []core.IdentityProvider) error {

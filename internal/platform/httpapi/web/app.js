@@ -96,12 +96,7 @@ async function boot() {
   const name = user.name || user.email || '';
   $('#welcome').textContent = name ? `欢迎回来，${name}` : '欢迎回来';
   $('#auth-link').textContent = name || '账户';
-  $('#auth-link').href = '#';
-  $('#auth-link').onclick = async event => {
-    event.preventDefault();
-    await api('/api/session', 'DELETE');
-    location.replace('/auth/login/');
-  };
+  $('#auth-link').href = '/account/';
   await loadOverview(user);
 }
 

@@ -48,6 +48,11 @@ window.topbaseRememberDatabase = function (id) {
     return text.slice(0, 1).toUpperCase();
   }
 
+  function avatar(user, name) {
+    if (user && user.avatar_url) return `<span class="avatar avatar-image"><img src="${esc(user.avatar_url)}" alt=""></span>`;
+    return `<span class="avatar">${esc(initial(name))}</span>`;
+  }
+
   async function currentUser() {
     try {
       const r = await fetch('/api/user/current', { credentials: 'same-origin' });
@@ -82,11 +87,11 @@ window.topbaseRememberDatabase = function (id) {
       user && user.is_admin ? [{ id: 'admin', href: '/admin/', icon: '⚙', label: '进入管理后台', extra: 'admin-entry' }] : []
     );
     const heading = 'Topbase';
-    const plan = kind === 'admin' ? '系统管理' : '';
+    const plan = '';
     const collapsed = localStorage.getItem('topbase.sidebar.collapsed') === 'true';
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     host.classList.add('sidebar', kind === 'admin' ? 'sidebar-admin' : 'sidebar-app');
-    host.innerHTML = `<div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><span class="mark">T</span><strong>${heading}</strong><span class="plan">${plan}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">‹</button></div><nav>${kind === 'admin' ? '<p>系统管理</p>' : '<p>数据工作台</p>'}${links(items, active)}</nav><footer><span class="avatar">${initial(name)}</span><strong>${name}</strong></footer>`;
+    host.innerHTML = `<div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><span class="mark">T</span><strong>${heading}</strong><span class="plan">${plan}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">‹</button></div><nav>${kind === 'admin' ? '<p>系统管理</p>' : '<p>数据工作台</p>'}${links(items, active)}</nav><footer><a class="sidebar-profile" href="/account/" title="个人中心">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></a></footer>`;
     host.querySelector('.sidebar-toggle').onclick = () => {
       const next = !document.body.classList.contains('sidebar-collapsed');
       document.body.classList.toggle('sidebar-collapsed', next);
