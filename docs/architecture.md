@@ -26,7 +26,7 @@ cmd 负责把实现注入端口
 - 数据权限在应用服务入口统一求值；前端隐藏按钮不能替代服务端授权。
 - 业务时间通过可注入时钟获得；ID 通过统一生成器获得，测试不得依赖真实时间碰撞。
 
-当前债务：`httpapi.NewServer` 仍承担一部分组合根职责并直接创建适配器。下一次基础设施重构应把构造移动到 `cmd/topbase`，保留 `httpapi.NewHandler(Dependencies)`。
+组合根负责创建并注入具体适配器，协议层只通过稳定端口调用应用服务。新增基础设施时应保持这一依赖方向，避免把实现细节扩散到领域代码。
 
 ## 核心模块
 
@@ -69,7 +69,7 @@ cmd 负责把实现注入端口
 
 ### 身份、通知、密钥与 AI
 
-- `IdentityProvider`：本地、飞书，未来 LDAP/OIDC；回调统一生成内部 User/Session。
+- `IdentityProvider`：统一不同身份来源，并把认证结果转换为内部 User/Session。
 - `NotificationChannel`：站内、飞书、邮件、Webhook；统一测试、投递、重试和审计模型。
 - `SecretStore`：开发文件、生产 KMS/Vault；API 只返回“已配置”，不回传密钥。
 - `AIProvider`：只产生提案；授权、执行、保存和调度仍走正常应用服务。
@@ -110,7 +110,7 @@ cmd 负责把实现注入端口
 
 一个功能只有在以下条件全部满足时才可合并：
 
-1. 对应 `docs/metabase-parity-matrix.md` 中的能力 ID 和验收场景。
+1. 对应公开 Issue 或需求中的验收场景，行为边界清晰且可复现。
 2. 领域规则位于 `core/app`，协议和具体实现位于外层。
 3. 单元测试覆盖规则；HTTP 契约测试覆盖权限和错误；关键连接/查询有集成测试。
 4. UI 覆盖 loading、empty、success、error、permission denied 和窄屏；核心动作有即时反馈。
