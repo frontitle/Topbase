@@ -14,7 +14,10 @@ import (
 	"github.com/topbase/topbase/internal/core"
 )
 
-const oauthStateCookie = "topbase_oauth_state"
+const (
+	oauthStateCookie = "topbase_oauth_state"
+	oauthBindCookie  = "topbase_oauth_bind"
+)
 
 func (s *server) oauthLogin(w http.ResponseWriter, r *http.Request) {
 	provider, ok := s.oauthProvider(r.PathValue("provider"))
@@ -28,6 +31,16 @@ func (s *server) oauthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: state, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: 600})
+	if r.URL.Query().Get("intent") == "bind" {
+		user, signedIn := s.currentSessionUser(r)
+		if !signedIn {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in before linking an account"})
+			return
+		}
+		http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: state + ":" + user.ID, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: 600})
+	} else {
+		clearOAuthBindCookie(w, r)
+	}
 	redirectURI := externalURL(r, "/auth/oauth/"+provider.ID+"/callback")
 	values := url.Values{"state": {state}, "redirect_uri": {redirectURI}}
 	switch provider.Type {
@@ -68,6 +81,19 @@ func (s *server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 401, map[string]string{"error": err.Error()})
 		return
 	}
+	if bindCookie, cookieErr := r.Cookie(oauthBindCookie); cookieErr == nil {
+		bindState, bindUserID, found := strings.Cut(bindCookie.Value, ":")
+		current, signedIn := s.currentSessionUser(r)
+		clearOAuthBindCookie(w, r)
+		if found && bindState == r.URL.Query().Get("state") && signedIn && current.ID == bindUserID {
+			if err := s.identity.BindExternalIdentity(core.ExternalIdentityLink{ProviderID: provider.ID, Subject: subject, UserID: current.ID}); err != nil {
+				http.Redirect(w, r, "/account/?binding=failed", http.StatusFound)
+				return
+			}
+			http.Redirect(w, r, "/account/?binding=success", http.StatusFound)
+			return
+		}
+	}
 	session, _, err := s.identity.LoginExternalIdentity(provider.ID, subject, email)
 	if err != nil {
 		writeJSON(w, 403, map[string]string{"error": err.Error()})
@@ -75,6 +101,10 @@ func (s *server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	setSessionCookie(w, session.ID, session.ExpiresAt)
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func clearOAuthBindCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: "", Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: -1})
 }
 
 func (s *server) oauthProvider(id string) (core.IdentityProvider, bool) {

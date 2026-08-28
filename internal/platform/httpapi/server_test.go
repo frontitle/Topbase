@@ -312,6 +312,103 @@ func TestSetupLoginAndSaveQuestion(t *testing.T) {
 	}
 }
 
+func TestPersonalProfilePasswordAndBindingLifecycle(t *testing.T) {
+	handler := testServer(t)
+	session := adminSession(t, handler)
+
+	profileReq := httptest.NewRequest(http.MethodGet, "/api/user/profile", nil)
+	profileReq.AddCookie(session)
+	profileRec := httptest.NewRecorder()
+	handler.ServeHTTP(profileRec, profileReq)
+	if profileRec.Code != http.StatusOK || !bytes.Contains(profileRec.Body.Bytes(), []byte(`"name":"Ada"`)) {
+		t.Fatalf("profile %d: %s", profileRec.Code, profileRec.Body.String())
+	}
+	var initial struct {
+		User core.User `json:"user"`
+	}
+	if err := json.Unmarshal(profileRec.Body.Bytes(), &initial); err != nil {
+		t.Fatal(err)
+	}
+
+	deniedEmail := httptest.NewRequest(http.MethodPut, "/api/user/profile", bytes.NewBufferString(`{"name":"Ada Lovelace","email":"new@example.com","locale":"zh-CN","theme":"dark"}`))
+	deniedEmail.AddCookie(session)
+	deniedEmailRec := httptest.NewRecorder()
+	handler.ServeHTTP(deniedEmailRec, deniedEmail)
+	if deniedEmailRec.Code != http.StatusBadRequest {
+		t.Fatalf("email change without password %d: %s", deniedEmailRec.Code, deniedEmailRec.Body.String())
+	}
+
+	avatar := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+	updateBody, _ := json.Marshal(map[string]string{
+		"name": "Ada Lovelace", "email": "new@example.com", "locale": "zh-CN", "theme": "dark",
+		"avatar_url": avatar, "current_password": "secret123",
+	})
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/user/profile", bytes.NewReader(updateBody))
+	updateReq.AddCookie(session)
+	updateRec := httptest.NewRecorder()
+	handler.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK || !bytes.Contains(updateRec.Body.Bytes(), []byte(`"email":"new@example.com"`)) || !bytes.Contains(updateRec.Body.Bytes(), []byte(`"avatar_url"`)) {
+		t.Fatalf("profile update %d: %s", updateRec.Code, updateRec.Body.String())
+	}
+
+	wrongPassword := httptest.NewRequest(http.MethodPut, "/api/user/password", bytes.NewBufferString(`{"current_password":"wrong","new_password":"newsecret456"}`))
+	wrongPassword.AddCookie(session)
+	wrongPasswordRec := httptest.NewRecorder()
+	handler.ServeHTTP(wrongPasswordRec, wrongPassword)
+	if wrongPasswordRec.Code != http.StatusBadRequest {
+		t.Fatalf("wrong current password %d: %s", wrongPasswordRec.Code, wrongPasswordRec.Body.String())
+	}
+	changePassword := httptest.NewRequest(http.MethodPut, "/api/user/password", bytes.NewBufferString(`{"current_password":"secret123","new_password":"newsecret456"}`))
+	changePassword.AddCookie(session)
+	changePasswordRec := httptest.NewRecorder()
+	handler.ServeHTTP(changePasswordRec, changePassword)
+	if changePasswordRec.Code != http.StatusOK {
+		t.Fatalf("change password %d: %s", changePasswordRec.Code, changePasswordRec.Body.String())
+	}
+	oldLogin := httptest.NewRequest(http.MethodPost, "/api/session", bytes.NewBufferString(`{"email":"new@example.com","password":"secret123"}`))
+	oldLoginRec := httptest.NewRecorder()
+	handler.ServeHTTP(oldLoginRec, oldLogin)
+	if oldLoginRec.Code != http.StatusUnauthorized {
+		t.Fatalf("old password login %d", oldLoginRec.Code)
+	}
+	newLogin := httptest.NewRequest(http.MethodPost, "/api/session", bytes.NewBufferString(`{"email":"new@example.com","password":"newsecret456"}`))
+	newLoginRec := httptest.NewRecorder()
+	handler.ServeHTTP(newLoginRec, newLogin)
+	if newLoginRec.Code != http.StatusOK {
+		t.Fatalf("new password login %d: %s", newLoginRec.Code, newLoginRec.Body.String())
+	}
+
+	providers := `[{"id":"google-main","type":"google","name":"Google","enabled":true,"client_id":"client","client_secret":"secret"}]`
+	providersReq := httptest.NewRequest(http.MethodPut, "/api/identity/providers", bytes.NewBufferString(providers))
+	providersReq.AddCookie(session)
+	providersRec := httptest.NewRecorder()
+	handler.ServeHTTP(providersRec, providersReq)
+	if providersRec.Code != http.StatusOK {
+		t.Fatalf("save providers %d: %s", providersRec.Code, providersRec.Body.String())
+	}
+	bindReq := httptest.NewRequest(http.MethodPost, "/api/users/"+initial.User.ID+"/external-identities", bytes.NewBufferString(`{"provider_id":"google-main","subject":"google-user-1"}`))
+	bindReq.AddCookie(session)
+	bindRec := httptest.NewRecorder()
+	handler.ServeHTTP(bindRec, bindReq)
+	if bindRec.Code != http.StatusOK {
+		t.Fatalf("bind identity %d: %s", bindRec.Code, bindRec.Body.String())
+	}
+	linkedReq := httptest.NewRequest(http.MethodGet, "/api/user/profile", nil)
+	linkedReq.AddCookie(session)
+	linkedRec := httptest.NewRecorder()
+	handler.ServeHTTP(linkedRec, linkedReq)
+	if linkedRec.Code != http.StatusOK || !bytes.Contains(linkedRec.Body.Bytes(), []byte(`"linked":true`)) {
+		t.Fatalf("linked profile %d: %s", linkedRec.Code, linkedRec.Body.String())
+	}
+	unbindReq := httptest.NewRequest(http.MethodDelete, "/api/user/external-identities/google-main", nil)
+	unbindReq.AddCookie(session)
+	unbindRec := httptest.NewRecorder()
+	handler.ServeHTTP(unbindRec, unbindReq)
+	if unbindRec.Code != http.StatusNoContent {
+		t.Fatalf("unbind identity %d: %s", unbindRec.Code, unbindRec.Body.String())
+	}
+}
+
 func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
 	handler := testServer(t)
 	for _, path := range []string{"/api/health", "/api/ready", "/api/version"} {
@@ -325,7 +422,7 @@ func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
 	versionReq := httptest.NewRequest(http.MethodGet, "/api/version", nil)
 	versionRec := httptest.NewRecorder()
 	handler.ServeHTTP(versionRec, versionReq)
-	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":7`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
+	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":8`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
 		t.Fatalf("unexpected version payload: %s", versionRec.Body.String())
 	}
 }

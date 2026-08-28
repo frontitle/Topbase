@@ -33,9 +33,26 @@ func (m *memUsers) ByFeishuOpenID(openID string) (core.User, error) {
 	}
 	return core.User{}, core.ErrNotFound
 }
-func (m *memUsers) List() ([]core.User, error)       { return nil, nil }
-func (m *memUsers) SetActive(string, bool) error     { return nil }
-func (m *memUsers) SetPassword(string, string) error { return nil }
+func (m *memUsers) List() ([]core.User, error)   { return nil, nil }
+func (m *memUsers) SetActive(string, bool) error { return nil }
+func (m *memUsers) SetPassword(id, password string) error {
+	user, ok := m.items[id]
+	if !ok {
+		return core.ErrNotFound
+	}
+	user.PasswordHash = password
+	m.items[id] = user
+	return nil
+}
+func (m *memUsers) UpdateProfile(id, name, email, locale, theme, avatarURL string) error {
+	user, ok := m.items[id]
+	if !ok {
+		return core.ErrNotFound
+	}
+	user.Name, user.Email, user.Locale, user.Theme, user.AvatarURL = name, email, locale, theme, avatarURL
+	m.items[id] = user
+	return nil
+}
 
 type memGroups struct {
 	items   map[string]core.Group

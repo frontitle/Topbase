@@ -18,6 +18,7 @@ type UserStore interface {
 	List() ([]User, error)
 	SetActive(id string, active bool) error
 	SetPassword(id, passwordHash string) error
+	UpdateProfile(id, name, email, locale, theme, avatarURL string) error
 }
 
 type GroupStore interface {
