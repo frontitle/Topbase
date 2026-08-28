@@ -422,7 +422,7 @@ func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
 	versionReq := httptest.NewRequest(http.MethodGet, "/api/version", nil)
 	versionRec := httptest.NewRecorder()
 	handler.ServeHTTP(versionRec, versionReq)
-	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":8`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
+	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":9`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
 		t.Fatalf("unexpected version payload: %s", versionRec.Body.String())
 	}
 }
@@ -549,6 +549,75 @@ func TestPersonalAnalysisAndDashboardAreIsolatedByDataGroup(t *testing.T) {
 	handler.ServeHTTP(listDashboardsRec, listDashboards)
 	if bytes.Contains(listDashboardsRec.Body.Bytes(), []byte(adminDashboard.ID)) {
 		t.Fatalf("private dashboard leaked in list: %s", listDashboardsRec.Body.String())
+	}
+}
+
+func TestPersonalAnalysisGroupCanBeSharedReadOnly(t *testing.T) {
+	handler := testServer(t)
+	adminCookie := adminSession(t, handler)
+
+	createQuestion := httptest.NewRequest(http.MethodPost, "/api/questions", bytes.NewBufferString(`{"name":"共享分析","query_type":"queryir","queryir":{"version":1,"source":{"database_id":"pg_demo","table":{"schema":"public","name":"orders"}},"limit":10}}`))
+	createQuestion.AddCookie(adminCookie)
+	createQuestionRec := httptest.NewRecorder()
+	handler.ServeHTTP(createQuestionRec, createQuestion)
+	if createQuestionRec.Code != http.StatusCreated {
+		t.Fatalf("create shared analysis %d: %s", createQuestionRec.Code, createQuestionRec.Body.String())
+	}
+	var question core.Question
+	if err := json.Unmarshal(createQuestionRec.Body.Bytes(), &question); err != nil {
+		t.Fatal(err)
+	}
+
+	invite := httptest.NewRequest(http.MethodPost, "/api/users", bytes.NewBufferString(`{"name":"Viewer","email":"viewer@example.com","password":"secret123"}`))
+	invite.AddCookie(adminCookie)
+	inviteRec := httptest.NewRecorder()
+	handler.ServeHTTP(inviteRec, invite)
+	if inviteRec.Code != http.StatusCreated {
+		t.Fatalf("invite viewer %d: %s", inviteRec.Code, inviteRec.Body.String())
+	}
+	var viewer core.User
+	if err := json.Unmarshal(inviteRec.Body.Bytes(), &viewer); err != nil {
+		t.Fatal(err)
+	}
+
+	share := httptest.NewRequest(http.MethodPut, "/api/collections/"+question.CollectionID+"/shares", bytes.NewBufferString(`{"user_ids":["`+viewer.ID+`"]}`))
+	share.AddCookie(adminCookie)
+	shareRec := httptest.NewRecorder()
+	handler.ServeHTTP(shareRec, share)
+	if shareRec.Code != http.StatusNoContent {
+		t.Fatalf("share personal group %d: %s", shareRec.Code, shareRec.Body.String())
+	}
+
+	login := httptest.NewRequest(http.MethodPost, "/api/session", bytes.NewBufferString(`{"email":"viewer@example.com","password":"secret123"}`))
+	loginRec := httptest.NewRecorder()
+	handler.ServeHTTP(loginRec, login)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("viewer login %d: %s", loginRec.Code, loginRec.Body.String())
+	}
+	viewerCookie := cookieNamed(t, loginRec.Result().Cookies(), sessionCookie)
+
+	list := httptest.NewRequest(http.MethodGet, "/api/collections", nil)
+	list.AddCookie(viewerCookie)
+	listRec := httptest.NewRecorder()
+	handler.ServeHTTP(listRec, list)
+	if listRec.Code != http.StatusOK || !bytes.Contains(listRec.Body.Bytes(), []byte(`"read_only":true`)) || !bytes.Contains(listRec.Body.Bytes(), []byte(question.CollectionID)) {
+		t.Fatalf("shared list %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	viewQuestion := httptest.NewRequest(http.MethodGet, "/api/questions/"+question.ID, nil)
+	viewQuestion.AddCookie(viewerCookie)
+	viewQuestionRec := httptest.NewRecorder()
+	handler.ServeHTTP(viewQuestionRec, viewQuestion)
+	if viewQuestionRec.Code != http.StatusOK {
+		t.Fatalf("view shared analysis %d: %s", viewQuestionRec.Code, viewQuestionRec.Body.String())
+	}
+
+	editQuestion := httptest.NewRequest(http.MethodPut, "/api/questions/"+question.ID, bytes.NewBufferString(`{"name":"不应保存","collection_id":"`+question.CollectionID+`"}`))
+	editQuestion.AddCookie(viewerCookie)
+	editQuestionRec := httptest.NewRecorder()
+	handler.ServeHTTP(editQuestionRec, editQuestion)
+	if editQuestionRec.Code != http.StatusForbidden {
+		t.Fatalf("shared analysis must be read-only %d: %s", editQuestionRec.Code, editQuestionRec.Body.String())
 	}
 }
 

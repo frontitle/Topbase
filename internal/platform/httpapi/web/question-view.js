@@ -1,5 +1,6 @@
 const id = location.pathname.split('/').filter(Boolean)[1];
 let question = null, collections = [], filterBar = null, lastResult = null, spec = null, saveTimer = 0;
+let nameSaving = false;
 
 async function run(queryir) {
   if (queryir) return api('/api/dataset', 'POST', queryir);
@@ -140,6 +141,53 @@ function setMeta() {
   });
 }
 
+async function saveName(name) {
+  const nextName = String(name || '').trim();
+  if (!nextName) {
+    toast('分析名称不能为空');
+    setMeta();
+    return;
+  }
+  if (nextName === question.name) { setMeta(); return; }
+  if (nameSaving) return;
+  nameSaving = true;
+  try {
+    question = await api('/api/questions/' + id, 'PUT', {
+      name: nextName,
+      description: question.description || '',
+      collection_id: question.collection_id || '',
+      chartspec: spec || question.chartspec
+    });
+    setMeta();
+    toast('名称已保存');
+  } catch (e) {
+    setMeta();
+    toast(e.message);
+  } finally {
+    nameSaving = false;
+  }
+}
+
+function editName() {
+  if (!question || nameSaving || $('#heading input')) return;
+  const heading = $('#heading');
+  const input = document.createElement('input');
+  input.className = 'analysis-name-input';
+  input.value = question.name;
+  input.setAttribute('aria-label', '分析名称');
+  heading.textContent = '';
+  heading.append(input);
+  input.focus();
+  input.select();
+  let submitted = false;
+  const submit = () => { if (!submitted) { submitted = true; saveName(input.value); } };
+  input.onkeydown = event => {
+    if (event.key === 'Enter') { event.preventDefault(); submit(); }
+    if (event.key === 'Escape') { submitted = true; setMeta(); }
+  };
+  input.onblur = submit;
+}
+
 async function loadResult() {
   showError('');
   $('#viz-stage').innerHTML = '<div class="viz-empty"><b>正在运行</b><p>正在拉取这条分析的结果。</p></div>';
@@ -187,18 +235,9 @@ function on(id, fn) {
   if (el) el.onclick = fn;
 }
 on('rerun', () => loadResult().catch(e => toast(e.message)));
-on('rename', async () => {
-  const name = await promptDialog({ kicker: '分析设置', title: '重命名分析', label: '分析名称', value: question.name, confirmText: '保存名称' });
-  if (!name) return;
-  question = await api('/api/questions/' + id, 'PUT', {
-    name,
-    description: question.description || '',
-    collection_id: question.collection_id || '',
-    chartspec: spec || question.chartspec
-  });
-  setMeta();
-  toast('已重命名');
-});
+on('title', editName);
+on('heading', editName);
+$('#heading').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); editName(); } };
 on('move', async () => {
   const collection_id = await choiceDialog({
     kicker: '分析分组',
@@ -207,7 +246,7 @@ on('move', async () => {
     label: '目标位置',
     value: question.collection_id || '',
     confirmText: '移动分析',
-    options: [{ value: '', label: '未分组', description: '暂不放入任何分析分组' }].concat(collections.map(c => ({ value: c.id, label: c.name, description: c.kind === 'personal_project' ? '个人分组' : '团队分组' })))
+    options: [{ value: '', label: '我的分析', description: '保存到你的默认个人分组' }].concat(collections.filter(c=>!c.read_only).map(c => ({ value: c.id, label: c.name, description: c.kind === 'personal_project' ? '个人分组' : '企业项目' })))
   });
   if (collection_id === null) return;
   question = await api('/api/questions/' + id, 'PUT', {

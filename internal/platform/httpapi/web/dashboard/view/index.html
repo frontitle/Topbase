@@ -26,14 +26,21 @@
     <main>
       <div class="board-layout viewing" id="layout">
         <aside class="board-palette" id="palette">
-          <div class="palette-section">
+          <div class="palette-tabs" id="palette-tabs" role="tablist" aria-label="添加内容">
+            <button class="active" data-palette-tab="analysis" type="button">添加分析</button>
+            <button data-palette-tab="components" type="button">添加小组件</button>
+          </div>
+          <div class="palette-content">
+          <div class="palette-section" data-palette-panel="analysis" role="tabpanel">
             <h3>快速添加分析</h3>
             <p class="hint">点击立即添加，也可以拖到右侧指定位置。</p>
             <input id="qsearch" type="search" placeholder="搜索已创建的分析">
+            <select id="qcollection" aria-label="按分组筛选分析"><option value="">全部分组</option></select>
             <div id="palette-questions"></div>
+            <button class="secondary palette-more" id="palette-more" type="button" hidden>加载更多</button>
           </div>
-          <div class="palette-section palette-components">
-            <h3>其它内容</h3>
+          <div class="palette-section palette-components" data-palette-panel="components" role="tabpanel" hidden>
+            <h3>小组件</h3>
             <div class="palette-actions">
               <button class="secondary" draggable="true" data-add="heading" type="button">标题</button>
               <button class="secondary" draggable="true" data-add="text" type="button">文本</button>
@@ -43,19 +50,24 @@
               <button class="secondary" draggable="true" data-add="iframe" type="button">网页</button>
             </div>
             <div class="palette-actions">
-              <button class="secondary" draggable="true" data-add="metric" type="button">指标</button>
+              <button class="secondary" id="add-image" type="button">图片</button>
               <button class="secondary" draggable="true" data-add="divider" type="button">分隔线</button>
             </div>
+            <div class="palette-actions">
+              <button class="secondary" draggable="true" data-add="time" type="button">时间</button>
+              <button class="secondary" draggable="true" data-add="plugin" type="button">自定义组件</button>
+            </div>
+            <a class="plugin-doc-link" href="/developers/dashboard-components/" target="_blank" rel="noopener">开发第三方组件 ↗</a>
+            <input id="image-upload" type="file" accept="image/*" multiple hidden>
+          </div>
           </div>
         </aside>
+        <div id="canvas-controls" class="canvas-controls" hidden></div>
         <div class="board-canvas" id="board-canvas">
           <div class="board-toolbar">
             <div id="tabs" class="tabs"></div>
             <div id="filters" class="filters"></div>
-            <button class="secondary" id="add-filter" type="button" hidden>添加筛选</button>
-            <button class="primary" id="apply" type="button">应用筛选</button>
           </div>
-          <div id="canvas-controls" class="canvas-controls" hidden></div>
           <section id="grid" class="board-grid"></section>
         </div>
       </div>

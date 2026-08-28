@@ -88,6 +88,7 @@ type Subscription struct {
 type SubscriptionStore interface {
 	Create(Subscription) error
 	Update(Subscription) error
+	Delete(id string) error
 	ByID(id string) (Subscription, error)
 	ListByDashboard(dashboardID string) ([]Subscription, error)
 	List() ([]Subscription, error)

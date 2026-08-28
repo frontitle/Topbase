@@ -24,7 +24,20 @@ func (s *server) canAccessCollection(user core.User, collectionID, required stri
 		return false
 	}
 	collection, err := s.content.Collections.ByID(collectionID)
-	return err == nil && s.identity.CanAccessProject(user, collection, required)
+	if err != nil {
+		return false
+	}
+	if s.identity.CanAccessProject(user, collection, required) {
+		return true
+	}
+	// A personal analysis group can be shared directly. It deliberately grants
+	// only viewing: recipients can inspect its analyses but cannot edit, move,
+	// create, or delete anything inside it.
+	if required == "view" && collection.Kind == "personal_project" {
+		shared, err := s.store.IsCollectionSharedWith(collectionID, user.ID)
+		return err == nil && shared
+	}
+	return false
 }
 
 func (s *server) canAccessQuestion(user core.User, question core.Question, required string) bool {

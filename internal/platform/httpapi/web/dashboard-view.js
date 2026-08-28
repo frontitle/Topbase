@@ -3,7 +3,7 @@ const pathParts = location.pathname.split('/').filter(Boolean);
 const isPublicDashboard = ['public', 'embed'].includes(pathParts[0]) && pathParts[1] === 'dashboard';
 const boardId = isPublicDashboard ? '' : (pathParts[1] || new URLSearchParams(location.search).get('id'));
 const publicUUID = isPublicDashboard ? pathParts[2] : '';
-let board = null, questions = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '';
+let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [];
 const APPEARANCE_DEFAULTS = { theme: 'deep', background: '#07111f', grid: true, snap: true, glow: true };
 
 function newID(prefix) {
@@ -26,6 +26,7 @@ function rect(layout) {
   };
 }
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+function minHeight(card) { return ['heading', 'text', 'divider'].includes(card.type) ? 1 : MIN_H; }
 function overlaps(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
@@ -97,7 +98,7 @@ function renderCanvasControls() {
   host.hidden = !editing;
   if (!editing) return;
   const a = appearance();
-  host.innerHTML = `<div class="canvas-control-group"><span>画布</span><button data-theme="deep" class="${a.theme==='deep'?'active':''}" type="button">深空</button><button data-theme="aurora" class="${a.theme==='aurora'?'active':''}" type="button">极光</button><button data-theme="light" class="${a.theme==='light'?'active':''}" type="button">明亮</button></div><label class="canvas-color">背景 <input id="canvas-background" type="color" value="${esc(a.background)}"></label><label class="canvas-switch"><input id="canvas-grid-toggle" type="checkbox" ${a.grid?'checked':''}> 网格</label><label class="canvas-switch"><input id="canvas-snap-toggle" type="checkbox" ${a.snap?'checked':''}> 吸附</label><label class="canvas-switch"><input id="canvas-glow-toggle" type="checkbox" ${a.glow?'checked':''}> 微光</label>`;
+  host.innerHTML = `<span class="canvas-label">画布</span><div class="canvas-control-group"><button data-theme="deep" class="${a.theme==='deep'?'active':''}" type="button">深空</button><button data-theme="aurora" class="${a.theme==='aurora'?'active':''}" type="button">极光</button><button data-theme="light" class="${a.theme==='light'?'active':''}" type="button">明亮</button></div><label class="canvas-color">背景 <input id="canvas-background" type="color" value="${esc(a.background)}"></label><label class="canvas-switch"><input id="canvas-grid-toggle" type="checkbox" ${a.grid?'checked':''}> 网格</label><label class="canvas-switch"><input id="canvas-snap-toggle" type="checkbox" ${a.snap?'checked':''}> 吸附</label><label class="canvas-switch"><input id="canvas-glow-toggle" type="checkbox" ${a.glow?'checked':''}> 微光</label>`;
   $$('[data-theme]', host).forEach(button => button.onclick = () => { appearance().theme = button.dataset.theme; applyAppearance(); renderCanvasControls(); scheduleSave(); });
   $('#canvas-background').oninput = event => { appearance().background = event.target.value; applyAppearance(); scheduleSave(); };
   $('#canvas-grid-toggle').onchange = event => { appearance().grid = event.target.checked; applyAppearance(); scheduleSave(); };
@@ -118,7 +119,10 @@ function scheduleSave() {
 }
 
 function renderTabs() {
-  $('#tabs').innerHTML = (board.tabs || []).map(t => `<button data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
+  const tabs = board.tabs || [];
+  $('#tabs').hidden = tabs.length <= 1;
+  $('#tabs').innerHTML = tabs.length <= 1 ? '' : tabs.map(t => `<button data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
+  $('.board-toolbar').hidden = tabs.length <= 1 && !(board.filters || []).length;
   $$('#tabs button').forEach(b => b.onclick = () => { activeTab = b.dataset.tab; render(); loadCards(); });
 }
 function renderFilters() {
@@ -130,12 +134,17 @@ function renderFilters() {
 function renderPalette() {
   if (!$('#palette-questions')) return;
   const q = ($('#qsearch').value || '').toLowerCase();
+  const collectionID = $('#qcollection').value;
   const used = usedQuestionIDs();
-  const items = questions.filter(item => ((item.name || '') + ' ' + (item.query_type || '')).toLowerCase().includes(q));
-  $('#palette-questions').innerHTML = items.map(item => {
+  const items = questions.filter(item => (!collectionID || (collectionID === 'unassigned' ? !item.collection_id : item.collection_id === collectionID)) && ((item.name || '') + ' ' + (item.description || '') + ' ' + (item.query_type || '')).toLowerCase().includes(q));
+  const shown = items.slice(0, paletteLimit);
+  $('#palette-questions').innerHTML = shown.map(item => {
     const added=used.has(item.id);
-    return `<button class="palette-item ${added?'added':''}" draggable="${added?'false':'true'}" data-qid="${item.id}" type="button" ${added?'disabled':''}><b>${esc(item.name)}</b><small>${item.query_type === 'native' ? 'SQL 分析' : '可视化分析'} · ${added?'已添加':'点击添加'}</small></button>`;
+    const group = collections.find(collection => collection.id === item.collection_id);
+    return `<button class="palette-item ${added?'added':''}" draggable="${added?'false':'true'}" data-qid="${item.id}" type="button" ${added?'disabled':''}><b>${esc(item.name)}</b><small>${group ? esc(group.name) + ' · ' : ''}${item.query_type === 'native' ? 'SQL 分析' : '可视化分析'} · ${added?'已添加':'点击添加'}</small></button>`;
   }).join('') || '<div class="palette-empty"><b>还没有分析</b><p>选择起始数据，通过可视化构建器保存第一条分析。</p><a href="/questions/new/">创建分析</a></div>';
+  $('#palette-more').hidden = items.length <= shown.length;
+  $('#palette-more').textContent = `加载更多（还有 ${items.length - shown.length} 条）`;
   $$('#palette-questions .palette-item:not([disabled])').forEach(btn => {
     btn.ondragstart = ev => {
       ev.dataTransfer.setData('text/plain', btn.dataset.qid);
@@ -143,6 +152,23 @@ function renderPalette() {
     };
     btn.onclick = () => addQuestion(btn.dataset.qid);
   });
+}
+function renderPaletteTabs() {
+  $$('[data-palette-tab]').forEach(button => {
+    const active = button.dataset.paletteTab === paletteTab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  $$('[data-palette-panel]').forEach(panel => { panel.hidden = panel.dataset.palettePanel !== paletteTab; });
+}
+function renderCollectionFilter() {
+  const select = $('#qcollection');
+  if (!select) return;
+  const selected = select.value;
+  const counts = new Map();
+  questions.forEach(question => counts.set(question.collection_id || '', (counts.get(question.collection_id || '') || 0) + 1));
+  select.innerHTML = `<option value="">全部分组（${questions.length}）</option>` + collections.filter(collection => counts.has(collection.id)).map(collection => `<option value="${esc(collection.id)}">${esc(collection.name)}（${counts.get(collection.id)}）</option>`).join('') + (counts.has('') ? `<option value="unassigned">未分组（${counts.get('')}）</option>` : '');
+  select.value = selected;
 }
 
 function cardTitle(card) {
@@ -152,34 +178,105 @@ function cardTitle(card) {
   if (card.type === 'text') return '文本';
   if (card.type === 'link') return card.title || '链接';
   if (card.type === 'iframe') return card.title || '网页';
+  if (card.type === 'divider') return card.title || '分隔标题';
   if (card.type === 'metric') return card.title || '核心指标';
   return '分析卡';
 }
+function richText(card) {
+  const raw = card.config && card.config.rich_text;
+  if (!raw) return esc(card.body || '');
+  const doc = new DOMParser().parseFromString(raw, 'text/html');
+  doc.body.querySelectorAll('*').forEach(node => {
+    if (!['B','STRONG','I','EM','U','UL','OL','LI','BR','A','P','DIV'].includes(node.tagName)) node.replaceWith(...node.childNodes);
+    else [...node.attributes].forEach(attr => { if (!(node.tagName === 'A' && attr.name === 'href')) node.removeAttribute(attr.name); });
+  });
+  doc.body.querySelectorAll('a').forEach(link => { link.target = '_blank'; link.rel = 'noopener'; });
+  return doc.body.innerHTML;
+}
+function typography(card) {
+  const style = (card.config && card.config.typography) || {};
+  return { font: ['system','serif','mono'].includes(style.font) ? style.font : 'system', size: [12,14,16,18,22,28].includes(Number(style.size)) ? Number(style.size) : (card.type === 'heading' ? 22 : 14) };
+}
+function typographyStyle(card) {
+  const style = typography(card);
+  const font = { system: 'var(--tb-font)', serif: 'Georgia, "Noto Serif SC", serif', mono: 'ui-monospace, SFMono-Regular, Menlo, monospace' }[style.font];
+  return `font-family:${font};font-size:${style.size}px`;
+}
+function typographyTools(card) {
+  const style = typography(card);
+  return `<div class="rich-text-tools typography-tools"><button data-format="bold" type="button"><b>B</b></button><button data-format="italic" type="button"><i>I</i></button><button data-format="underline" type="button"><u>U</u></button>${card.type === 'text' ? '<button data-format="insertUnorderedList" type="button">• 列表</button>' : ''}<select data-typography="font" data-card-id="${card.id}"><option value="system" ${style.font==='system'?'selected':''}>无衬线</option><option value="serif" ${style.font==='serif'?'selected':''}>衬线</option><option value="mono" ${style.font==='mono'?'selected':''}>等宽</option></select><select data-typography="size" data-card-id="${card.id}">${[12,14,16,18,22,28].map(size => `<option value="${size}" ${style.size===size?'selected':''}>${size}px</option>`).join('')}</select></div>`;
+}
+function presentation(card) {
+  return Object.assign({ border: 'default', surface: 'solid', padding: 'normal', radius: 'round', shadow: 'default', align: 'left', show_header: true }, (card.config && card.config.presentation) || {});
+}
+function cardVizType(card) {
+  if (card.type !== 'question') return '';
+  const own = card.config && card.config.chartspec && card.config.chartspec.type;
+  const source = questionMap[card.question_id] && questionMap[card.question_id].chartspec;
+  // 表格是未指定图形时的默认呈现；因此没有明确图形类型的分析卡同样按表格处理。
+  return own || (source && source.type) || 'table';
+}
+function presentationPanel(card) {
+  const p = presentation(card);
+  const select = (key, values) => `<label>${key === 'border' ? '边框' : key === 'surface' ? '底色' : key === 'padding' ? '留白' : key === 'radius' ? '圆角' : '对齐'}<select data-presentation="${key}" data-card-id="${card.id}">${values.map(([value, label]) => `<option value="${value}" ${p[key] === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
+  const hasBorder = p.border !== 'none';
+  const canShadow = hasBorder && p.surface !== 'transparent';
+  let componentOptions = '';
+  if (card.type === 'text') componentOptions = `<section class="card-style-section"><b>内容效果</b><label class="card-style-switch"><span>文字效果</span><select data-effect="text" data-card-id="${card.id}"><option value="none">静态</option><option value="marquee-left">横向走马灯</option><option value="marquee-up">纵向走马灯</option></select></label></section>`;
+  else if (card.type === 'image') componentOptions = `<section class="card-style-section"><b>播放效果</b><label class="card-style-switch"><input data-carousel="enabled" data-card-id="${card.id}" type="checkbox" ${card.config && card.config.carousel ? 'checked' : ''}> 自动轮播</label><label class="card-style-switch"><span>间隔</span><select data-carousel="interval" data-card-id="${card.id}">${[3,5,8,12].map(value => `<option value="${value}" ${card.config && Number(card.config.carousel_interval) === value ? 'selected' : ''}>${value} 秒</option>`).join('')}</select></label></section>`;
+  else if (card.type === 'time') componentOptions = `<section class="card-style-section"><b>时间内容</b><label class="card-style-switch"><span>显示内容</span><select data-time-mode data-card-id="${card.id}"><option value="datetime">日期和时间</option><option value="date">仅日期</option><option value="time">仅时间</option><option value="weekday">星期和日期</option></select></label></section>`;
+  else if (cardVizType(card) === 'table') componentOptions = `<section class="card-style-section"><b>表格呈现</b><label class="card-style-switch"><span>数据动效</span><select data-table-motion data-card-id="${card.id}"><option value="none">静态</option><option value="scroll">数据滚动</option><option value="page">自动翻页</option></select></label></section>`;
+  return `<div class="card-style-panel"><header><b>组件样式</b><button data-close-style type="button" aria-label="关闭">×</button></header><section class="card-style-section"><b>布局</b><div class="card-style-grid">${select('border', [['default','默认边框'],['none','无边框'],['glow','发光边框']])}${select('surface', [['solid','实色底'],['transparent','透明'],['glass','玻璃']])}${select('padding', [['normal','标准'],['compact','紧凑'],['none','无内边距']])}${hasBorder ? select('radius', [['round','圆角'],['square','直角']]) : ''}${select('align', [['left','居左'],['center','居中'],['right','居右']])}</div>${canShadow ? `<label class="card-style-switch"><input data-presentation="shadow" data-card-id="${card.id}" type="checkbox" ${p.shadow !== 'none' ? 'checked' : ''}> 显示阴影</label>` : ''}<label class="card-style-switch"><input data-presentation="show_header" data-card-id="${card.id}" type="checkbox" ${p.show_header !== false ? 'checked' : ''}> 展示标题栏</label></section>${componentOptions}</div>`;
+}
 
 function cardHTML(card) {
+  const p = presentation(card);
   const tools = editing ? `<div class="card-tools">
       ${card.type === 'question' ? `<select data-viz="${card.id}">${TopbaseViz.types.map(t => `<option value="${t.id}">${t.label}</option>`).join('')}</select>` : ''}
-      <button type="button" data-copy="${card.id}">复制</button><button type="button" data-del="${card.id}">删除</button>
-    </div>` : (card.question_id ? `<div class="card-tools"><a class="secondary" href="/questions/${card.question_id}/">打开</a></div>` : '');
+      <button type="button" data-card-style="${card.id}" title="组件样式" aria-label="组件样式">◈</button><button class="card-delete" type="button" data-del="${card.id}" title="删除组件" aria-label="删除组件">×</button>
+    </div>` : '';
   const body = card.type === 'heading'
-    ? `<h2 ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${esc(card.title || '标题')}</h2>`
-    : card.type === 'text'
-      ? `<p ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${esc(card.body || '')}</p>`
+    ? `<div class="heading-wrap">${editing ? typographyTools(card) : ''}<h2 style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${esc(card.title || '标题')}</h2></div>`
+      : card.type === 'text'
+      ? `<div class="rich-text-wrap">${editing ? typographyTools(card) : ''}<div class="rich-text text-effect-${editing ? 'none' : (card.config && card.config.text_effect || 'none')}" style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${richText(card)}</div></div>`
       : card.type === 'link'
         ? (editing ? `<div class="card-config"><label>链接名称<input data-card-field="title" value="${esc(card.title||'链接')}"></label><label>跳转地址<input data-card-field="body" value="${esc(card.body||'https://')}"></label></div>` : `<a class="dashboard-link" href="${esc(card.body||'#')}" target="_blank" rel="noopener">${esc(card.title||card.body||'打开链接')}</a>`)
-        : card.type === 'iframe'
-          ? (editing ? `<div class="card-config"><label>网页标题<input data-card-field="title" value="${esc(card.title||'嵌入网页')}"></label><label>网页地址<input data-card-field="iframe_url" value="${esc(card.config&&card.config.url||'https://')}"></label></div>` : `<iframe class="dashboard-frame" src="${esc(card.config&&card.config.url||'about:blank')}" title="${esc(card.title||'嵌入网页')}" loading="lazy"></iframe>`)
-          : card.type === 'metric'
-            ? `<div class="dashboard-metric"><small ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${esc(card.title || '核心指标')}</small><b ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${esc(card.body || '98,765')}</b><em>较上周期 <i>↑ 12.6%</i></em></div>`
-            : card.type === 'divider'
-              ? `<div class="dashboard-divider"><span>${esc(card.title || '')}</span></div>`
+      : card.type === 'plugin'
+        ? (editing ? `<div class="plugin-editor"><div class="card-config"><label>组件名称<input data-card-field="title" value="${esc(card.title||'自定义组件')}"></label><label>组件运行地址<input data-card-field="plugin_url" value="${esc(card.config&&card.config.url||'https://')}"></label><p class="embed-validation" data-embed-validation="${card.id}">组件运行在隔离 iframe 中；配置变化会实时传递给预览。</p></div>${pluginHTML(card)}</div>` : pluginHTML(card))
+      : card.type === 'iframe'
+          ? (editing ? `<div class="card-config"><label>网页标题<input data-card-field="title" value="${esc(card.title||'嵌入网页')}"></label><label>网页地址<input data-card-field="iframe_url" value="${esc(card.config&&card.config.url||'https://')}"></label><p class="embed-validation" data-embed-validation="${card.id}">输入地址后会自动检查是否允许嵌入。</p></div>` : `<div class="dashboard-frame-wrap"><iframe class="dashboard-frame" src="${esc(card.config&&card.config.url||'about:blank')}" title="${esc(card.title||'嵌入网页')}" loading="lazy"></iframe><a class="iframe-open" href="${esc(card.config&&card.config.url||'#')}" target="_blank" rel="noopener">无法显示？新窗口打开 ↗</a></div>`)
+          : card.type === 'image'
+            ? imageHTML(card)
+          : card.type === 'time'
+            ? `<div class="dashboard-time" data-clock="${card.id}"></div>`
+          : card.type === 'divider'
+              ? `<div class="dashboard-divider"></div>`
           : `<div class="viz-stage" data-vizhost="${card.id}"><div class="viz-empty"><b>加载中</b><p>正在运行分析。</p></div></div>`;
-  const title = card.type === 'heading' ? '' : `<div class="card-head" data-drag="${card.id}"><h3>${card.question_id ? `<a href="/questions/${card.question_id}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3>${tools}</div>`;
-  return `<article class="board-card ${editing ? 'editing' : ''} ${selectedCard===card.id ? 'selected' : ''} ${card.type === 'divider' ? 'board-divider-card' : ''}" data-card="${card.id}">
-    ${title || `<div class="card-head" data-drag="${card.id}">${tools}</div>`}
+  const hasTitle = card.question_id || card.type === 'divider';
+  const title = !hasTitle || (!editing && p.show_header === false) ? '' : `<div class="card-head" data-drag="${card.id}"><h3 ${card.type === 'divider' && editing ? 'contenteditable="true" data-edit="title"' : ''}>${card.question_id ? `<a href="/questions/${card.question_id}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3>${tools}</div>`;
+  return `<article class="board-card ${editing ? 'editing' : ''} ${styleCard===card.id ? 'style-open' : ''} ${selectedCard===card.id ? 'selected' : ''} ${card.type === 'divider' ? 'board-divider-card' : ''} card-border-${p.border} card-surface-${p.surface} card-padding-${p.padding} card-radius-${p.radius} card-shadow-${p.shadow} card-align-${p.align}" data-card="${card.id}">
+    ${title || (editing ? `<div class="card-head card-head-tools-only" data-drag="${card.id}">${tools}</div>` : '')}
     <div class="card-body">${body}</div>
     <div class="resize-handle" data-resize="${card.id}"></div>
+    ${editing && styleCard === card.id ? presentationPanel(card) : ''}
   </article>`;
+}
+function pluginHTML(card) {
+  const url = card.config && card.config.url;
+  if (!url || url === 'https://') return '<div class="plugin-placeholder"><b>尚未配置自定义组件</b><span>在编辑状态输入组件运行地址。</span></div>';
+  return `<div class="dashboard-plugin-wrap"><iframe class="dashboard-plugin-frame" data-plugin-card="${card.id}" src="${esc(url)}" title="${esc(card.title || '自定义组件')}" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer" loading="lazy"></iframe></div>`;
+}
+function imageHTML(card) {
+  const images = (card.config && (card.config.images || (card.config.data_url ? [card.config.data_url] : []))) || [];
+  if (!images.length) return '<div class="image-placeholder">选择图片后在此展示</div>';
+  return `<div class="image-carousel" data-carousel="${card.id}" data-interval="${Number(card.config && card.config.carousel_interval) || 5}" data-enabled="${card.config && card.config.carousel ? 'true' : 'false'}">${images.map((src, index) => `<img class="dashboard-image ${index ? '' : 'active'}" src="${esc(src)}" alt="${esc(card.title || '仪表盘图片')}">`).join('')}</div>`;
+}
+function renderClock(card) {
+  const target = document.querySelector(`[data-clock="${card.id}"]`);
+  if (!target) return;
+  const mode = card.config && card.config.time_mode || 'datetime';
+  const draw = () => { const now = new Date(); target.textContent = mode === 'date' ? now.toLocaleDateString('zh-CN') : mode === 'time' ? now.toLocaleTimeString('zh-CN', { hour12:false }) : mode === 'weekday' ? now.toLocaleDateString('zh-CN', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) : now.toLocaleString('zh-CN', { hour12:false }); };
+  draw(); motionTimers.push(setInterval(draw, 1000));
 }
 
 function layoutEls() {
@@ -199,6 +296,22 @@ function layoutEls() {
 }
 
 function bindCardChrome() {
+  $$('[data-card-style]').forEach(button => button.onclick = event => { event.stopPropagation(); styleCard = styleCard === button.dataset.cardStyle ? '' : button.dataset.cardStyle; render(); });
+  $$('[data-close-style]').forEach(button => button.onclick = event => { event.stopPropagation(); styleCard = ''; render(); });
+  $$('[data-presentation]').forEach(input => input.onchange = () => {
+    const card = board.cards.find(item => item.id === input.dataset.cardId);
+    if (!card) return;
+    const value = input.type === 'checkbox' ? (input.checked ? (input.dataset.presentation === 'shadow' ? 'default' : true) : (input.dataset.presentation === 'shadow' ? 'none' : false)) : input.value;
+    const next = Object.assign({}, presentation(card), { [input.dataset.presentation]: value });
+    if (input.dataset.presentation === 'border' && value === 'none') next.shadow = 'none';
+    if (input.dataset.presentation === 'border' && value !== 'none' && next.shadow === 'none') next.shadow = 'default';
+    card.config = Object.assign({}, card.config || {}, { presentation: next });
+    render(); scheduleSave();
+  });
+  $$('[data-effect]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.text_effect || 'none'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { text_effect: input.value }); render(); scheduleSave(); }; });
+  $$('[data-carousel]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; if (input.dataset.carousel === 'interval') input.value = String(Number(card.config && card.config.carousel_interval) || 5); input.onchange = () => { card.config = Object.assign({}, card.config || {}, input.dataset.carousel === 'enabled' ? { carousel: input.checked } : { carousel_interval: Number(input.value) }); render(); scheduleSave(); }; });
+  $$('[data-time-mode]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.time_mode || 'datetime'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { time_mode: input.value }); render(); scheduleSave(); }; });
+  $$('[data-table-motion]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.table_motion || 'none'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { table_motion: input.value }); render(); paintCached(); scheduleSave(); }; });
   $$('[data-copy]').forEach(btn => btn.onclick = async ev => {
     ev.stopPropagation();
     const original = board.cards.find(c => c.id === btn.dataset.copy);
@@ -231,15 +344,35 @@ function bindCardChrome() {
       const card = board.cards.find(c => c.id === el.closest('[data-card]').dataset.card);
       if (!card) return;
       if (el.dataset.edit === 'title') card.title = el.textContent.trim();
-      else card.body = el.innerText.trim();
+      else {
+        card.body = el.innerText.trim();
+        card.config = Object.assign({}, card.config || {}, { rich_text: richText({ config: { rich_text: el.innerHTML } }) });
+      }
       scheduleSave();
     };
+  });
+  $$('[data-format]').forEach(button => button.onmousedown = event => {
+    event.preventDefault();
+    const editor = button.closest('.rich-text-wrap, .heading-wrap').querySelector('[contenteditable]');
+    editor.focus(); document.execCommand(button.dataset.format, false, null);
+  });
+  $$('[data-typography]').forEach(input => input.onchange = () => {
+    const card = board.cards.find(item => item.id === input.dataset.cardId);
+    if (!card) return;
+    const style = typography(card);
+    style[input.dataset.typography] = input.dataset.typography === 'size' ? Number(input.value) : input.value;
+    card.config = Object.assign({}, card.config || {}, { typography: style });
+    render(); scheduleSave();
   });
   $$('[data-card-field]').forEach(input => {
     input.onchange = () => {
       const card = board.cards.find(item => item.id === input.closest('[data-card]').dataset.card);
       if (!card) return;
-      if (input.dataset.cardField === 'iframe_url') card.config = Object.assign({}, card.config || {}, { url: input.value.trim() });
+      if (input.dataset.cardField === 'iframe_url' || input.dataset.cardField === 'plugin_url') {
+        card.config = Object.assign({}, card.config || {}, { url: input.value.trim() });
+        render();
+        validateEmbed(input.value.trim(), card.id);
+      }
       else card[input.dataset.cardField] = input.value.trim();
       scheduleSave();
     };
@@ -248,6 +381,57 @@ function bindCardChrome() {
   $$('[data-resize]').forEach(el => el.onpointerdown = ev => startDrag(ev, el.dataset.resize, 'resize'));
   $$('[data-card]').forEach(el => el.onclick = ev => { if (!editing || ev.target.closest('a,button,select,input,[contenteditable]')) return; selectedCard = el.dataset.card; render(); });
 }
+async function validateEmbed(url, cardID) {
+  const status = document.querySelector(`[data-embed-validation="${cardID}"]`);
+  if (!status || !url) return;
+  status.textContent = '正在检查网站的嵌入策略…'; status.className = 'embed-validation checking';
+  try {
+    const result = await api('/api/embed/validate', 'POST', { url });
+    status.textContent = result.embeddable ? '✓ ' + result.reason : '无法嵌入：' + result.reason;
+    status.className = 'embed-validation ' + (result.embeddable ? 'valid' : 'invalid');
+  } catch (error) { status.textContent = '无法校验：' + error.message; status.className = 'embed-validation invalid'; }
+}
+
+function pluginOrigin(url) {
+  try { return new URL(url, location.href).origin; } catch (_) { return ''; }
+}
+function sendPluginContext(frame, card) {
+  const origin = pluginOrigin(card.config && card.config.url);
+  if (!origin || !frame.contentWindow) return;
+  frame.contentWindow.postMessage({
+    type: 'topbase.dashboard.context',
+    version: 1,
+    payload: {
+      state: editing ? 'config' : (document.fullscreenElement ? 'fullscreen' : 'view'),
+      theme: appearance().theme,
+      locale: document.documentElement.lang || 'zh-CN',
+      card: { id: card.id, title: card.title || '', layout: card.layout || {} },
+      config: (card.config && card.config.plugin_config) || {}
+    }
+  }, origin);
+}
+function bindPluginFrames() {
+  $$('[data-plugin-card]').forEach(frame => {
+    const card = board.cards.find(item => item.id === frame.dataset.pluginCard);
+    if (!card) return;
+    frame.onload = () => sendPluginContext(frame, card);
+    sendPluginContext(frame, card);
+  });
+}
+window.addEventListener('message', event => {
+  const message = event.data;
+  if (!message || typeof message !== 'object' || typeof message.type !== 'string' || !board) return;
+  const frame = $$('[data-plugin-card]').find(item => item.contentWindow === event.source);
+  if (!frame) return;
+  const card = board.cards.find(item => item.id === frame.dataset.pluginCard);
+  if (!card || event.origin !== pluginOrigin(card.config && card.config.url)) return;
+  if (message.type === 'topbase.dashboard.ready') return sendPluginContext(frame, card);
+  if (message.type === 'topbase.dashboard.set-config' && editing && message.config && typeof message.config === 'object' && !Array.isArray(message.config)) {
+    card.config = Object.assign({}, card.config || {}, { plugin_config: message.config });
+    scheduleSave();
+  }
+});
+document.addEventListener('fullscreenchange', () => bindPluginFrames());
 
 function startDrag(ev, cardId, mode) {
   if (!editing) return;
@@ -278,7 +462,7 @@ function onDrag(ev) {
     drag.card.layout.y = Math.max(0, drag.layout.y + dy);
   } else {
     drag.card.layout.w = clamp(drag.layout.w + dx, MIN_W, COLS - drag.card.layout.x);
-    drag.card.layout.h = clamp(drag.layout.h + dy, MIN_H, 24);
+    drag.card.layout.h = clamp(drag.layout.h + dy, minHeight(drag.card), 24);
   }
   layoutEls();
 }
@@ -296,6 +480,7 @@ function endDrag() {
 }
 
 function render() {
+  motionTimers.forEach(clearInterval); motionTimers = [];
   applyAppearance();
   $('#layout')?.classList.toggle('viewing', !editing);
   $('#grid').classList.toggle('editing', editing);
@@ -308,6 +493,16 @@ function render() {
   bindGridDrop();
   renderPalette();
   renderCanvasControls();
+  renderPaletteTabs();
+  paintCached();
+  bindPluginFrames();
+  tabCards().filter(card => card.type === 'time').forEach(renderClock);
+  document.querySelectorAll('[data-carousel][data-enabled="true"]').forEach(host => {
+    const slides = [...host.querySelectorAll('.dashboard-image')];
+    if (slides.length < 2) return;
+    let current = 0;
+    motionTimers.push(setInterval(() => { slides[current].classList.remove('active'); current = (current + 1) % slides.length; slides[current].classList.add('active'); }, Number(host.dataset.interval || 5) * 1000));
+  });
 }
 
 function bindGridDrop() {
@@ -370,10 +565,11 @@ async function addQuestion(questionId, layout) {
 async function addStatic(type, layout) {
   const defaults = {
     heading: { type:'heading', title:'标题', layout:{x:0,y:nextY(12),w:12,h:1} },
-    text: { type:'text', body:'说明文字', layout:{x:0,y:nextY(12),w:12,h:2} },
+    text: { type:'text', body:'说明文字', layout:{x:0,y:nextY(12),w:12,h:1} },
     link: { type:'link', title:'链接', body:'https://', layout:{x:0,y:nextY(6),w:6,h:2} },
     iframe: { type:'iframe', title:'嵌入网页', config:{url:'https://'}, layout:{x:0,y:nextY(6),w:6,h:5} },
-    metric: { type:'metric', title:'核心指标', body:'98,765', layout:{x:0,y:nextY(3),w:3,h:2} },
+    plugin: { type:'plugin', title:'自定义组件', config:{url:'', plugin_config:{}}, layout:{x:0,y:nextY(6),w:6,h:5} },
+    time: { type:'time', title:'时间', config:{time_mode:'datetime'}, layout:{x:0,y:nextY(3),w:3,h:2} },
     divider: { type:'divider', title:'', layout:{x:0,y:nextY(12),w:12,h:1} }
   };
   const value=defaults[type];
@@ -384,6 +580,14 @@ async function addStatic(type, layout) {
   render();
   try { await saveBoard(); render(); }
   catch (e) { toast(e.message); }
+}
+async function addImage(files) {
+  const valid = [...files].filter(file => file.type.startsWith('image/') && file.size <= 3 * 1024 * 1024);
+  if (!valid.length) return toast('请选择 3MB 以内的图片文件');
+  const images = await Promise.all(valid.map(file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); })));
+  const card = { id:newID('crd'), tab_id:activeTab, type:'image', title:valid[0].name.replace(/\.[^.]+$/, ''), config:{images, carousel:images.length > 1, carousel_interval:5}, layout:{x:0,y:nextY(6),w:6,h:4} };
+  board.cards = (board.cards || []).concat([card]); render();
+  try { await saveBoard(); toast(images.length > 1 ? '图片轮播已添加' : '图片已添加'); } catch (error) { toast(error.message); }
 }
 
 function paintCard(card, d) {
@@ -399,7 +603,14 @@ function paintCard(card, d) {
     d.rows || []
   );
   spec.dashboard_theme = appearance().theme;
-  TopbaseViz.render(host, { columns: d.columns || [], rows: d.rows || [], spec, queryir: q && q.queryir, compact: true });
+  TopbaseViz.render(host, { columns: d.columns || [], rows: d.rows || [], spec, queryir: q && q.queryir, compact: true, dashboardOnly: true });
+  if (card.config && card.config.table_motion && card.config.table_motion !== 'none') {
+    const scroller = host.querySelector('.tb-grid-scroll');
+    if (scroller) {
+      const step = card.config.table_motion === 'page' ? Math.max(scroller.clientHeight - 12, 1) : 1;
+      motionTimers.push(setInterval(() => { scroller.scrollTop = scroller.scrollTop + step >= scroller.scrollHeight - scroller.clientHeight ? 0 : scroller.scrollTop + step; }, card.config.table_motion === 'page' ? 3500 : 45));
+    }
+  }
   if (!editing) {
     const el = host.closest('[data-card]');
     el.onclick = ev => {
@@ -481,12 +692,13 @@ async function boot() {
     board = payload.dashboard;
     questions = payload.questions || [];
   } else {
-    [board, questions] = await Promise.all([api('/api/dashboards/' + boardId), api('/api/questions')]);
+    [board, questions, collections] = await Promise.all([api('/api/dashboards/' + boardId), api('/api/questions'), api('/api/collections')]);
   }
   questionMap = Object.fromEntries(questions.map(q => [q.id, q]));
   if ($('#title')) $('#title').textContent = board.name;
   activeTab = board.tabs?.[0]?.id || '';
   editing = !isPublicDashboard && !(board.cards || []).length;
+  renderCollectionFilter();
   renderTabs();
   renderFilters();
   render();
@@ -514,8 +726,18 @@ if ($('#edit')) $('#edit').onclick = async () => {
   render();
   await loadCards();
 };
-$('#apply').onclick = loadCards;
+if ($('#apply')) $('#apply').onclick = loadCards;
 if ($('#qsearch')) $('#qsearch').oninput = renderPalette;
+if ($('#qcollection')) $('#qcollection').onchange = () => { paletteLimit = 60; renderPalette(); };
+if ($('#palette-more')) $('#palette-more').onclick = () => { paletteLimit += 60; renderPalette(); };
+$('#palette-tabs')?.addEventListener('click', event => {
+  const button = event.target.closest('[data-palette-tab]');
+  if (!button) return;
+  paletteTab = button.dataset.paletteTab;
+  renderPaletteTabs();
+});
+if ($('#add-image')) $('#add-image').onclick = () => $('#image-upload').click();
+if ($('#image-upload')) $('#image-upload').onchange = event => { addImage(event.target.files); event.target.value = ''; };
 $$('[data-add]').forEach(button=>{
   button.onclick=()=>addStatic(button.dataset.add);
   button.ondragstart=event=>{

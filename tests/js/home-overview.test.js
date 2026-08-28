@@ -15,7 +15,15 @@ test('application sidebar omits model and search entries', () => {
   assert.ok(appMenu.indexOf("label: '仪表盘'") < appMenu.indexOf("label: '源数据'"));
 });
 
+test('workspace and admin navigation share a safe, stateful sidebar shell', () => {
+  assert.doesNotMatch(shell, /product-rail|data-rail-action/);
+  assert.match(shell, /active === 'account'/);
+  assert.match(shell, /shell-context/);
+  assert.match(shell, /<p>管理后台<\/p>/);
+});
+
 test('home is a data-driven overview with core statistics and working shortcuts', () => {
+  assert.doesNotMatch(home, /auth-link|个人中心/);
   for (const id of ['stat-databases', 'stat-questions', 'stat-dashboards', 'stat-collections']) {
     assert.match(home, new RegExp(`id="${id}"`));
   }

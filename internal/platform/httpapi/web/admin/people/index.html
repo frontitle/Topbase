@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 人员与组</title>
   <link rel="stylesheet" href="/admin/admin.css">
-  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
 </head>
 <body>
   <aside class="sidebar" data-shell="admin" data-active="people"></aside>
@@ -16,7 +16,7 @@
       <div class="people-tabs" role="tablist"><button class="people-tab active" data-view="users" type="button">成员</button><button class="people-tab" data-view="groups" type="button">权限分组</button></div>
       <section class="toolbar people-toolbar"><label><span>⌕</span><input id="search" placeholder="搜索姓名、邮箱或分组"></label><select id="status-filter" aria-label="成员状态"><option value="active">在用成员</option><option value="inactive">已停用</option><option value="all">全部成员</option></select></section>
       <section class="section-block" id="users-view"><div class="section-row"><div><h2>成员列表</h2><p class="section-note">分组决定数据组、数据源和内容的访问范围。</p></div><span id="user-count"></span></div><div class="table-shell" id="users"></div></section>
-      <section class="section-block" id="groups-view" hidden><div class="section-row"><div><h2>权限分组</h2><p class="section-note">每个分组统一管理成员、全局能力和团队数据组角色；系统与同步分组只锁定成员来源。</p></div><span id="group-count"></span></div><div id="groups" class="cards"></div></section>
+      <section class="section-block" id="groups-view" hidden><div class="section-row"><div><h2>权限分组</h2><p class="section-note">每个分组统一管理成员、全局能力和企业项目角色；系统与同步分组只锁定成员来源。</p></div><span id="group-count"></span></div><div id="groups" class="cards"></div></section>
     </main>
   </div>
   <dialog id="org-dialog"><form method="dialog"><header><div><small>组织绑定</small><h2>办公平台与组织同步</h2><p>将飞书、钉钉、企业微信的外部部门映射为权限分组，也可配置微信和 Google 登录。</p></div><button class="close" value="cancel">×</button></header><div class="read-only"><label><input id="password-login-enabled" type="checkbox" checked> 保留邮箱与密码登录</label><p>关闭前必须至少启用并填写一个第三方登录的应用凭据。该设置会被后端强制执行。</p><button class="secondary" type="button" id="save-auth-settings">保存登录策略</button></div><div id="providers" class="cards"></div><footer><button class="secondary" type="button" id="sync-feishu">同步飞书部门</button><button class="primary" type="button" id="add-provider">接入办公平台</button></footer></form></dialog>

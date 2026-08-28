@@ -58,6 +58,11 @@ func (s *Store) UpdateSubscription(item core.Subscription) error {
 	return err
 }
 
+func (s *Store) DeleteSubscription(id string) error {
+	_, err := s.db.Exec(`DELETE FROM subscriptions WHERE id=?`, id)
+	return err
+}
+
 func (s *Store) SubscriptionByID(id string) (core.Subscription, error) {
 	row := s.db.QueryRow(`SELECT id, dashboard_id, cron, timezone, channel, enabled, last_run_at, created_by, created_at FROM subscriptions WHERE id=?`, id)
 	item, err := scanSubscription(row)
@@ -155,6 +160,7 @@ func (s *Store) Subscriptions() core.SubscriptionStore { return subscriptionAdap
 
 func (a subscriptionAdapter) Create(item core.Subscription) error { return a.CreateSubscription(item) }
 func (a subscriptionAdapter) Update(item core.Subscription) error { return a.UpdateSubscription(item) }
+func (a subscriptionAdapter) Delete(id string) error              { return a.DeleteSubscription(id) }
 func (a subscriptionAdapter) ByID(id string) (core.Subscription, error) {
 	return a.SubscriptionByID(id)
 }

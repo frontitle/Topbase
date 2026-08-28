@@ -25,7 +25,10 @@ test('personal center uses real profile APIs and custom interaction components',
   assert.match(script, /canvas\.toDataURL\('image\/jpeg'/);
 });
 
-test('global account entry links the signed-in user to the personal center', () => {
-  assert.match(shell, /class="sidebar-profile" href="\/account\/"/);
+test('global account menu links to the personal center and signs out through the session API', () => {
+  assert.match(shell, /class="sidebar-profile"/);
+  assert.match(shell, /href="\/account\/">个人中心/);
+  assert.match(shell, /data-logout/);
+  assert.match(shell, /api\('\/api\/session', 'DELETE'\)/);
   assert.match(shell, /user\.avatar_url/);
 });

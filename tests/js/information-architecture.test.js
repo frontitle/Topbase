@@ -19,11 +19,13 @@ test('sidebar merges groups into analyses and puts dashboards before data', () =
 });
 
 test('analysis page owns grouping and old collection list redirects there', () => {
-  assert.match(questions, /data-analysis-view="items"/);
-  assert.match(questions, /data-analysis-view="groups"/);
+  assert.match(questions, /id="manage-groups"/);
+  assert.ok(questions.indexOf('id="manage-groups"') < questions.indexOf('href="\/questions\/new\/"'));
   assert.match(questions, /id="create-group"/);
   assert.match(questionScript, /api\('\/api\/collections','POST'/);
-  assert.match(collections, /location\.replace\('\/questions\/\?view=groups'\)/);
+  assert.match(questionScript, /questions=await api\('\/api\/questions'\)/);
+  assert.match(questionScript, /api\('\/api\/collections'\)\.catch\(\(\)=>\[\]\)/);
+  assert.match(collections, /location\.replace\('\/questions\/#analysis-groups'\)/);
 });
 
 test('source data and persisted data explain location and freshness', () => {

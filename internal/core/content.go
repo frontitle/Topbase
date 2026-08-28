@@ -15,6 +15,16 @@ type Collection struct {
 	OwnerGroupID        string    `json:"owner_group_id,omitempty"`
 	Kind                string    `json:"kind"` // personal_project | team_project
 	CreatedAt           time.Time `json:"created_at"`
+	// These are presentation fields, populated only for a recipient of a
+	// personal-group share. Shared groups are always view-only.
+	ReadOnly     bool   `json:"read_only,omitempty"`
+	SharedByName string `json:"shared_by_name,omitempty"`
+}
+
+type CollectionShare struct {
+	CollectionID string    `json:"collection_id"`
+	UserID       string    `json:"user_id"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ProjectAccessRule grants a team group access to a team project. Roles are

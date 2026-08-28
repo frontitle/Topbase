@@ -243,6 +243,52 @@ func (s *Store) DeleteCollection(id string) error {
 	return err
 }
 
+func (s *Store) ListCollectionShares(collectionID string) ([]core.CollectionShare, error) {
+	rows, err := s.db.Query(`SELECT collection_id, user_id, created_at FROM collection_shares WHERE collection_id=? ORDER BY created_at`, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []core.CollectionShare{}
+	for rows.Next() {
+		var item core.CollectionShare
+		var created string
+		if err := rows.Scan(&item.CollectionID, &item.UserID, &created); err != nil {
+			return nil, err
+		}
+		item.CreatedAt, _ = time.Parse(time.RFC3339, created)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) IsCollectionSharedWith(collectionID, userID string) (bool, error) {
+	var count int
+	err := s.db.QueryRow(`SELECT COUNT(1) FROM collection_shares WHERE collection_id=? AND user_id=?`, collectionID, userID).Scan(&count)
+	return count > 0, err
+}
+
+func (s *Store) ReplaceCollectionShares(collectionID string, userIDs []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM collection_shares WHERE collection_id=?`, collectionID); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	for _, userID := range userIDs {
+		if userID == "" {
+			continue
+		}
+		if _, err := tx.Exec(`INSERT INTO collection_shares(collection_id,user_id,created_at) VALUES(?,?,?)`, collectionID, userID, time.Now().UTC().Format(time.RFC3339)); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) CollectionByID(id string) (core.Collection, error) {
 	items, err := s.ListCollections()
 	if err != nil {

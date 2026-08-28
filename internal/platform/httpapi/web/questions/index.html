@@ -17,25 +17,22 @@
           <h1>分析</h1>
           <p>创建可视化或 SQL 分析，并在这里用分组整理个人与团队内容。</p>
         </div>
-        <a class="primary" href="/questions/new/">新建分析</a>
+        <div class="analysis-head-actions">
+          <a class="secondary" id="manage-groups" href="#analysis-groups">分组管理 <span id="group-count"></span></a>
+          <button class="secondary" id="create-group" type="button">新建分组</button>
+          <a class="primary" href="/questions/new/">新建分析</a>
+        </div>
       </div>
-      <nav class="analysis-tabs" role="tablist" aria-label="分析内容">
-        <button class="active" type="button" role="tab" aria-selected="true" data-analysis-view="items">分析列表</button>
-        <button type="button" role="tab" aria-selected="false" data-analysis-view="groups">分组管理 <span id="group-count"></span></button>
-      </nav>
+      <section id="analysis-groups" class="analysis-group-overview" aria-labelledby="analysis-groups-heading">
+        <div class="group-view-head"><div><h2 id="analysis-groups-heading">分析分组</h2><p>个人分组用于整理自己的内容；企业项目由管理后台配置成员角色。个人分组可以共享给其他成员查看。</p></div></div>
+        <section id="group-list" class="analysis-group-list"></section>
+      </section>
       <section id="analysis-view">
         <div class="toolbar">
           <label><span>⌕</span><input id="search" placeholder="搜索分析"></label>
           <select id="collection" aria-label="按分组筛选"><option value="">全部分组</option></select>
         </div>
-        <section id="list" class="cards"></section>
-      </section>
-      <section id="groups-view" hidden>
-        <div class="group-view-head">
-          <div><h2>分析分组</h2><p>分组只负责整理分析和协作权限，不会复制或改变数据。</p></div>
-          <button class="primary" id="create-group" type="button">新建分组</button>
-        </div>
-        <section id="group-list" class="analysis-group-list"></section>
+        <section id="list" class="cards" aria-live="polite"><div class="empty-state"><b>正在加载分析</b><p>请稍候…</p></div></section>
       </section>
     </main>
   </div>

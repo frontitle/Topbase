@@ -1178,7 +1178,7 @@
       host.innerHTML = '<div class="tb-grid-host"></div>';
       if (!global.TopbaseGrid) return spec;
       if (opts.compact) {
-        global.TopbaseGrid(host.firstChild, { columns: view.columns, rows: view.rows, aliases: Object.assign({}, opts.aliases || {}, view.aliases), compact: true });
+        global.TopbaseGrid(host.firstChild, { columns: view.columns, rows: view.rows, aliases: Object.assign({}, opts.aliases || {}, view.aliases), compact: true, dashboardOnly: !!opts.dashboardOnly, filtersEnabled: false });
       } else {
         global.TopbaseGrid(host.firstChild, {
           columns: columns,

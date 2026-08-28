@@ -5,38 +5,47 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 设置</title>
   <link rel="stylesheet" href="/admin/admin.css">
-  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
+  <link rel="stylesheet" href="/admin/settings/settings.css?v=1">
 </head>
 <body>
   <aside class="sidebar" data-shell="admin" data-active="settings"></aside>
   <div class="page">
     <header class="topbar"><strong>管理后台</strong><span>/</span><strong>设置</strong></header>
-    <main>
-      <div class="page-head">
-        <div>
-          <h1>工作区设置</h1>
-          <p>管理工作区名称、默认时区，以及公开分享与嵌入的实例级安全开关。</p>
-        </div>
+    <main class="settings-page">
+      <div class="page-head settings-head">
+        <div><h1>工作区设置</h1><p>维护实例级偏好与对外访问策略。成员、权限和订阅在各自的管理页面维护。</p></div>
+        <div class="settings-head-actions"><span class="save-state" id="save-state" aria-live="polite">已同步</span><button class="primary" id="save" type="submit" form="form">保存更改</button></div>
       </div>
-      <form id="form" class="create-box">
-        <label>站点名称<input id="site_name" required></label>
-        <label>默认时区<select id="timezone"><option value="Asia/Shanghai">Asia/Shanghai（中国标准时间）</option><option value="Asia/Singapore">Asia/Singapore（新加坡时间）</option><option value="UTC">UTC</option></select></label>
-        <label><input id="public_sharing_enabled" type="checkbox"> 允许创建公开仪表盘链接</label>
-        <label><input id="embedding_enabled" type="checkbox"> 允许通过 iframe 嵌入公开仪表盘</label>
-        <div class="actions"><button class="primary" type="submit">保存</button></div>
+      <form id="form" class="settings-layout">
+        <section class="settings-section" aria-labelledby="general-title">
+          <div class="settings-section-head"><div><h2 id="general-title">基础信息</h2><p>用于浏览器标题、通知内容和系统默认时间。</p></div></div>
+          <div class="settings-card settings-fields">
+            <label class="settings-field"><span>工作区名称</span><input id="site_name" maxlength="80" required placeholder="例如：增长分析中心"><small>显示在工作台、登录页和系统通知中。</small></label>
+            <label class="settings-field"><span>默认时区</span><select id="timezone"><option value="Asia/Shanghai">中国标准时间 · UTC+8</option><option value="Asia/Singapore">新加坡时间 · UTC+8</option><option value="UTC">协调世界时 · UTC</option></select><small>新建订阅与定时任务默认采用此时区，已有任务不受影响。</small></label>
+          </div>
+        </section>
+        <section class="settings-section" aria-labelledby="sharing-title">
+          <div class="settings-section-head"><div><h2 id="sharing-title">对外访问</h2><p>控制仪表盘公开链接与嵌入访问的全局上限。</p></div><a href="/admin/embedding/" class="text-link">查看公开内容 →</a></div>
+          <div class="settings-card access-card">
+            <label class="setting-toggle" for="public_sharing_enabled"><span><b>允许公开链接</b><small>已发布的仪表盘可生成无需登录的访问地址。</small></span><input id="public_sharing_enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
+            <div class="access-impact" id="public-impact" hidden></div>
+            <label class="setting-toggle nested" id="embedding-row" for="embedding_enabled"><span><b>允许嵌入到外部页面</b><small>允许通过 iframe 展示已经发布的公开仪表盘。</small></span><input id="embedding_enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
+            <p class="access-note">关闭公开链接后，所有公开访问会立即失效；嵌入权限也会自动关闭。</p>
+          </div>
+        </section>
       </form>
-      <p class="page-meta" style="margin-top:20px">身份平台、Webhook 与订阅通道请在“办公平台与通知”中配置。关闭公开链接会立即拒绝所有公开访问；关闭嵌入只影响 <code>/embed/</code> 页面。</p>
+      <section class="settings-section" aria-labelledby="admin-title">
+        <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2><p>按职责分开维护，减少同一页面内的高风险误操作。</p></div></div>
+        <div class="settings-links">
+          <a href="/admin/people/"><span class="settings-link-icon">人</span><span><b>人员与组</b><small>成员、权限分组与组织绑定</small></span><em>›</em></a>
+          <a href="/admin/permissions/"><span class="settings-link-icon">权</span><span><b>权限</b><small>数据、企业项目与操作能力</small></span><em>›</em></a>
+          <a href="/admin/integrations/"><span class="settings-link-icon">通</span><span><b>通知与订阅</b><small>Webhook、推送通道与订阅消息</small></span><em>›</em></a>
+        </div>
+      </section>
     </main>
   </div>
   <div id="toast"></div>
-  <script src="/ui.js"></script>
-  <script src="/shell.js"></script>
-  <script>
-    api('/api/admin/settings').then(s=>{ $('#site_name').value=s.site_name||'Topbase';$('#timezone').value=s.timezone||'Asia/Shanghai';$('#public_sharing_enabled').checked=!!s.public_sharing_enabled;$('#embedding_enabled').checked=!!s.embedding_enabled; }).catch(e=>toast(e.message));
-    $('#form').onsubmit=async ev=>{
-      ev.preventDefault();
-      try{await api('/api/admin/settings','PUT',{site_name:$('#site_name').value,timezone:$('#timezone').value,public_sharing_enabled:$('#public_sharing_enabled').checked,embedding_enabled:$('#embedding_enabled').checked});toast('已保存')}catch(e){toast(e.message)}
-    };
-  </script>
+  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=1"></script>
 </body>
 </html>

@@ -51,6 +51,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 }
 .workspace strong {
   font-size: 14px;
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -74,7 +76,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
   padding: 4px 8px;
   white-space: nowrap;
 }
-.sidebar-app .plan { display: none; }
+.plan { display: none; }
 .sidebar nav { display: grid; gap: 3px; }
 .sidebar nav p {
   font-size: 11px;
@@ -94,7 +96,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
   font-size: 13px;
 }
 .sidebar nav .nav-icon { width: 17px; text-align: center; flex: none; font-size: 15px; }
-.sidebar nav .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* admin.css has a legacy `nav a span { width: 18px }` rule. Override it
+   explicitly so the text label never inherits the icon's fixed width. */
+.sidebar nav .nav-label { width: auto !important; text-align: left !important; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar nav a:hover,
 .sidebar nav a.active {
   color: var(--tb-text);
@@ -177,6 +181,8 @@ body.sidebar-collapsed .sidebar nav a.admin-entry { margin-top: 14px; }
 .topbar strong { font-weight: 500; }
 .topbar > span { color: #aaa; }
 .topbar a { color: #555; text-decoration: none; }
+.topbar-title-button { max-width: min(360px,42vw); overflow: hidden; border: 0; padding: 3px 5px; border-radius: 5px; background: transparent; color: #222; font: inherit; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.topbar-title-button:hover,.topbar-title-button:focus-visible { background: #f2f3f5; outline: none; }
 .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 main { padding: 28px 40px 48px; max-width: 1500px; }
 
@@ -194,6 +200,9 @@ main { padding: 28px 40px 48px; max-width: 1500px; }
   margin: 0 0 6px;
   font-weight: 600;
 }
+.page-head .editable-analysis-name { width: fit-content; cursor: text; border-radius: 5px; }
+.page-head .editable-analysis-name:hover,.page-head .editable-analysis-name:focus-visible { background: #f2f3f5; outline: none; }
+.analysis-name-input { box-sizing: border-box; width: min(560px,75vw); border: 1px solid #3370ff; border-radius: 6px; padding: 2px 8px; background: #fff; color: inherit; font: inherit; font-weight: inherit; letter-spacing: inherit; outline: 3px solid #3370ff22; }
 .page-head p { margin: 0; color: var(--tb-muted); line-height: 1.55; max-width: 640px; }
 .page-meta { margin: 0 0 16px; color: var(--tb-muted); font-size: 13px; }
 .section-block { margin-top: 28px; }
@@ -603,3 +612,87 @@ body.tb-dialog-open { overflow: hidden; }
   .home-stat { border-right: 0; border-bottom: 1px solid var(--tb-line-soft); }
   .home-stat:last-child { border-bottom: 0; }
 }
+
+/* --- collaborative workspace theme --- */
+:root {
+  --tb-brand: #3370ff;
+  --tb-brand-soft: #e9efff;
+  --tb-purple: #7b61ff;
+  --tb-text: #1f2329;
+  --tb-muted: #646a73;
+  --tb-line: #dee0e3;
+  --tb-line-soft: #eff0f1;
+  --tb-fill: #f5f6f7;
+  --tb-sidebar: 250px;
+  --tb-radius: 8px;
+}
+body { background: #fff; color: var(--tb-text); }
+.sidebar { width: var(--tb-sidebar); padding: 0; background: #f7f8fa; border-right: 1px solid var(--tb-line); }
+.sidebar-panel { min-width: 0; height: 100%; display: flex; flex: 1; flex-direction: column; padding: 14px 10px; }
+.sidebar-brand { min-height: 46px; }
+.workspace { height: 42px; padding: 0 9px; gap: 8px; }
+.workspace strong { font-size: 17px; letter-spacing: -.02em; }
+.shell-context { color: #7b61ff; border: 1px solid #ded5ff; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.sidebar-app .shell-context { display: none; }
+.mark,.empty-mark { border-radius: 7px; background: linear-gradient(135deg,#8666ff,#4f8cff); }
+.sidebar-toggle { border: 0; background: transparent; color: #717782; }
+.sidebar-search { height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; margin: 10px 2px 14px; border-radius: 7px; background: #eef0f3; color: #8a919c; }
+.sidebar-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #1f2329; font: 13px var(--tb-font); }
+.sidebar nav { gap: 2px; }
+.sidebar nav p { margin: 12px 10px 6px; color: #8a9099; letter-spacing: .02em; text-transform: none; }
+.sidebar nav a { padding: 9px 10px; color: #545b66; border-radius: 7px; }
+.sidebar nav a:hover,.sidebar nav a.active { color: #1f2329; background: var(--tb-brand-soft); font-weight: 600; }
+.sidebar nav a.active .nav-icon { color: var(--tb-brand); }
+.sidebar nav a.admin-entry { color: #5f47d6; background: #f1edff; border-color: #ded5ff; }
+.sidebar footer { border-top: 1px solid var(--tb-line); padding-top: 10px; }
+.sidebar-account { position: relative; width: 100%; }.sidebar-account summary { list-style: none; }.sidebar-account summary::-webkit-details-marker { display: none; }
+.sidebar-profile:hover,.sidebar-account[data-active="true"] .sidebar-profile { background: #eef0f3; }
+.account-menu { position: absolute; left: calc(100% + 8px); bottom: 0; z-index: 20; display: grid; width: 176px; padding: 6px; border: 1px solid #dde1e7; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px #1f23291f; }
+.account-menu a,.account-menu button { width: 100%; border: 0; border-radius: 6px; background: transparent; color: #343a43; padding: 9px 10px; text-align: left; text-decoration: none; font: 13px var(--tb-font); }.account-menu a:hover,.account-menu button:hover { background: #f2f5fb; }.account-menu button { color: #d64545; }
+.sidebar-admin { background: #f7f8fa; color: var(--tb-text); border-right-color: var(--tb-line); }
+.sidebar-admin .workspace,.sidebar-admin nav a { color: #545b66; }.sidebar-admin .mark { background: linear-gradient(135deg,#8666ff,#4f8cff); color:#fff; }.sidebar-admin nav a:hover,.sidebar-admin nav a.active,.sidebar-admin .sidebar-profile:hover { color:#1f2329;background:var(--tb-brand-soft); }.sidebar-admin footer { border-top-color:var(--tb-line); }.sidebar-admin .avatar { background:#e5e9ee;color:#46505e; }
+/* Keep administration as a context, not a second visual language. */
+.sidebar-app .workspace,.sidebar-admin .workspace { color:#1f2329; }
+.sidebar-app .workspace strong,.sidebar-admin .workspace strong { font-size:14px; }
+.sidebar-app nav a,.sidebar-admin nav a { padding:9px 10px; gap:9px; font-size:12px; font-weight:400; }
+.sidebar-app nav a:hover,.sidebar-app nav a.active,.sidebar-admin nav a:hover,.sidebar-admin nav a.active { font-weight:600; }
+.page { margin-left: var(--tb-sidebar); background: #fff; }
+.topbar { height: 56px; padding: 0 28px; border-bottom-color: var(--tb-line); background: #fff; }
+.topbar strong { font-size: 14px; font-weight: 600; }
+main { max-width: none; padding: 28px 38px 52px; }
+.page-head { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--tb-line-soft); }
+.page-head h1 { font-size: 24px; letter-spacing: -.025em; }.page-head p { color: var(--tb-muted); }
+.primary { background: var(--tb-brand); border-color: var(--tb-brand); border-radius: 6px; }.primary:hover { background:#2864e8; border-color:#2864e8; }
+.secondary,.ghost,.icon-button,.control,.view { border-color:#d9dce1; border-radius:6px; color:#3f4650; }.secondary:hover,.ghost:hover,.icon-button:hover,.control:hover,.view:hover { border-color:#b8c0cc; background:#f7f8fa; }
+.cards { gap: 14px; }.db-card { min-height: 102px; border-color: var(--tb-line); border-radius: 9px; padding: 16px; box-shadow: none; transition: border-color .15s,box-shadow .15s,transform .15s; }.db-card:hover { border-color:#aeb8c8; box-shadow:0 5px 16px #1f232912; transform:translateY(-1px); }
+.home-overview { background: radial-gradient(800px 340px at 76% -15%,#eef3ff 0,transparent 72%); }.home-stat,.home-section { border-color:var(--tb-line); border-radius:10px; }.home-stat:hover { border-color:#b9c8f1; background:#fbfcff; }.home-quick { border-color:var(--tb-line); border-radius:9px; }.home-quick i { color:var(--tb-brand); background:var(--tb-brand-soft); border-radius:7px; }.home-quick:hover { border-color:#b9c8f1; background:#fbfcff; }
+body.sidebar-collapsed { --tb-sidebar: 62px; }.sidebar-collapsed .sidebar-panel { padding-left:7px;padding-right:7px; }.sidebar-collapsed .sidebar-search,.sidebar-collapsed .shell-context { display:none; }
+@media (max-width:780px) { .sidebar { width:58px; }.sidebar-panel { padding:12px 7px; }.sidebar-search,.shell-context { display:none; }.page { margin-left:58px; } }
+
+/* --- compact shell baseline: shared by the workbench and administration --- */
+:root { --tb-sidebar: 210px; }
+.sidebar-panel { padding: 12px 8px; }
+.sidebar-brand { min-height: 42px; }
+.workspace { height: 40px; padding: 0 8px; }
+.workspace strong { font-size: 14px; line-height: 1; }
+.sidebar-search { height: 34px; margin: 8px 2px 12px; font-size: 12px; }
+.sidebar-search input { font-size: 12px; }
+.sidebar nav p { margin: 10px 9px 5px; font-size: 11px; }
+.sidebar nav a,
+.sidebar-app nav a,
+.sidebar-admin nav a { min-height: 38px; padding: 8px 9px; gap: 8px; font-size: 12px; line-height: 1.25; }
+/* Administration is a permission context, not a different shell. */
+html body .sidebar.sidebar-admin { width: var(--tb-sidebar); }
+html body .sidebar.sidebar-admin + .page { margin-left: var(--tb-sidebar); }
+html body .sidebar.sidebar-admin .workspace strong { font-size: 14px !important; line-height: 1 !important; }
+html body .sidebar.sidebar-admin nav a { min-height: 38px; padding: 8px 9px; gap: 8px; font-size: 12px !important; line-height: 1.25; font-weight: 400; }
+html body .sidebar.sidebar-admin nav .nav-label { width: auto !important; font-size: 12px !important; line-height: 1.25 !important; }
+html body .sidebar.sidebar-admin nav p { font-size: 11px !important; line-height: 1.3; }
+html body.sidebar-collapsed .sidebar.sidebar-admin { width: var(--tb-sidebar); }
+html body.sidebar-collapsed .sidebar.sidebar-admin + .page { margin-left: var(--tb-sidebar); }
+.sidebar-admin + .page main { width: 100%; max-width: 1180px; padding: 24px 30px 44px; }
+.sidebar-admin + .page .page-head { padding-bottom: 16px; margin-bottom: 16px; }
+.sidebar-admin + .page .page-head h1 { font-size: 22px; line-height: 1.25; }
+.sidebar-admin + .page .page-head p { font-size: 14px; line-height: 1.55; }
+.sidebar-admin + .page .topbar { height: 52px; }
+@media (max-width:780px) { :root { --tb-sidebar: 58px; }.sidebar-admin + .page main { padding: 20px 18px 36px; } }
