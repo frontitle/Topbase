@@ -21,8 +21,6 @@ window.topbaseRememberDatabase = function (id) {
     { id: 'data', href: '/data/', icon: '▣', label: '数据浏览' },
     { id: 'dashboards', href: '/dashboard/', icon: '☷', label: '仪表盘' },
     { id: 'warehouse', href: '/warehouse/', icon: '▣', label: '数仓' },
-    { id: 'models', href: '/browse/models/', icon: '⌘', label: '模型' },
-    { id: 'search', href: '/search/', icon: '⌕', label: '搜索' },
     { id: 'trash', href: '/trash/', icon: '⌫', label: '回收站' }
   ];
   const adminItems = [
