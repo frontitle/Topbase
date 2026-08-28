@@ -42,3 +42,7 @@ coverage.out
 /.qa-*.webp
 /.tmp/
 /tmp/
+
+# Private product planning and research must stay outside public docs
+/docs-internal/
+/.internal-docs/
