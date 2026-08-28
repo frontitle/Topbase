@@ -35,6 +35,27 @@ func (s *server) listUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (s *server) listShareableUsers(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	items, err := s.identity.ListUsers()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	visible := make([]core.User, 0, len(items))
+	for _, item := range items {
+		if item.ID == user.ID || !item.IsActive {
+			continue
+		}
+		visible = append(visible, core.User{ID: item.ID, Name: item.Name, Email: item.Email})
+	}
+	writeJSON(w, http.StatusOK, visible)
+}
+
 func (s *server) inviteUser(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return

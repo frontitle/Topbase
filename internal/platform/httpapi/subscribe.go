@@ -290,3 +290,32 @@ func (s *server) runSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, note)
 }
+
+func (s *server) updateSubscription(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var input struct {
+		Enabled bool `json:"enabled"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	sub, err := s.notify.SetSubscriptionEnabled(r.PathValue("id"), input.Enabled)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, sub)
+}
+
+func (s *server) deleteSubscription(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	if err := s.notify.DeleteSubscription(r.PathValue("id")); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

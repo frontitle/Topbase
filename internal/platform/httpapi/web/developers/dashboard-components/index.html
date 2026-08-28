@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase Dashboard Components API</title>
+  <link rel="stylesheet" href="/ui.css">
+  <style>
+    body{max-width:920px;margin:0 auto;padding:48px 24px 80px;color:#1d2b35;font:15px/1.65 var(--tb-font,system-ui,sans-serif)}h1{font-size:32px;letter-spacing:-.04em;margin:0 0 8px}h2{margin:42px 0 12px;font-size:20px}h3{margin:24px 0 8px;font-size:16px}.lead{color:#60717c;font-size:17px}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}pre{overflow:auto;padding:16px;border-radius:10px;background:#0e1a24;color:#dbeeff;font-size:13px}table{border-collapse:collapse;width:100%}th,td{padding:9px 10px;border:1px solid #dce5ea;text-align:left;vertical-align:top}th{background:#f4f8fa}.note{padding:13px 15px;border-left:3px solid #22a6d8;background:#f1fbff;color:#42606e;border-radius:0 8px 8px 0}
+  </style>
+</head>
+<body>
+  <h1>仪表盘小组件开放能力</h1>
+  <p class="lead">将任意 HTTPS 页面作为 Topbase 仪表盘组件运行。组件通过隔离 iframe 加载，并以 <code>postMessage</code> 与宿主交换受限的展示上下文和自身配置。</p>
+  <div class="note">组件不会获得 Topbase 登录态、页面 DOM 或仪表盘原始数据。数据建模与分析应在 Topbase 分析中完成；小组件仅负责呈现和自身交互。</div>
+
+  <h2>接入方式</h2>
+  <ol><li>将组件部署到可通过 HTTPS 访问的地址，并允许被 iframe 嵌入。</li><li>在仪表盘编辑模式中打开“添加小组件 → 自定义组件”，输入运行地址。</li><li>组件应适配容器大小；用户可在画布中拖拽、调整尺寸。</li></ol>
+  <p>可先使用内置的 <a href="/developers/dashboard-components/example/" target="_blank" rel="noopener">可运行示例组件</a> 验证接入流程。</p>
+
+  <h2>宿主上下文</h2>
+  <p>iframe 加载后，宿主会发送 <code>topbase.dashboard.context</code>。组件也可先发送 <code>topbase.dashboard.ready</code> 请求重发。</p>
+  <pre><code>window.addEventListener('message', (event) =&gt; {
+  if (event.data?.type !== 'topbase.dashboard.context') return;
+  const { state, theme, locale, card, config } = event.data.payload;
+  // state: config | view | fullscreen
+  render({ theme, locale, config, size: card.layout });
+});
+
+window.parent.postMessage({ type: 'topbase.dashboard.ready' }, '*');</code></pre>
+  <table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody>
+    <tr><td><code>state</code></td><td><code>config</code> 为编辑预览，<code>view</code> 为呈现，<code>fullscreen</code> 为画布全屏。</td></tr>
+    <tr><td><code>theme</code></td><td>当前画布主题：<code>deep</code>、<code>aurora</code>、<code>light</code>。</td></tr>
+    <tr><td><code>card</code></td><td>组件 ID、名称和画布布局；不得视为权限或数据访问凭据。</td></tr>
+    <tr><td><code>config</code></td><td>该组件专属、由组件自己保存的 JSON 配置。</td></tr>
+  </tbody></table>
+
+  <h2>保存组件配置</h2>
+  <p>仅在 <code>config</code> 状态下，组件可请求保存自身配置。宿主会校验消息来源与组件运行地址的同源关系。</p>
+  <pre><code>window.parent.postMessage({
+  type: 'topbase.dashboard.set-config',
+  config: { title: '本月销售', accent: '#20b8f2' }
+}, '*');</code></pre>
+
+  <h2>开发要求</h2>
+  <ul><li>使用响应式布局；建议在较小容器中隐藏次要元素。</li><li>配置变更应实时刷新预览。</li><li>兼容三种主题和全屏状态。</li><li>不要将任何从宿主收到的信息转发给第三方服务；组件自身的数据请求须明确告知用户。</li><li>不要依赖 Topbase 内部 DOM、Cookie 或私有接口。</li></ul>
+</body>
+</html>

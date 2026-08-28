@@ -52,6 +52,31 @@ func (s Service) ListSubscriptions(dashboardID string) ([]core.Subscription, err
 	return s.Subscriptions.ListByDashboard(dashboardID)
 }
 
+func (s Service) SetSubscriptionEnabled(id string, enabled bool) (core.Subscription, error) {
+	if s.Subscriptions == nil {
+		return core.Subscription{}, fmt.Errorf("subscriptions are not configured")
+	}
+	sub, err := s.Subscriptions.ByID(id)
+	if err != nil {
+		return core.Subscription{}, err
+	}
+	sub.Enabled = enabled
+	if err := s.Subscriptions.Update(sub); err != nil {
+		return core.Subscription{}, err
+	}
+	return sub, nil
+}
+
+func (s Service) DeleteSubscription(id string) error {
+	if s.Subscriptions == nil {
+		return fmt.Errorf("subscriptions are not configured")
+	}
+	if _, err := s.Subscriptions.ByID(id); err != nil {
+		return err
+	}
+	return s.Subscriptions.Delete(id)
+}
+
 func (s Service) RunSubscription(ctx context.Context, id string) (core.Notification, error) {
 	if s.Subscriptions == nil {
 		return core.Notification{}, fmt.Errorf("subscriptions are not configured")

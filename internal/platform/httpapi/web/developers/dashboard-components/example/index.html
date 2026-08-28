@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Topbase Component Example</title>
+<style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:var(--bg,#07111f);color:var(--fg,#d9efff);font:14px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}.box{width:min(86%,420px);padding:22px;border:1px solid #55c9f066;border-radius:14px;background:#0b2136cc;box-shadow:0 16px 46px #00101c66}.tag{font-size:11px;color:#78cffa}.count{margin:12px 0 3px;font-size:clamp(30px,10vw,64px);font-variant-numeric:tabular-nums}.hint{color:#a8c4d7;font-size:12px}button{margin-top:14px;border:0;border-radius:7px;padding:7px 10px;background:#20aede;color:#fff;font:inherit;cursor:pointer}</style></head>
+<body><main class="box"><div class="tag">Topbase 自定义组件示例</div><div class="count" id="value">0</div><div class="hint" id="hint">正在连接宿主…</div><button id="increase">配置数值 +1</button></main>
+<script>
+let config={value:0}, context={theme:'deep',state:'config'};
+function draw(payload){context=Object.assign(context,payload);config=payload.config||config;document.documentElement.style.setProperty('--bg',context.theme==='light'?'#f5fbff':'#07111f');document.documentElement.style.setProperty('--fg',context.theme==='light'?'#183044':'#d9efff');document.querySelector('#value').textContent=config.value||0;document.querySelector('#hint').textContent='状态：'+context.state+' · 主题：'+context.theme;}
+window.addEventListener('message',e=>{if(e.data?.type==='topbase.dashboard.context')draw(e.data.payload)});
+document.querySelector('#increase').onclick=()=>{config.value=(Number(config.value)||0)+1;window.parent.postMessage({type:'topbase.dashboard.set-config',config},'*');draw({config})};
+window.parent.postMessage({type:'topbase.dashboard.ready'},'*');
+</script></body></html>

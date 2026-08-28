@@ -397,12 +397,25 @@ async function runNativeSQL(){
 }
 $('#save-question').onclick=async()=>{
   if(!lastQueryIR&&!queryEditor.sql().trim())return toast('请先打开一张表并完成查询');
-  const name=await promptDialog({kicker:'保存查询',title:'将当前查询保存为分析',label:'分析名称',value:(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',confirmText:'保存分析'});
-  if(!name)return;
+  let collections;
+  try{collections=await api('/api/collections')}catch(e){toast('无法读取可保存的分组：'+e.message);return}
+  const writableCollections=collections.filter(collection=>!collection.read_only);
+  const personal=writableCollections.find(collection=>collection.kind==='personal_project');
+  const values=await formDialog({
+    kicker:'保存查询',
+    title:'将当前查询保存为分析',
+    description:'为分析命名，并选择它在分析列表中的分组。',
+    confirmText:'保存分析',
+    fields:[
+      {name:'name',label:'分析名称',value:(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',required:true},
+      {name:'collection_id',label:'保存到分组',type:'select',value:personal?personal.id:'__personal__',required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,label:collection.name+(collection.kind==='personal_project'?' · 个人分组':' · 企业项目')})))}
+    ]
+  });
+  if(!values)return;
   const sql=queryEditor.sql().trim();
   const payload=queryEditor.mode()==='sql'
-    ?{name,query_type:'native',database_id:currentDB.id,native_sql:sql,chartspec:lastChart}
-    :{name,query_type:'queryir',queryir:lastQueryIR,chartspec:lastChart};
+    ?{name:values.name,collection_id:values.collection_id==='__personal__'?'':values.collection_id,query_type:'native',database_id:currentDB.id,native_sql:sql,chartspec:lastChart}
+    :{name:values.name,collection_id:values.collection_id==='__personal__'?'':values.collection_id,query_type:'queryir',queryir:lastQueryIR,chartspec:lastChart};
   if(payload.query_type==='native'&&!sql)return toast('请先输入要保存的 SQL');
   try{const saved=await api('/api/questions','POST',payload);toast('已保存为分析');location.href='/questions/'+saved.id+'/'}catch(e){toast(e.message)}
 };

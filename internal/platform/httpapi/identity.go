@@ -198,7 +198,13 @@ func (s *server) listCollections(w http.ResponseWriter, r *http.Request) {
 	}
 	visible := []core.Collection{}
 	for _, item := range items {
-		if s.identity.CanAccessProject(user, item, "view") {
+		if s.canAccessCollection(user, item.ID, "view") {
+			if item.Kind == "personal_project" && item.PersonalOwnerUserID != user.ID {
+				item.ReadOnly = true
+				if owner, err := s.identity.Users.ByID(item.PersonalOwnerUserID); err == nil {
+					item.SharedByName = owner.Name
+				}
+			}
 			visible = append(visible, item)
 		}
 	}
@@ -331,9 +337,15 @@ func (s *server) getCollection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, ok := s.currentUserOrKey(r)
-	if !ok || !s.identity.CanAccessProject(user, item, "view") {
+	if !ok || !s.canAccessCollection(user, item.ID, "view") {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "project access denied"})
 		return
+	}
+	if item.Kind == "personal_project" && item.PersonalOwnerUserID != user.ID {
+		item.ReadOnly = true
+		if owner, err := s.identity.Users.ByID(item.PersonalOwnerUserID); err == nil {
+			item.SharedByName = owner.Name
+		}
 	}
 	questions, err := s.content.ListQuestions()
 	if err != nil {
@@ -351,7 +363,7 @@ func (s *server) getCollection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, c := range children {
-		if c.ParentID == item.ID && s.identity.CanAccessProject(user, c, "view") {
+		if c.ParentID == item.ID && s.canAccessCollection(user, c.ID, "view") {
 			kids = append(kids, c)
 		}
 	}
@@ -374,7 +386,7 @@ func (s *server) updateCollection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "data group not found"})
 		return
 	}
-	if !s.identity.CanAccessProject(user, existing, "edit") {
+	if !s.canAccessCollection(user, existing.ID, "edit") {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "data-group edit permission required"})
 		return
 	}
@@ -408,12 +420,82 @@ func (s *server) deleteCollection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "data group not found"})
 		return
 	}
-	if !s.identity.CanAccessProject(user, item, "manage") {
+	if !s.canAccessCollection(user, item.ID, "manage") {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "data-group management permission required"})
 		return
 	}
 	if err := s.content.DeleteCollection(r.PathValue("id")); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) getCollectionShares(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	collection, err := s.content.Collections.ByID(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "data group not found"})
+		return
+	}
+	if collection.Kind != "personal_project" || collection.PersonalOwnerUserID != user.ID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "only the owner can manage personal-group sharing"})
+		return
+	}
+	shares, err := s.store.ListCollectionShares(collection.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	users := []core.User{}
+	for _, share := range shares {
+		if recipient, err := s.identity.Users.ByID(share.UserID); err == nil {
+			users = append(users, recipient)
+		}
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
+func (s *server) putCollectionShares(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUserOrKey(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	collection, err := s.content.Collections.ByID(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "data group not found"})
+		return
+	}
+	if collection.Kind != "personal_project" || collection.PersonalOwnerUserID != user.ID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "only the owner can share a personal group"})
+		return
+	}
+	var input struct {
+		UserIDs []string `json:"user_ids"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	unique := map[string]bool{}
+	recipients := []string{}
+	for _, id := range input.UserIDs {
+		if id == user.ID || id == "" || unique[id] {
+			continue
+		}
+		if _, err := s.identity.Users.ByID(id); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "shared recipient not found"})
+			return
+		}
+		unique[id] = true
+		recipients = append(recipients, id)
+	}
+	if err := s.store.ReplaceCollectionShares(collection.ID, recipients); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

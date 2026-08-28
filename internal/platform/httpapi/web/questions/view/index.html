@@ -14,10 +14,9 @@
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
     <header class="topbar">
-      <a href="/questions/">分析</a><span>/</span><strong id="title">加载中</strong>
+      <a href="/questions/">分析</a><span>/</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称">加载中</button>
       <div class="top-actions">
         <button class="secondary" id="rerun" type="button">重新运行</button>
-        <button class="secondary" id="rename" type="button">重命名</button>
         <button class="secondary" id="move" type="button">移动到分组</button>
         <button class="secondary" id="archive" type="button">归档</button>
       </div>
@@ -25,7 +24,7 @@
     <main>
       <div class="page-head">
         <div>
-          <h1 id="heading">分析</h1>
+          <h1 id="heading" class="editable-analysis-name" tabindex="0" role="button" title="点击修改名称">分析</h1>
           <p id="meta">正在加载这条分析。</p>
         </div>
       </div>

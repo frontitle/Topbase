@@ -20,18 +20,18 @@ func TestOpenAppliesAndRecordsMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if store.SchemaVersion() != 8 {
-		t.Fatalf("schema version = %d, want 8", store.SchemaVersion())
+	if store.SchemaVersion() != 9 {
+		t.Fatalf("schema version = %d, want 9", store.SchemaVersion())
 	}
 	var count int
 	if err := store.db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 8 {
-		t.Fatalf("migration count = %d, want 8", count)
+	if count != 9 {
+		t.Fatalf("migration count = %d, want 9", count)
 	}
 	var appVersion string
-	if err := store.db.QueryRow(`SELECT app_version FROM schema_migrations WHERE version=8`).Scan(&appVersion); err != nil {
+	if err := store.db.QueryRow(`SELECT app_version FROM schema_migrations WHERE version=9`).Scan(&appVersion); err != nil {
 		t.Fatal(err)
 	}
 	if appVersion != "v0.1.0-test" {

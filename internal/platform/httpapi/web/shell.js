@@ -104,11 +104,24 @@ window.topbaseRememberDatabase = function (id) {
     const collapsed = localStorage.getItem('topbase.sidebar.collapsed') === 'true';
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     host.classList.add('sidebar', kind === 'admin' ? 'sidebar-admin' : 'sidebar-app');
-    host.innerHTML = `<div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><span class="mark">T</span><strong>${heading}</strong><span class="plan">${plan}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">‹</button></div><nav>${kind === 'admin' ? '<p>系统管理</p>' : '<p>数据工作台</p>'}${links(items, active)}</nav><footer><a class="sidebar-profile" href="/account/" title="个人中心">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></a></footer>`;
+    const context = kind === 'admin' ? '<p>管理后台</p>' : '<p>数据工作台</p>';
+    host.innerHTML = `<div class="sidebar-panel"><div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><span class="mark">T</span><strong>${heading}</strong><span class="shell-context">${kind === 'admin' ? '管理后台' : '工作台'}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">${icon(collapsed ? 'panel-left-open' : 'panel-left-close', 'sidebar-toggle-icon')}</button></div><label class="sidebar-search">${icon('search', 'sidebar-search-icon')}<input type="search" placeholder="搜索功能" aria-label="搜索功能"></label><nav>${context}${links(items, active)}</nav><footer><details class="sidebar-account" data-active="${active === 'account'}"><summary class="sidebar-profile" title="账户菜单">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></summary><div class="account-menu"><a href="/account/">个人中心</a><button type="button" data-logout>退出登录</button></div></details></footer></div>`;
     host.querySelector('.sidebar-toggle').onclick = () => {
       const next = !document.body.classList.contains('sidebar-collapsed');
       document.body.classList.toggle('sidebar-collapsed', next);
       localStorage.setItem('topbase.sidebar.collapsed', String(next));
+      host.querySelector('.sidebar-toggle use').setAttribute('href', `/vendor/lucide-nav.svg#panel-left-${next ? 'open' : 'close'}`);
+    };
+    const navSearch = host.querySelector('.sidebar-search input');
+    navSearch.oninput = () => {
+      const term = navSearch.value.trim().toLowerCase();
+      host.querySelectorAll('nav a').forEach(link => { link.hidden = !!term && !link.textContent.toLowerCase().includes(term); });
+    };
+    const logout = host.querySelector('[data-logout]');
+    logout.onclick = async () => {
+      logout.disabled = true;
+      try { await api('/api/session', 'DELETE'); } catch (_) {}
+      location.replace('/auth/login/');
     };
   }
 
