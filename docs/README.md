@@ -12,6 +12,7 @@
 
 - [Metabase 能力对齐矩阵](metabase-parity-matrix.md)：逐项产品验收状态
 - [工程架构](architecture.md)：依赖方向、稳定扩展点和安全基线
+- [前端功能组件](frontend-components.md)：公共组件清单、接口与准入规则
 - [Topbase 架构与功能清单](topbase-架构与功能清单.md)：领域与产品规格
 - [Metabase 产品与功能结构拆解](metabase-产品与功能结构拆解.md)：上游产品研究
 - [贡献指南](../CONTRIBUTING.md)：开发流程与质量门禁
