@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Topbase · 数据浏览</title>
+  <title>Topbase · 源数据</title>
   <link rel="stylesheet" href="/ui.css">
   <link rel="stylesheet" href="/data/data.css">
   <link rel="stylesheet" href="/filter.css">
@@ -14,15 +14,20 @@
 <body>
 <aside class="sidebar" data-shell="app" data-active="data"></aside>
 <div class="page">
-  <header class="topbar"><strong id="section-title">数据浏览</strong><span>/</span><strong id="crumb">选择数据库</strong></header>
+  <header class="topbar"><strong id="section-title">源数据</strong><span>/</span><strong id="crumb">选择数据库</strong></header>
   <main class="browser">
     <section id="db-view">
       <div class="page-head">
         <div>
-          <h1>浏览数据</h1>
-          <p>选中一个数据库，打开其中的表，即可像电子表格一样查看真实数据。</p>
+          <h1>源数据</h1>
+          <p>实时读取已连接数据库中的原始数据，适合即时查询和探索。</p>
         </div>
       </div>
+      <aside class="data-role-note" aria-label="源数据说明">
+        <span>实时 · 只读</span>
+        <div><b>数据仍保存在远程数据库</b><p>这里看到的是源库当前内容；Topbase 默认只读取，不会把查询结果自动保存到本地。</p></div>
+        <a href="/warehouse/">需要周期保存？前往数据沉淀 →</a>
+      </aside>
       <input id="db-search" class="browse-search" placeholder="搜索数据库">
       <div id="db-cards" class="cards"></div>
     </section>

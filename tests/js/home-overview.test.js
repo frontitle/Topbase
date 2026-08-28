@@ -9,8 +9,10 @@ const app = fs.readFileSync('internal/platform/httpapi/web/app.js', 'utf8');
 test('application sidebar omits model and search entries', () => {
   const appMenu = shell.slice(shell.indexOf('const appItems'), shell.indexOf('const adminItems'));
   assert.doesNotMatch(appMenu, /browse\/models|href:\s*['"]\/search\/|label:\s*['"](?:模型|搜索)['"]/);
-  assert.match(appMenu, /label:\s*'数据组'/);
-  assert.match(appMenu, /label:\s*'数仓'/);
+  assert.doesNotMatch(appMenu, /label:\s*'数据组'/);
+  assert.match(appMenu, /label:\s*'源数据'/);
+  assert.match(appMenu, /label:\s*'数据沉淀'/);
+  assert.ok(appMenu.indexOf("label: '仪表盘'") < appMenu.indexOf("label: '源数据'"));
 });
 
 test('home is a data-driven overview with core statistics and working shortcuts', () => {
@@ -20,7 +22,7 @@ test('home is a data-driven overview with core statistics and working shortcuts'
   assert.match(home, /href="\/questions\/new\/"/);
   assert.match(home, /href="\/data\/"/);
   assert.match(home, /id="create-dashboard"/);
-  assert.match(home, /href="\/collections\/"/);
+  assert.match(home, /href="\/questions\/\?view=groups"/);
   for (const endpoint of ['/api/databases', '/api/questions', '/api/dashboards', '/api/collections', '/api/notifications']) {
     assert.ok(app.includes(endpoint), `missing overview endpoint ${endpoint}`);
   }

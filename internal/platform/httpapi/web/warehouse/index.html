@@ -3,37 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Topbase · 数仓</title>
+  <title>Topbase · 数据沉淀</title>
   <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/warehouse/warehouse.css">
 </head>
 <body>
   <aside class="sidebar" data-shell="app" data-active="warehouse"></aside>
   <div class="page">
-    <header class="topbar"><strong>数仓</strong></header>
+    <header class="topbar"><strong>数据沉淀</strong></header>
     <main>
       <div class="page-head">
         <div>
-          <h1>查询结果升级数仓</h1>
-          <p>把已保存分析写成 <code>warehouse.wh_*</code> 表。物化需确认调度后才会执行；增量调度按 watermark 追加行。</p>
+          <h1>数据沉淀</h1>
+          <p>把需要长期追踪的分析结果按计划保存到 Topbase，形成可复用的本地数据。</p>
         </div>
       </div>
+      <aside class="warehouse-role-note" aria-label="数据沉淀说明">
+        <span>本地保存 · 按计划更新</span>
+        <div><b>这是 Topbase 管理的数据</b><p>结果会从源数据定期计算并保存，适合历史对比、稳定指标和后续再次分析。</p></div>
+        <a href="/data/">想看实时原始内容？前往源数据 →</a>
+      </aside>
       <section class="section-block">
-        <h2>物化表</h2>
+        <h2>已沉淀的数据</h2>
         <div class="cards" id="tables"></div>
       </section>
       <section class="section-block">
-        <h2>调度</h2>
+        <h2>更新计划</h2>
         <div class="cards" id="schedules"></div>
       </section>
       <section class="section-block">
-        <h2>创建调度</h2>
+        <h2>创建更新计划</h2>
         <form id="form" class="create-box">
           <label>分析<select id="questions" required></select></label>
-          <label>说明<input id="message" value="每天 9 点写入数仓"></label>
+          <label>更新要求<input id="message" value="每天 9 点保存最新结果"></label>
           <pre id="proposal" class="muted-box">先提案，再确认创建。</pre>
           <div class="actions">
-            <button class="secondary" type="button" id="propose">AI 提案</button>
-            <button class="primary" type="submit">确认并创建</button>
+            <button class="secondary" type="button" id="propose">AI 生成计划</button>
+            <button class="primary" type="submit">确认创建计划</button>
           </div>
         </form>
       </section>

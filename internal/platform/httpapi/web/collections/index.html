@@ -3,44 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Topbase · 数据组</title>
-  <link rel="stylesheet" href="/ui.css">
+  <meta http-equiv="refresh" content="0;url=/questions/?view=groups">
+  <title>Topbase · 分析分组</title>
+  <link rel="canonical" href="/questions/?view=groups">
 </head>
 <body>
-  <aside class="sidebar" data-shell="app" data-active="collections"></aside>
-  <div class="page">
-    <header class="topbar"><strong>数据组</strong></header>
-    <main>
-      <div class="page-head">
-        <div>
-          <h1>数据组</h1>
-          <p>每个人都有一个默认的「我的分析」数据组；将可复用的分析和仪表盘发布到团队数据组，方便协作交付。</p>
-        </div>
-        <button class="primary" id="create" type="button">新建数据组</button>
-      </div>
-      <section id="list" class="cards"></section>
-    </main>
-  </div>
-  <div id="toast"></div>
-  <script src="/ui.js"></script>
-  <script src="/shell.js"></script>
-  <script>
-    let groups=[];
-    async function load(){
-      const [cols, questions, allGroups]=await Promise.all([api('/api/collections'), api('/api/questions'), api('/api/groups')]); groups=allGroups;
-      const count=id=>questions.filter(q=>q.collection_id===id).length;
-      const child=id=>cols.filter(c=>c.parent_id===id).length;
-      const label=c=>c.kind==='personal_project'?'个人数据组':'团队数据组';
-      $('#list').innerHTML=cols.map(c=>cardHTML({href:'/collections/'+c.id+'/',title:c.name,meta:label(c)+' · '+count(c.id)+' 条分析 · '+child(c.id)+' 个子数据组'})).join('')||emptyHTML({icon:'☰',title:'还没有数据组',body:'首次保存分析会自动创建「我的分析」。',href:'/questions/',cta:'查看分析'});
-    }
-    $('#create').onclick=async()=>{
-      const values=await formDialog({kicker:'新建数据组',title:'创建数据组',description:'数据组用于集中整理分析、仪表盘和后续分析资产。',confirmText:'创建数据组',fields:[{name:'name',label:'数据组名称',placeholder:'例如：经营分析',required:true},{name:'kind',label:'数据组类型',type:'choice',value:'team_project',required:true,options:[{value:'team_project',label:'团队数据组',description:'团队成员可以共同使用和维护'},{value:'personal_project',label:'个人数据组',description:'用于整理自己的分析内容'}]},{name:'owner_group_id',label:'管理用户组',type:'select',value:groups[0]&&groups[0].id||'',help:'创建团队数据组时必填；个人数据组会忽略此项。',options:[{value:'',label:'请选择用户组'}].concat(groups.map(g=>({value:g.id,label:g.name})))}],validate:v=>v.kind==='team_project'&&!v.owner_group_id?'团队数据组必须选择一个管理用户组。':''});
-      if(!values)return;
-      const {name,kind}=values;
-      const owner_group_id=kind==='team_project'?values.owner_group_id:'';
-      try{const item=await api('/api/collections','POST',{name,kind,owner_group_id});location.href='/collections/'+item.id+'/'}catch(e){toast(e.message)}
-    };
-    load().catch(e=>toast(e.message));
-  </script>
+  <p>分组管理已合并到“分析”。正在前往…</p>
+  <script>location.replace('/questions/?view=groups')</script>
 </body>
 </html>

@@ -20,10 +20,10 @@
         <div>
           <span class="home-kicker">工作台概览</span>
           <h1 id="welcome">欢迎回来</h1>
-          <p>从数据源到分析、仪表盘和数仓任务，在一个工作台持续掌握数据资产。</p>
+          <p>从源数据到分析、数据沉淀和仪表盘，在一个工作台持续掌握业务指标。</p>
         </div>
         <div class="home-head-actions">
-          <a class="secondary" href="/data/">浏览数据</a>
+          <a class="secondary" href="/data/">查看源数据</a>
           <a class="primary" href="/questions/new/">创建分析</a>
         </div>
       </div>
@@ -44,8 +44,8 @@
           <strong id="stat-dashboards">—</strong>
           <small>持续观测业务指标</small>
         </a>
-        <a class="home-stat" href="/collections/">
-          <span><i class="stat-mark">☰</i>数据组</span>
+        <a class="home-stat" href="/questions/?view=groups">
+          <span><i class="stat-mark">☰</i>分析分组</span>
           <strong id="stat-collections">—</strong>
           <small>个人与团队数据资产</small>
         </a>
@@ -62,13 +62,13 @@
                 <i>＋</i><span><strong>创建分析</strong><small>通过可视化步骤获取指标</small></span><b>→</b>
               </a>
               <a class="home-quick" href="/data/">
-                <i>▦</i><span><strong>浏览数据</strong><small>查看数据库、表和字段</small></span><b>→</b>
+                <i>▦</i><span><strong>查看源数据</strong><small>实时读取远程数据库，默认只读</small></span><b>→</b>
               </a>
               <button class="home-quick" id="create-dashboard" type="button">
                 <i>☷</i><span><strong>新建仪表盘</strong><small>汇总分析并持续观测</small></span><b>→</b>
               </button>
-              <a class="home-quick" href="/collections/">
-                <i>☰</i><span><strong>管理数据组</strong><small>组织个人与团队内容</small></span><b>→</b>
+              <a class="home-quick" href="/questions/?view=groups">
+                <i>☰</i><span><strong>管理分析分组</strong><small>组织个人与团队分析</small></span><b>→</b>
               </a>
               <a class="home-quick" id="admin-database-link" href="/admin/" hidden>
                 <i>⚙</i><span><strong>连接数据源</strong><small>添加或维护数据库连接</small></span><b>→</b>
@@ -96,7 +96,7 @@
             <div id="database-health" class="home-health-list">
               <div class="home-loading">正在读取连接状态…</div>
             </div>
-            <a class="home-section-link" href="/data/">打开数据浏览 <span>→</span></a>
+            <a class="home-section-link" href="/data/">打开源数据 <span>→</span></a>
           </section>
 
           <section class="home-section">

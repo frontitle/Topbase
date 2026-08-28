@@ -14,11 +14,11 @@
       <div class="page-head">
         <div>
           <h1>搜索</h1>
-          <p>查找分析、仪表盘、数据组和数据源。</p>
+          <p>查找分析、仪表盘、分析分组和源数据。</p>
         </div>
       </div>
       <section class="toolbar">
-        <label><span>⌕</span><input id="q" placeholder="搜索分析、仪表盘、数据组、数据源"></label>
+        <label><span>⌕</span><input id="q" placeholder="搜索分析、仪表盘、分组、源数据"></label>
       </section>
       <section id="results" class="cards"></section>
     </main>
@@ -28,13 +28,13 @@
   <script src="/shell.js"></script>
   <script>
     const href={question:id=>'/questions/'+id+'/',dashboard:id=>'/dashboard/'+id+'/',collection:id=>'/collections/'+id+'/',database:id=>'/data/?db='+encodeURIComponent(id)};
-    const typeLabel={question:'分析',dashboard:'仪表盘',collection:'数据组',database:'数据源'};
+    const typeLabel={question:'分析',dashboard:'仪表盘',collection:'分析分组',database:'源数据'};
     async function run(){
       const q=$('#q').value.trim();
       if(!q){$('#results').innerHTML='';return}
       try{
         const items=await api('/api/search?q='+encodeURIComponent(q));
-        $('#results').innerHTML=items.map(i=>cardHTML({href:(href[i.type]||(()=>'/'))(i.id),title:i.name,meta:typeLabel[i.type]||i.type})).join('')||emptyHTML({icon:'⌕',title:'没有匹配结果',body:'换个关键词试试，或到分析、数据组列表里浏览。'});
+        $('#results').innerHTML=items.map(i=>cardHTML({href:(href[i.type]||(()=>'/'))(i.id),title:i.name,meta:typeLabel[i.type]||i.type})).join('')||emptyHTML({icon:'⌕',title:'没有匹配结果',body:'换个关键词试试，或到分析页面按分组浏览。'});
       }catch(e){toast(e.message)}
     }
     $('#q').oninput=()=>{clearTimeout(window._t);window._t=setTimeout(run,200)};
