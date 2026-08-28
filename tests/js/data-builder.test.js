@@ -15,5 +15,8 @@ test('data browser keeps one canonical filter and exposes guided query steps', (
   assert.match(html, /id="sort-builder"/);
   assert.match(html, /id="limit-builder"/);
   assert.match(html, /id="expression-builder"/);
-  assert.match(html, /id="run-visual"[^>]*>运行并预览/);
+  assert.match(html, /data-query-mode="visual"/);
+  assert.match(html, /data-query-mode="sql"/);
+  assert.match(html, /id="run-query"[^>]*>运行并预览/);
+  assert.match(script, /api\('\/api\/queries\/run','POST'/);
 });

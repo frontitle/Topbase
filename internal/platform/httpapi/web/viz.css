@@ -311,14 +311,7 @@
   background: #fafafa;
 }
 .query-debug summary { cursor: pointer; font-size: 13px; color: #666; }
-.query-debug pre {
-  margin: 10px 0 4px;
-  max-height: 240px;
-  overflow: auto;
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
+.query-debug .tb-code { margin: 10px 0 4px; }
 @media (max-width: 980px) {
   .viz-workspace { grid-template-columns: 1fr; }
 }

@@ -1,4 +1,4 @@
-let databases=[], tables=[], active=null, currentDB=null, lastQueryIR=null, lastChart=null, isAdmin=false, aliases={}, fieldMeta=[], filterBar=null, gridState={hidden:{}}, creationMode=false;
+let databases=[], tables=[], active=null, currentDB=null, lastQueryIR=null, lastChart=null, lastResultMode='visual', isAdmin=false, aliases={}, fieldMeta=[], filterBar=null, gridState={hidden:{}}, creationMode=false, queryEditor=null;
 function key(t){return t.schema+'.'+t.name}
 function setURL(){
   const p=new URLSearchParams();
@@ -50,11 +50,12 @@ function renderTables(items){
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>key(t)===b.dataset.key)).catch(e=>toast(e.message)));
 }
 async function openTable(table){
-  active=table;lastQueryIR=null;lastChart=null;aliases={};fieldMeta=[];gridState={hidden:{}};
+  active=table;lastQueryIR=null;lastChart=null;lastResultMode='visual';aliases={};fieldMeta=[];gridState={hidden:{}};
   if(filterBar){filterBar.destroy();filterBar=null}
+  queryEditor.setMode('visual');queryEditor.setSQL('',{dirty:false});queryEditor.setGeneratedSQL('');
   renderTables(tables);
   $('#empty-state').hidden=true;$('#table-workspace').hidden=false;$('#ask-panel').hidden=false;
-  $('#toggle-ask').textContent='收起查询步骤';
+  $('#toggle-ask').textContent='收起查询编辑器';
   $('#toggle-ask').setAttribute('aria-expanded','true');
   $('#source-name').textContent=table.schema;
   $('#table-name').textContent=table.name;
@@ -106,7 +107,7 @@ async function openTable(table){
     $('#grid-wrap').innerHTML=`<div class="reconnect"><b>查询失败</b><small>${esc(preview.error)}</small></div>`;
     return;
   }
-  renderGrid(preview);
+  renderGrid(preview,'visual');
 }
 function columnModels(){
   return (active&&active.columns||[]).map(c=>{
@@ -268,18 +269,21 @@ async function runWithFilters(filters){
     const d=await api('/api/dataset','POST',query);
     lastQueryIR=d.queryir||query;
     lastChart=d.chartspec;
-    renderGrid(d);
+    renderGrid(d,'visual');
   }catch(e){
     $('#grid-status').textContent='筛选失败：'+e.message;
     toast(e.message);
   }
 }
-function renderGrid(d){
+function renderGrid(d, mode){
+  mode=mode||lastResultMode||'visual';
+  lastResultMode=mode;
   const cols=d.columns||[];
   const rows=d.rows||[];
-  $('#generated-sql').textContent=d.sql||'';
-  const n=(lastQueryIR&&lastQueryIR.filters||[]).length;
-  $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。');
+  TopbaseCode.setCode('#generated-sql',d.sql||'',{language:'sql',label:'本次执行的 SQL'});
+  queryEditor.setGeneratedSQL(d.sql||'');
+  const n=mode==='visual'?(lastQueryIR&&lastQueryIR.filters||[]).length:0;
+  $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(mode==='sql'?'（SQL 实时查询）':(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。'));
   if(!cols.length){$('#grid-wrap').innerHTML='<p>这张表没有返回列。</p>';return}
   const types={},descriptions={};
   tables.forEach(table=>(table.columns||[]).forEach(column=>{
@@ -289,13 +293,27 @@ function renderGrid(d){
   fieldMeta.forEach(field=>{if(field.description)descriptions[field.name]=field.description});
   TopbaseGrid('#grid-wrap',{columns:cols, rows, aliases, types, descriptions, filtersEnabled:false, hidden:gridState.hidden, onChange:state=>{gridState.hidden=state.hidden}});
 }
+queryEditor=TopbaseQueryEditor.mount('#ask-panel',{
+  onSQLChange:()=>{lastChart=null},
+  onModeChange:mode=>{
+    $$('.visual-result-action').forEach(item=>item.hidden=mode==='sql');
+    if(mode==='sql'){
+      queryEditor&&queryEditor.setSummary('执行自定义 SQL');
+      $('#builder-state').textContent='SQL 模式';
+    }else{
+      updateBuilderSummary();
+    }
+  },
+  onRun:mode=>mode==='sql'?runNativeSQL():runVisualQuery()
+});
+TopbaseCode.mountBlock('#generated-sql',{language:'sql',label:'本次执行的 SQL'});
 $('#back-dbs').onclick=()=>creationMode?location.assign('/questions/new/'):showDatabases();
 $('#db-search').oninput=renderDatabases;
 $('#search').oninput=e=>renderTables(tables.filter(t=>(t.name+' '+t.schema+' '+(t.description||'')+' '+(t.columns||[]).map(c=>c.name+' '+(c.description||'')).join(' ')).toLowerCase().includes(e.target.value.toLowerCase())));
 $('#toggle-ask').onclick=()=>{
   const panel=$('#ask-panel');
   panel.hidden=!panel.hidden;
-  $('#toggle-ask').textContent=panel.hidden?'展开查询步骤':'收起查询步骤';
+  $('#toggle-ask').textContent=panel.hidden?'展开查询编辑器':'收起查询编辑器';
   $('#toggle-ask').setAttribute('aria-expanded',panel.hidden?'false':'true');
 };
 $('#join-table').onchange=updateJoinTarget;
@@ -325,7 +343,7 @@ $$('[data-close-step]').forEach(button=>button.onclick=()=>{
   const trigger=$(`[data-builder-target="${button.dataset.closeStep}"]`);
   if(trigger&&(button.dataset.closeStep!=='join-builder'||!$('#join-table').value))trigger.classList.remove('active');
 });
-$('#run-visual').onclick=async()=>{
+async function runVisualQuery(){
   if(!active||!currentDB||!lastQueryIR)return;
   let join;
   try{join=selectedJoin()}catch(e){toast(e.message);return}
@@ -362,21 +380,38 @@ $('#run-visual').onclick=async()=>{
     if(sortField==='__group__')field=breakoutAlias(groupField,groupTemporal,joined);
     query.order_by=[{field,dir:$('#sort-direction').value}];
   }
-  $('#run-visual').disabled=true;$('#run-visual').textContent='正在运行…';
   try{
     const d=await api('/api/dataset','POST',query);
     lastQueryIR=d.queryir||query;
     lastChart=d.chartspec;
-    renderGrid(d);updateBuilderSummary();toast('查询已完成');
-  }catch(e){toast(e.message)}finally{$('#run-visual').disabled=false;$('#run-visual').textContent='运行并预览'}
-};
+    renderGrid(d,'visual');updateBuilderSummary();toast('查询已完成');
+  }catch(e){$('#grid-status').textContent='查询失败：'+e.message;toast(e.message)}
+}
+async function runNativeSQL(){
+  if(!active||!currentDB)return;
+  const sql=queryEditor.sql().trim();
+  if(!sql){toast('请先输入要执行的 SQL');return}
+  $('#grid-status').textContent='正在执行 SQL…';
+  try{
+    const d=await api('/api/queries/run','POST',{database_id:currentDB.id,sql});
+    lastChart=null;
+    renderGrid(Object.assign({},d,{sql:d.sql||sql}),'sql');
+    toast('SQL 查询已完成');
+  }catch(e){$('#grid-status').textContent='SQL 查询失败：'+e.message;toast(e.message)}
+}
 $('#save-question').onclick=async()=>{
-  if(!lastQueryIR)return toast('请先打开一张表');
+  if(!lastQueryIR&&!queryEditor.sql().trim())return toast('请先打开一张表并完成查询');
   const name=await promptDialog({kicker:'保存查询',title:'将当前查询保存为分析',label:'分析名称',value:(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',confirmText:'保存分析'});
   if(!name)return;
-  try{const saved=await api('/api/questions','POST',{name,query_type:'queryir',queryir:lastQueryIR,chartspec:lastChart});toast('已保存为分析');location.href='/questions/'+saved.id+'/'}catch(e){toast(e.message)}
+  const sql=queryEditor.sql().trim();
+  const payload=queryEditor.mode()==='sql'
+    ?{name,query_type:'native',database_id:currentDB.id,native_sql:sql,chartspec:lastChart}
+    :{name,query_type:'queryir',queryir:lastQueryIR,chartspec:lastChart};
+  if(payload.query_type==='native'&&!sql)return toast('请先输入要保存的 SQL');
+  try{const saved=await api('/api/questions','POST',payload);toast('已保存为分析');location.href='/questions/'+saved.id+'/'}catch(e){toast(e.message)}
 };
 async function drill(kind){
+  if(queryEditor.mode()==='sql')return toast('SQL 结果暂不支持可视化下钻，请切换到可视化查询。');
   if(!lastQueryIR)return toast('请先查看表数据');
   const field=$('#drill-field').value|| (lastQueryIR.filters&&lastQueryIR.filters[0]&&lastQueryIR.filters[0].field) || (lastQueryIR.group_by&&lastQueryIR.group_by[0]&&lastQueryIR.group_by[0].field);
   const value=(lastQueryIR.filters&&lastQueryIR.filters[0]&&lastQueryIR.filters[0].value)||'';
@@ -385,7 +420,7 @@ async function drill(kind){
     const d=await api('/api/dataset/drill','POST',{queryir:lastQueryIR,drill:{kind,field,value},join_table:selected?selected.name:''});
     if(d.queryir) lastQueryIR=d.queryir;
     if(filterBar) filterBar.setFilters(lastQueryIR.filters||[]);
-    renderGrid(d);toast('下钻完成');
+    renderGrid(d,'visual');toast('下钻完成');
   }catch(e){toast(e.message)}
 }
 $('#drill-records').onclick=()=>drill('records');

@@ -133,7 +133,11 @@ function setMeta() {
   $('#title').textContent = question.name;
   $('#heading').textContent = question.name;
   $('#meta').textContent = kind + ' · ' + (col ? col.name : '我的分析') + ' · ' + freshness + ' · ' + n + ' 行' + (updated ? ' · 更新于 ' + updated : '');
-  $('#query-json').textContent = queryPreview();
+  const isSQL = !!(question.native_sql || (lastResult && lastResult.sql));
+  TopbaseCode.setCode('#query-json', queryPreview(), {
+    language: isSQL ? 'sql' : 'json',
+    label: isSQL ? '查询 SQL' : '查询定义'
+  });
 }
 
 async function loadResult() {

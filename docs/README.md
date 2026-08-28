@@ -11,6 +11,7 @@
 ## 产品与研发
 
 - [工程架构](architecture.md)：依赖方向、稳定扩展点和安全基线
+- [前端功能组件](frontend-components.md)：公共组件清单、接口与准入规则
 - [贡献指南](../CONTRIBUTING.md)：开发流程与质量门禁
 - [安全策略](../SECURITY.md)：安全问题报告和敏感数据要求
 
