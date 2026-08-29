@@ -34,6 +34,7 @@ jobs:
         uses: actions/checkout@v5
       - name: Validate Compose deployment definitions
         env:
+          TOPBASE_APP_DB_ENGINE: postgres
           TOPBASE_APP_DB_HOST: db.example.internal
           TOPBASE_APP_DB_PASSWORD: topbase-ci-password
           TOPBASE_MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
