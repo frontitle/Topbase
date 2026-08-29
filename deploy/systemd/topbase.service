@@ -1,0 +1,23 @@
+[Unit]
+Description=Topbase analytics platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=topbase
+Group=topbase
+WorkingDirectory=/opt/topbase
+EnvironmentFile=/etc/topbase/topbase.env
+ExecStart=/opt/topbase/topbase
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=40s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/topbase /var/backups/topbase
+
+[Install]
+WantedBy=multi-user.target

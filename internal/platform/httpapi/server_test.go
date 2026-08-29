@@ -3,12 +3,15 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/topbase/topbase/internal/buildinfo"
 	"github.com/topbase/topbase/internal/core"
+	appmigrations "github.com/topbase/topbase/migrations"
 )
 
 func testServer(t *testing.T) http.Handler {
@@ -147,6 +150,97 @@ func TestAdminPagesRequireAdministratorSession(t *testing.T) {
 	handler.ServeHTTP(nonAdminRec, nonAdminReq)
 	if nonAdminRec.Code != http.StatusFound || nonAdminRec.Header().Get("Location") != "/" {
 		t.Fatalf("member admin page %d %q", nonAdminRec.Code, nonAdminRec.Header().Get("Location"))
+	}
+}
+
+func TestDeveloperModeControlsAPIKeysAndEndpointScope(t *testing.T) {
+	handler := testServer(t)
+	session := adminSession(t, handler)
+
+	createWhileDisabled := httptest.NewRequest(http.MethodPost, "/api/api-keys", bytes.NewBufferString(`{"name":"Local MCP"}`))
+	createWhileDisabled.AddCookie(session)
+	disabledRec := httptest.NewRecorder()
+	handler.ServeHTTP(disabledRec, createWhileDisabled)
+	if disabledRec.Code != http.StatusForbidden {
+		t.Fatalf("create key while disabled = %d: %s", disabledRec.Code, disabledRec.Body.String())
+	}
+
+	settingsBody := `{"enabled":true,"allow_personal_keys":true,"allow_analysis_write":false,"default_key_ttl_days":30,"max_query_rows":25,"public_base_url":"https://topbase.example.com"}`
+	settingsReq := httptest.NewRequest(http.MethodPut, "/api/admin/developer-settings", bytes.NewBufferString(settingsBody))
+	settingsReq.AddCookie(session)
+	settingsRec := httptest.NewRecorder()
+	handler.ServeHTTP(settingsRec, settingsReq)
+	if settingsRec.Code != http.StatusOK {
+		t.Fatalf("enable developer mode = %d: %s", settingsRec.Code, settingsRec.Body.String())
+	}
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/api-keys", bytes.NewBufferString(`{"name":"Local MCP"}`))
+	createReq.AddCookie(session)
+	createRec := httptest.NewRecorder()
+	handler.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create key = %d: %s", createRec.Code, createRec.Body.String())
+	}
+	var key core.APIKey
+	if err := json.Unmarshal(createRec.Body.Bytes(), &key); err != nil {
+		t.Fatal(err)
+	}
+	if key.Key == "" || key.ExpiresAt == nil {
+		t.Fatalf("created key must reveal a secret once and contain expiry: %+v", key)
+	}
+
+	pingReq := httptest.NewRequest(http.MethodGet, "/api/developer/ping", nil)
+	pingReq.Header.Set("Authorization", "Bearer "+key.Key)
+	pingRec := httptest.NewRecorder()
+	handler.ServeHTTP(pingRec, pingReq)
+	if pingRec.Code != http.StatusOK || !bytes.Contains(pingRec.Body.Bytes(), []byte(`"max_query_rows":25`)) {
+		t.Fatalf("developer ping = %d: %s", pingRec.Code, pingRec.Body.String())
+	}
+
+	usersReq := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	usersReq.Header.Set("Authorization", "Bearer "+key.Key)
+	usersRec := httptest.NewRecorder()
+	handler.ServeHTTP(usersRec, usersReq)
+	if usersRec.Code != http.StatusForbidden {
+		t.Fatalf("API key accessed non-developer endpoint = %d: %s", usersRec.Code, usersRec.Body.String())
+	}
+
+	writeReq := httptest.NewRequest(http.MethodPost, "/api/questions", bytes.NewBufferString(`{"name":"AI analysis"}`))
+	writeReq.Header.Set("Authorization", "Bearer "+key.Key)
+	writeRec := httptest.NewRecorder()
+	handler.ServeHTTP(writeRec, writeReq)
+	if writeRec.Code != http.StatusForbidden {
+		t.Fatalf("API key created analysis while writes disabled = %d: %s", writeRec.Code, writeRec.Body.String())
+	}
+
+	allowWriteReq := httptest.NewRequest(http.MethodPut, "/api/admin/developer-settings", bytes.NewBufferString(`{"enabled":true,"allow_personal_keys":true,"allow_analysis_write":true,"default_key_ttl_days":30,"max_query_rows":25,"public_base_url":"https://topbase.example.com"}`))
+	allowWriteReq.AddCookie(session)
+	allowWriteRec := httptest.NewRecorder()
+	handler.ServeHTTP(allowWriteRec, allowWriteReq)
+	if allowWriteRec.Code != http.StatusOK {
+		t.Fatalf("allow analysis writes = %d: %s", allowWriteRec.Code, allowWriteRec.Body.String())
+	}
+	nativeReq := httptest.NewRequest(http.MethodPost, "/api/questions", bytes.NewBufferString(`{"name":"Unsafe SQL","query_type":"native","native_sql":"select 1"}`))
+	nativeReq.Header.Set("Authorization", "Bearer "+key.Key)
+	nativeRec := httptest.NewRecorder()
+	handler.ServeHTTP(nativeRec, nativeReq)
+	if nativeRec.Code != http.StatusBadRequest || !bytes.Contains(nativeRec.Body.Bytes(), []byte("visual QueryIR")) {
+		t.Fatalf("API key native SQL boundary = %d: %s", nativeRec.Code, nativeRec.Body.String())
+	}
+
+	disableReq := httptest.NewRequest(http.MethodPut, "/api/admin/developer-settings", bytes.NewBufferString(`{"enabled":false,"allow_personal_keys":true,"allow_analysis_write":false,"default_key_ttl_days":30,"max_query_rows":25,"public_base_url":"https://topbase.example.com"}`))
+	disableReq.AddCookie(session)
+	disableRec := httptest.NewRecorder()
+	handler.ServeHTTP(disableRec, disableReq)
+	if disableRec.Code != http.StatusOK {
+		t.Fatalf("disable developer mode = %d: %s", disableRec.Code, disableRec.Body.String())
+	}
+	blockedReq := httptest.NewRequest(http.MethodGet, "/api/developer/ping", nil)
+	blockedReq.Header.Set("Authorization", "Bearer "+key.Key)
+	blockedRec := httptest.NewRecorder()
+	handler.ServeHTTP(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusUnauthorized || !bytes.Contains(blockedRec.Body.Bytes(), []byte("developer mode is disabled")) {
+		t.Fatalf("disabled developer mode did not revoke access = %d: %s", blockedRec.Code, blockedRec.Body.String())
 	}
 }
 
@@ -422,7 +516,13 @@ func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
 	versionReq := httptest.NewRequest(http.MethodGet, "/api/version", nil)
 	versionRec := httptest.NewRecorder()
 	handler.ServeHTTP(versionRec, versionReq)
-	if !bytes.Contains(versionRec.Body.Bytes(), []byte(`"schema_version":9`)) || !bytes.Contains(versionRec.Body.Bytes(), []byte(`"version":"0.1.0-alpha.0-dev"`)) {
+	files, err := appmigrations.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedSchema := []byte(fmt.Sprintf(`"schema_version":%d`, files[len(files)-1].Version))
+	expectedVersion := []byte(fmt.Sprintf(`"version":%q`, buildinfo.Version))
+	if !bytes.Contains(versionRec.Body.Bytes(), expectedSchema) || !bytes.Contains(versionRec.Body.Bytes(), expectedVersion) {
 		t.Fatalf("unexpected version payload: %s", versionRec.Body.String())
 	}
 }
@@ -921,6 +1021,10 @@ func TestFeishuDepartmentSyncRequiresCredentials(t *testing.T) {
 
 func TestDashboardSubscriptionCreateAndRun(t *testing.T) {
 	handler := testServer(t)
+	webhook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer webhook.Close()
 	setupReq := httptest.NewRequest(http.MethodPost, "/api/setup", bytes.NewBufferString(`{"language":"zh-CN","admin_name":"Ada","admin_email":"ada@example.com","admin_password":"secret123"}`))
 	setupRec := httptest.NewRecorder()
 	handler.ServeHTTP(setupRec, setupReq)
@@ -952,7 +1056,18 @@ func TestDashboardSubscriptionCreateAndRun(t *testing.T) {
 	_ = json.Unmarshal(boardRec.Body.Bytes(), &board)
 	boardID, _ := board["id"].(string)
 
-	subBody, _ := json.Marshal(map[string]any{"cron": "0 9 * * *", "channel": "inbox"})
+	hookBody, _ := json.Marshal([]map[string]any{{
+		"id": "hook_test", "name": "测试通道", "provider": "generic", "url": webhook.URL, "enabled": true,
+	}})
+	hookReq := httptest.NewRequest(http.MethodPut, "/api/webhooks", bytes.NewReader(hookBody))
+	hookReq.AddCookie(cookie)
+	hookRec := httptest.NewRecorder()
+	handler.ServeHTTP(hookRec, hookReq)
+	if hookRec.Code != http.StatusOK {
+		t.Fatalf("webhook %d %s", hookRec.Code, hookRec.Body.String())
+	}
+
+	subBody, _ := json.Marshal(map[string]any{"cron": "0 9 * * *", "channel": "webhook:hook_test"})
 	subReq := httptest.NewRequest(http.MethodPost, "/api/dashboards/"+boardID+"/subscriptions", bytes.NewReader(subBody))
 	subReq.AddCookie(cookie)
 	subRec := httptest.NewRecorder()

@@ -50,6 +50,16 @@ func (s *server) runDataset(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &q) {
 		return
 	}
+	if isAPIKeyRequest(r) {
+		settings, err := s.identity.DeveloperSettings()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if q.Limit <= 0 || q.Limit > settings.MaxQueryRows {
+			q.Limit = settings.MaxQueryRows
+		}
+	}
 	if q.Source.DatabaseID != "" {
 		if err := s.catalog.EnsureConnected(r.Context(), q.Source.DatabaseID); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})

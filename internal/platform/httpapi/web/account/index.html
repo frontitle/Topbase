@@ -27,6 +27,7 @@
         <button class="active" type="button" data-tab="profile">资料与头像</button>
         <button type="button" data-tab="security">登录与安全</button>
         <button type="button" data-tab="bindings">账号绑定</button>
+        <button type="button" data-tab="api">AI 与 API</button>
       </nav>
 
       <section class="account-panel" data-panel="profile">
@@ -59,11 +60,19 @@
         <div class="account-panel-head"><div><h2>账号绑定</h2><p>绑定常用办公平台后，可以使用同一身份安全登录 Topbase。</p></div></div>
         <div id="binding-list" class="binding-list"><div class="account-loading">正在读取可用登录方式…</div></div>
       </section>
+
+      <section class="account-panel" data-panel="api" hidden>
+        <div class="account-panel-head"><div><h2>AI 与 API</h2><p>创建个人 API Key，用于 Topbase MCP、CLI 和受信任的自动化程序；权限与当前账户完全一致。</p></div><button class="primary" id="create-api-key" type="button">创建 API Key</button></div>
+        <div class="developer-notice" id="developer-notice"><div><strong>正在读取开发者模式…</strong><small>开发者模式由管理员统一启用并设置安全限制。</small></div><span class="account-state">—</span></div>
+        <div class="api-key-reveal" id="api-key-reveal" hidden><div><strong>请立即复制并安全保存</strong><small>完整密钥只显示这一次。不要发送到聊天、日志或提交到 Git。</small></div><code id="api-key-secret"></code><button class="secondary" id="copy-api-key" type="button">复制密钥</button></div>
+        <div class="developer-command" id="developer-command" hidden><div><strong>MCP 启动参数</strong><small>把密钥放入受信任客户端的 Secret 配置，不要直接写入代码。</small></div><code id="developer-command-code"></code><button class="secondary" id="copy-developer-command" type="button">复制配置</button></div>
+        <div id="api-key-list" class="binding-list"><div class="account-loading">打开此页签后读取 API Key…</div></div>
+      </section>
     </main>
   </div>
   <div id="toast"></div>
   <script src="/ui.js"></script>
   <script src="/shell.js"></script>
-  <script src="/account/account.js"></script>
+  <script src="/account/account.js?v=2"></script>
 </body>
 </html>

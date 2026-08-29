@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-111111.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.2.1-111111.svg)](CHANGELOG.md)
 
 > **看见数据，理解业务，沉淀增长。**
 
@@ -19,17 +20,19 @@ _截图使用模拟零售数据，仅用于展示仪表盘的指标、趋势、�
 - **仪表盘观测**：自由组合分析与内容组件，配置筛选联动、主题、布局、分享、嵌入、订阅和告警，持续追踪核心指标。
 - **数据沉淀**：把需要周期统计的分析配置为计划任务，将结果物化到数仓表，并通过目录和血缘持续管理数据资产。
 - **分析协作**：使用数据组组织个人与团队内容，通过服务端权限控制分析、仪表盘、数据浏览和原生 SQL 能力。
-- **智能与集成**：支持自然语言生成可审查的查询方案，并预留身份、组织、通知和自动化集成能力。
+- **AI 与自动化**：通过 MCP 或 CLI 让 AI 在既有权限内理解表和字段、实时问答数据，并在用户确认后创建可继续编辑的分析。
 
 ## 安装
 
-推荐使用 Docker Compose 部署。请先安装 [Docker](https://docs.docker.com/get-docker/) 和 Docker Compose，然后执行：
+推荐直接使用正式镜像部署。请先安装 [Docker](https://docs.docker.com/get-docker/) 和 Docker Compose，然后执行：
 
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
+git checkout v0.2.1
 cp .env.example .env
-docker compose up --build -d
+# 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
+docker compose -f docker-compose.release.yml up -d
 ```
 
 确认服务已经就绪：
@@ -40,12 +43,15 @@ curl --fail http://localhost:8080/api/ready
 
 打开 `http://localhost:8080`，首次访问时按照页面引导创建管理员和工作区。
 
-应用数据默认持久化在 Docker 数据卷中。升级前建议先执行备份，随后拉取新版本并重建服务：
+应用数据默认持久化在 PostgreSQL 数据卷中。`TOPBASE_MASTER_KEY` 用于加密数据源连接，首次启动后必须保持不变。升级前建议先导出应用数据库，随后拉取新版本并重建服务：
 
 ```bash
-docker compose exec topbase /app/topbase-backup /backups/topbase-manual
-git pull
-docker compose up --build -d
+docker compose -f docker-compose.release.yml exec -T appdb \
+  pg_dump -U topbase -d topbase -Fc > topbase-before-upgrade.dump
+git fetch --tags
+git checkout <目标版本标签>
+docker compose -f docker-compose.release.yml pull
+docker compose -f docker-compose.release.yml up -d
 ```
 
 生产部署、配置和升级说明：
@@ -54,6 +60,9 @@ docker compose up --build -d
 - [配置说明](docs/configuration.md)
 - [版本升级](docs/upgrading.md)
 - [数据库支持](docs/database-drivers.md)
+- [AI、MCP 与 CLI](docs/ai-integrations.md)
+- [0.2.1 升级说明](docs/releases/0.2.1.md)
+- [更新日志](CHANGELOG.md)
 
 ## 开源说明
 

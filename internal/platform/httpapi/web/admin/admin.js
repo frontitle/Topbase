@@ -120,7 +120,7 @@ function renderDetailMeta(){
 }
 function renderTables(){
   $('#table-count').textContent=tables.length;
-  $('#table-list').innerHTML=tables.map(t=>`<button class="table-item ${activeTable&&activeTable.schema===t.schema&&activeTable.name===t.name?'active':''}" data-schema="${t.schema}" data-name="${t.name}"><b>${t.schema}.${t.name}</b><small>${(t.columns||[]).length} 个字段</small></button>`).join('')||'<p>还没有表。请先确认连接可用，再点击「同步全部结构」。</p>';
+  $('#table-list').innerHTML=tables.map(t=>`<button class="table-item ${activeTable&&activeTable.schema===t.schema&&activeTable.name===t.name?'active':''}" data-schema="${t.schema}" data-name="${t.name}"><b>${t.display_name||t.name}</b><small>${t.schema}.${t.name} · ${(t.columns||[]).length} 个字段</small></button>`).join('')||'<p>还没有表。请先确认连接可用，再点击「同步全部结构」。</p>';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>t.schema===b.dataset.schema&&t.name===b.dataset.name)));
 }
 function openTable(table){

@@ -1,6 +1,8 @@
 let profileState = null;
 let avatarValue = '';
 let originalEmail = '';
+let apiKeysLoaded = false;
+let developerStatus = null;
 
 function initials(value) {
   return String(value || 'T').trim().slice(0, 1).toUpperCase();
@@ -161,8 +163,74 @@ $$('[data-tab]').forEach(button => {
     $$('[data-tab]').forEach(item => item.classList.toggle('active', item === button));
     $$('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== button.dataset.tab; });
     history.replaceState(null, '', `#${button.dataset.tab}`);
+    if (button.dataset.tab === 'api' && !apiKeysLoaded) loadAPIKeys();
   };
 });
+
+function renderAPIKeys(keys) {
+  const list = $('#api-key-list');
+  if (!keys.length) {
+    list.innerHTML = '<div class="account-loading">还没有 API Key。为每个 AI 客户端创建独立密钥，停用时可单独撤销。</div>';
+    return;
+  }
+  const now = Date.now();
+  list.innerHTML = keys.map(key => { const expired = key.expires_at && new Date(key.expires_at).getTime() <= now; const expiry = key.expires_at ? `${expired ? '已过期' : '有效至'} ${new Date(key.expires_at).toLocaleDateString('zh-CN')}` : '永久有效'; return `<article class="binding-card${expired ? ' is-expired' : ''}"><span class="binding-icon">API</span><div class="binding-copy"><strong>${esc(key.name)}</strong><small>${esc(key.prefix)}•••• · 创建于 ${esc(new Date(key.created_at).toLocaleString('zh-CN'))} · <span class="${expired ? 'key-expired' : ''}">${esc(expiry)}</span></small></div><button class="secondary danger-subtle" type="button" data-revoke-key="${esc(key.id)}">撤销</button></article>`; }).join('');
+  $$('[data-revoke-key]', list).forEach(button => {
+    button.onclick = async () => {
+      const approved = await confirmDialog({kicker:'API Key',title:'撤销这个 API Key？',description:'使用它的 MCP、CLI 和自动化程序会立即失去访问权限，此操作不会删除已经创建的分析。',confirmText:'撤销密钥',tone:'danger'});
+      if (!approved) return;
+      button.disabled = true;
+      try { await api(`/api/api-keys/${encodeURIComponent(button.dataset.revokeKey)}`, 'DELETE'); toast('API Key 已撤销'); await loadAPIKeys(true); }
+      catch (error) { toast(friendlyError(error)); button.disabled = false; }
+    };
+  });
+}
+
+async function loadAPIKeys(force) {
+  if (apiKeysLoaded && !force) return;
+  try {
+    const result = await Promise.all([api('/api/developer/status'), api('/api/api-keys')]);
+    developerStatus = result[0];
+    const enabled = !!developerStatus.enabled;
+    const canCreate = !!developerStatus.can_create_key;
+    const notice = $('#developer-notice');
+    notice.classList.toggle('is-disabled', !enabled);
+    notice.querySelector('strong').textContent = enabled ? '开发者模式已启用' : '开发者模式未启用';
+    notice.querySelector('small').textContent = enabled ? `API 查询最多返回 ${developerStatus.max_query_rows} 行，新密钥默认有效 ${developerStatus.default_key_ttl_days ? developerStatus.default_key_ttl_days + ' 天' : '期为永久'}。${developerStatus.allow_analysis_write ? '允许创建可视化分析。' : '当前仅允许只读查询。'}` : '请联系管理员在“管理后台 → 设置 → 开发者模式”中启用。已有密钥会保留，但目前不能访问 API。';
+    notice.querySelector('.account-state').textContent = enabled ? `${developerStatus.active_keys} 个可用 Key` : '已停用';
+    $('#create-api-key').disabled = !canCreate;
+    $('#create-api-key').title = canCreate ? '' : (enabled ? '管理员未允许成员创建个人 Key' : '开发者模式未启用');
+    const baseURL = developerStatus.public_base_url || location.origin;
+    $('#developer-command-code').textContent = `TOPBASE_URL=${baseURL} TOPBASE_API_KEY=•••• ./bin/topbase-mcp`;
+    $('#developer-command').hidden = !enabled;
+    renderAPIKeys(result[1]); apiKeysLoaded = true;
+  }
+  catch (error) { toast(friendlyError(error)); }
+}
+
+$('#create-api-key').onclick = async () => {
+  const input = await formDialog({kicker:'AI 与自动化',title:'创建 API Key',description:'密钥继承你的 Topbase 权限。建议按客户端分别命名，便于独立撤销。',confirmText:'创建密钥',fields:[{name:'name',label:'密钥名称',placeholder:'例如：我的 Claude MCP',required:true,help:'不要在名称中填写密码或其他秘密。'}]});
+  if (!input) return;
+  try {
+    const key = await api('/api/api-keys', 'POST', {name: input.name});
+    $('#api-key-secret').textContent = key.key;
+    $('#api-key-reveal').hidden = false;
+    apiKeysLoaded = false;
+    await loadAPIKeys();
+    toast('API Key 已创建');
+  } catch (error) { toast(friendlyError(error)); }
+};
+
+$('#copy-api-key').onclick = async () => {
+  const value = $('#api-key-secret').textContent;
+  try { await navigator.clipboard.writeText(value); toast('密钥已复制'); }
+  catch (_) { toast('复制失败，请手动复制'); }
+};
+
+$('#copy-developer-command').onclick = async () => {
+  try { await navigator.clipboard.writeText($('#developer-command-code').textContent); toast('MCP 启动参数已复制'); }
+  catch (_) { toast('复制失败，请手动复制'); }
+};
 
 $('#profile-name').oninput = renderAvatars;
 $('#profile-email').oninput = () => {

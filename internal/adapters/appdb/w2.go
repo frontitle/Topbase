@@ -26,13 +26,13 @@ func (s *Store) saveDashboard(d core.Dashboard, insert bool) error {
 	defer tx.Rollback()
 	appearance, _ := json.Marshal(d.Appearance)
 	if insert {
-		if _, err := tx.Exec(`INSERT INTO dashboards(id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, archived_at, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-			d.ID, nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), nil, nullString(d.CreatedBy), d.CreatedAt.UTC().Format(time.RFC3339)); err != nil {
+		if _, err := tx.Exec(`INSERT INTO dashboards(id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+			d.ID, nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.PublicEmbedEnabled, nil, nullString(d.CreatedBy), d.CreatedAt.UTC().Format(time.RFC3339)); err != nil {
 			return err
 		}
 	} else {
-		if _, err := tx.Exec(`UPDATE dashboards SET collection_id=?, name=?, description=?, auto_refresh_seconds=?, appearance=?, public_uuid=? WHERE id=?`,
-			nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.ID); err != nil {
+		if _, err := tx.Exec(`UPDATE dashboards SET collection_id=?, name=?, description=?, auto_refresh_seconds=?, appearance=?, public_uuid=?, public_embed_enabled=? WHERE id=?`,
+			nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.PublicEmbedEnabled, d.ID); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`DELETE FROM dashboard_tabs WHERE dashboard_id=?`, d.ID); err != nil {
@@ -101,7 +101,7 @@ func (s *Store) DashboardByID(id string) (core.Dashboard, error) {
 }
 
 func (s *Store) ListDashboards(includeArchived bool) ([]core.Dashboard, error) {
-	sqlText := `SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, archived_at, created_by, created_at FROM dashboards`
+	sqlText := `SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at FROM dashboards`
 	if !includeArchived {
 		sqlText += ` WHERE archived_at IS NULL`
 	}
@@ -116,7 +116,7 @@ func (s *Store) ListDashboards(includeArchived bool) ([]core.Dashboard, error) {
 		var item core.Dashboard
 		var collection, desc, appearance, createdBy, archived, created, publicUUID sql.NullString
 		var refresh sql.NullInt64
-		if err := rows.Scan(&item.ID, &collection, &item.Name, &desc, &refresh, &appearance, &publicUUID, &archived, &createdBy, &created); err != nil {
+		if err := rows.Scan(&item.ID, &collection, &item.Name, &desc, &refresh, &appearance, &publicUUID, &item.PublicEmbedEnabled, &archived, &createdBy, &created); err != nil {
 			return nil, err
 		}
 		item.CollectionID, item.Description, item.CreatedBy, item.PublicUUID = collection.String, desc.String, createdBy.String, publicUUID.String
@@ -408,25 +408,48 @@ func (s *Store) Search(query string) ([]core.SearchHit, error) {
 }
 
 func (s *Store) CreateAPIKey(key core.APIKey) error {
-	_, err := s.db.Exec(`INSERT INTO api_keys(id, name, prefix, hash, user_id, created_at) VALUES(?,?,?,?,?,?)`,
-		key.ID, key.Name, key.Prefix, key.Hash, key.UserID, key.CreatedAt.UTC().Format(time.RFC3339))
+	var expiresAt any
+	if key.ExpiresAt != nil {
+		expiresAt = key.ExpiresAt.UTC().Format(time.RFC3339)
+	}
+	_, err := s.db.Exec(`INSERT INTO api_keys(id, name, prefix, hash, user_id, created_at, expires_at) VALUES(?,?,?,?,?,?,?)`,
+		key.ID, key.Name, key.Prefix, key.Hash, key.UserID, key.CreatedAt.UTC().Format(time.RFC3339), expiresAt)
 	return err
 }
 
 func (s *Store) ListAPIKeys(userID string) ([]core.APIKey, error) {
-	rows, err := s.db.Query(`SELECT id, name, prefix, hash, user_id, created_at FROM api_keys WHERE user_id=? ORDER BY created_at DESC`, userID)
+	rows, err := s.db.Query(`SELECT id, name, prefix, hash, user_id, created_at, expires_at FROM api_keys WHERE user_id=? ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
+	return scanAPIKeys(rows)
+}
+
+func (s *Store) ListAllAPIKeys() ([]core.APIKey, error) {
+	rows, err := s.db.Query(`SELECT id, name, prefix, hash, user_id, created_at, expires_at FROM api_keys ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	return scanAPIKeys(rows)
+}
+
+func scanAPIKeys(rows *sql.Rows) ([]core.APIKey, error) {
 	defer rows.Close()
 	items := []core.APIKey{}
 	for rows.Next() {
 		var item core.APIKey
 		var created string
-		if err := rows.Scan(&item.ID, &item.Name, &item.Prefix, &item.Hash, &item.UserID, &created); err != nil {
+		var expires sql.NullString
+		if err := rows.Scan(&item.ID, &item.Name, &item.Prefix, &item.Hash, &item.UserID, &created, &expires); err != nil {
 			return nil, err
 		}
 		item.CreatedAt, _ = time.Parse(time.RFC3339, created)
+		if expires.Valid && expires.String != "" {
+			parsed, err := time.Parse(time.RFC3339, expires.String)
+			if err == nil {
+				item.ExpiresAt = &parsed
+			}
+		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -435,8 +458,9 @@ func (s *Store) ListAPIKeys(userID string) ([]core.APIKey, error) {
 func (s *Store) APIKeyByHash(hash string) (core.APIKey, error) {
 	var item core.APIKey
 	var created string
-	err := s.db.QueryRow(`SELECT id, name, prefix, hash, user_id, created_at FROM api_keys WHERE hash=?`, hash).
-		Scan(&item.ID, &item.Name, &item.Prefix, &item.Hash, &item.UserID, &created)
+	var expires sql.NullString
+	err := s.db.QueryRow(`SELECT id, name, prefix, hash, user_id, created_at, expires_at FROM api_keys WHERE hash=?`, hash).
+		Scan(&item.ID, &item.Name, &item.Prefix, &item.Hash, &item.UserID, &created, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return core.APIKey{}, core.ErrNotFound
 	}
@@ -444,6 +468,12 @@ func (s *Store) APIKeyByHash(hash string) (core.APIKey, error) {
 		return core.APIKey{}, err
 	}
 	item.CreatedAt, _ = time.Parse(time.RFC3339, created)
+	if expires.Valid && expires.String != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, expires.String)
+		if parseErr == nil {
+			item.ExpiresAt = &parsed
+		}
+	}
 	return item, nil
 }
 
@@ -519,5 +549,6 @@ func (a apiKeyAdapter) Create(key core.APIKey) error { return a.CreateAPIKey(key
 func (a apiKeyAdapter) ListByUser(userID string) ([]core.APIKey, error) {
 	return a.ListAPIKeys(userID)
 }
+func (a apiKeyAdapter) List() ([]core.APIKey, error)            { return a.ListAllAPIKeys() }
 func (a apiKeyAdapter) ByHash(hash string) (core.APIKey, error) { return a.APIKeyByHash(hash) }
 func (a apiKeyAdapter) Delete(id string) error                  { return a.DeleteAPIKey(id) }

@@ -31,20 +31,21 @@ var web embed.FS
 const sessionCookie = "topbase_session"
 
 type server struct {
-	queries   core.QueryService
-	ai        core.AIProvider
-	catalog   core.CatalogService
-	metadata  core.MetadataStore
-	identity  identity.Service
-	content   content.Service
-	dataset   appquery.DatasetService
-	warehouse *appwarehouse.Service
-	notify    notify.Service
-	static    fs.FS
-	store     *appdb.Store
-	connector *adapters.SQLConnector
-	cancel    context.CancelFunc
-	workers   sync.WaitGroup
+	queries    core.QueryService
+	ai         core.AIProvider
+	catalog    core.CatalogService
+	metadata   core.MetadataStore
+	identity   identity.Service
+	content    content.Service
+	dataset    appquery.DatasetService
+	warehouse  *appwarehouse.Service
+	notify     notify.Service
+	static     fs.FS
+	store      *appdb.Store
+	connector  *adapters.SQLConnector
+	instanceID string
+	cancel     context.CancelFunc
+	workers    sync.WaitGroup
 }
 
 type runtimeHandler struct {
@@ -64,10 +65,23 @@ func dataDir() string {
 
 func NewServer() http.Handler {
 	dir := dataDir()
-	appPath := filepath.Join(dir, "app.db")
-	store, err := appdb.OpenWithVersion(appPath, buildinfo.Version)
+	appConfig, err := appdb.ConfigFromEnv(dir, buildinfo.Version)
+	if err != nil {
+		panic("configure application database: " + err.Error())
+	}
+	store, err := appdb.OpenConfig(appConfig)
 	if err != nil {
 		panic("open application database: " + err.Error())
+	}
+	masterKey, err := appdb.LoadMasterKey(dir, appConfig.Engine)
+	if err != nil {
+		_ = store.Close()
+		panic("configure application secrets: " + err.Error())
+	}
+	secrets, err := store.ConnectionSecrets(masterKey)
+	if err != nil {
+		_ = store.Close()
+		panic("open application secret store: " + err.Error())
 	}
 
 	fileCatalog := adapters.NewFileCatalog(filepath.Join(dir, "catalog.json"))
@@ -88,7 +102,16 @@ func NewServer() http.Handler {
 	}
 
 	connector := adapters.NewSQLConnector()
-	secrets := adapters.NewFileConnectionSecretStore(filepath.Join(dir, "connection-secrets.json"))
+	legacySecrets := adapters.NewFileConnectionSecretStore(filepath.Join(dir, "connection-secrets.json"))
+	if items, err := legacySecrets.ListConnectionSecrets(); err == nil {
+		for id, item := range items {
+			if _, err := secrets.GetConnectionSecret(id); errors.Is(err, core.ErrNotFound) {
+				if err := secrets.SaveConnectionSecret(id, item); err != nil {
+					log.Printf("topbase: import legacy connection secret %q: %v", id, err)
+				}
+			}
+		}
+	}
 	queries := core.QueryService{Executor: connector}
 	dataset := appquery.DatasetService{
 		Queries: queries, Compile: connector.Compile,
@@ -133,7 +156,7 @@ func NewServer() http.Handler {
 				}
 			},
 		},
-		store: store, connector: connector, cancel: cancelWorkers,
+		store: store, connector: connector, instanceID: runtimeInstanceID(), cancel: cancelWorkers,
 	}
 	s.notify.Deliver = s.deliverNotification
 	wh.Notify = func(title, body string) {
@@ -160,6 +183,11 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /api/auth/options", s.authOptions)
 	mux.HandleFunc("GET /api/admin/auth-settings", s.getAuthSettings)
 	mux.HandleFunc("PUT /api/admin/auth-settings", s.saveAuthSettings)
+	mux.HandleFunc("GET /api/admin/release-notes", s.getReleaseNotes)
+	mux.HandleFunc("PUT /api/admin/release-notes", s.saveReleaseNotes)
+	mux.HandleFunc("GET /api/admin/application-database", s.applicationDatabaseStatus)
+	mux.HandleFunc("POST /api/admin/application-database/migrate", s.migrateApplicationDatabase)
+	mux.HandleFunc("GET /api/admin/application-database/backup", s.exportApplicationDatabase)
 	mux.HandleFunc("DELETE /api/session", s.deleteSession)
 	mux.HandleFunc("GET /api/user/current", s.currentUser)
 	mux.HandleFunc("GET /api/user/profile", s.getUserProfile)
@@ -219,6 +247,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("POST /api/embed/validate", s.validateEmbedURL)
 	mux.HandleFunc("POST /api/dashboards/{id}/public-link", s.enableDashboardPublicLink)
 	mux.HandleFunc("DELETE /api/dashboards/{id}/public-link", s.disableDashboardPublicLink)
+	mux.HandleFunc("PUT /api/dashboards/{id}/embedding", s.setDashboardEmbedding)
 	mux.HandleFunc("POST /api/dashboards/{id}/copy", s.copyDashboard)
 	mux.HandleFunc("GET /api/public/dashboard/{uuid}", s.getPublicDashboard)
 	mux.HandleFunc("POST /api/public/dashboard/{uuid}/cards/{cardId}/dataset", s.runPublicDashboardCard)
@@ -246,7 +275,14 @@ func NewServer() http.Handler {
 	mux.HandleFunc("PUT /api/settings", s.putSettings)
 	mux.HandleFunc("GET /api/admin/settings", s.getAdminSettings)
 	mux.HandleFunc("PUT /api/admin/settings", s.putAdminSettings)
+	mux.HandleFunc("GET /api/developer/status", s.getDeveloperStatus)
+	mux.HandleFunc("GET /api/developer/ping", s.developerPing)
+	mux.HandleFunc("GET /api/admin/developer-settings", s.getDeveloperSettings)
+	mux.HandleFunc("PUT /api/admin/developer-settings", s.putDeveloperSettings)
+	mux.HandleFunc("GET /api/admin/api-keys", s.listAllAPIKeys)
+	mux.HandleFunc("DELETE /api/admin/api-keys/{id}", s.deleteAnyAPIKey)
 	mux.HandleFunc("GET /api/admin/monitor", s.adminMonitor)
+	mux.HandleFunc("GET /api/admin/notifications", s.listAdminNotifications)
 	mux.HandleFunc("GET /api/api-keys", s.listAPIKeys)
 	mux.HandleFunc("POST /api/api-keys", s.createAPIKey)
 	mux.HandleFunc("DELETE /api/api-keys/{id}", s.deleteAPIKey)
@@ -267,6 +303,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /api/identity/providers", s.listIdentityProviders)
 	mux.HandleFunc("PUT /api/identity/providers", s.saveIdentityProviders)
 	mux.HandleFunc("GET /api/webhooks", s.listWebhooks)
+	mux.HandleFunc("GET /api/subscription-channels", s.listSubscriptionChannels)
 	mux.HandleFunc("PUT /api/webhooks", s.saveWebhooks)
 	mux.HandleFunc("GET /api/subscriptions", s.listAllSubscriptions)
 	mux.HandleFunc("POST /api/feishu/departments/sync", s.syncFeishuDepartments)
@@ -334,10 +371,22 @@ func (s *server) readiness(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "error": "application database unavailable"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "ready", "schema_version": s.store.SchemaVersion()})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ready", "schema_version": s.store.SchemaVersion(), "application_database": s.store.Engine()})
+}
+
+func runtimeInstanceID() string {
+	if value := strings.TrimSpace(os.Getenv("TOPBASE_INSTANCE_ID")); value != "" {
+		return value
+	}
+	host, _ := os.Hostname()
+	if host == "" {
+		host = "topbase"
+	}
+	return host + "-" + core.NewID("instance")
 }
 
 func (s *server) version(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, buildinfo.Current(s.store.SchemaVersion()))
 }
 

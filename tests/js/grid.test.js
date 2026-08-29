@@ -31,6 +31,13 @@ test('grid can disable its local filter controls and ignores legacy filters', ()
   assert.match(element.innerHTML, /显示 2 \/ 2 行/);
 });
 
+test('grid can render without the toolbar for data-only browsing surfaces', () => {
+  const element = host();
+  TopbaseGrid(element, { columns: ['status'], rows: [['open']], hideToolbar: true, filtersEnabled: false });
+  assert.doesNotMatch(element.innerHTML, /tb-grid-bar/);
+  assert.match(element.innerHTML, /<table>/);
+});
+
 test('dashboard table mode is a presentation-only data table', () => {
   const element = host();
   TopbaseGrid(element, {

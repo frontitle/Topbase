@@ -1,9 +1,11 @@
-const COLS = 12, ROW = 76, GAP = 12, MIN_W = 2, MIN_H = 2;
+// A denser grid gives authors enough precision for data-screen compositions,
+// while grid-version migration keeps existing 12-column dashboards unchanged.
+const COLS = 24, ROW = 34, X_GAP = 6, Y_GAP = 10, MIN_W = 2, MIN_H = 2, GRID_VERSION = 2;
 const pathParts = location.pathname.split('/').filter(Boolean);
 const isPublicDashboard = ['public', 'embed'].includes(pathParts[0]) && pathParts[1] === 'dashboard';
 const boardId = isPublicDashboard ? '' : (pathParts[1] || new URLSearchParams(location.search).get('id'));
 const publicUUID = isPublicDashboard ? pathParts[2] : '';
-let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [];
+let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [], layoutFrame = 0, canvasResizeObserver = null, viewer = null;
 const APPEARANCE_DEFAULTS = { theme: 'deep', background: '#07111f', grid: true, snap: true, glow: true };
 
 function newID(prefix) {
@@ -13,16 +15,17 @@ function tabCards() {
   return (board.cards || []).filter(c => !activeTab || !c.tab_id || c.tab_id === activeTab);
 }
 function cellW() {
-  const width = $('#grid').clientWidth;
-  return (width - GAP * (COLS - 1)) / COLS;
+  const grid = $('#grid');
+  const width = grid.getBoundingClientRect().width || grid.clientWidth;
+  return (width - X_GAP * (COLS - 1)) / COLS;
 }
 function rect(layout) {
   const cw = cellW();
   return {
-    left: layout.x * (cw + GAP),
-    top: layout.y * (ROW + GAP),
-    width: layout.w * cw + (layout.w - 1) * GAP,
-    height: layout.h * ROW + (layout.h - 1) * GAP
+    left: Math.round(layout.x * (cw + X_GAP)),
+    top: Math.round(layout.y * (ROW + Y_GAP)),
+    width: Math.round(layout.w * cw + (layout.w - 1) * X_GAP),
+    height: Math.round(layout.h * ROW + (layout.h - 1) * Y_GAP)
   };
 }
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
@@ -48,8 +51,8 @@ function resolveOverlap(moved) {
 function cellAt(clientX, clientY, w, h) {
   const box = $('#grid').getBoundingClientRect();
   const cw = cellW();
-  let x = Math.floor((clientX - box.left) / (cw + GAP));
-  let y = Math.floor((clientY - box.top) / (ROW + GAP));
+  let x = Math.floor((clientX - box.left) / (cw + X_GAP));
+  let y = Math.floor((clientY - box.top) / (ROW + Y_GAP));
   x = clamp(x, 0, COLS - (w || 1));
   y = Math.max(0, y);
   return { x, y, w: w || 4, h: h || 4 };
@@ -83,6 +86,18 @@ function appearance() {
   board.appearance = Object.assign({}, APPEARANCE_DEFAULTS, board.appearance || {});
   return board.appearance;
 }
+function upgradeCanvasGrid() {
+  const a = appearance();
+  if (Number(a.grid_version) >= GRID_VERSION) return;
+  (board.cards || []).forEach(card => {
+    if (!card.layout) return;
+    card.layout.x = Math.max(0, Math.round(Number(card.layout.x || 0) * 2));
+    card.layout.y = Math.max(0, Math.round(Number(card.layout.y || 0) * 2));
+    card.layout.w = Math.max(1, Math.round(Number(card.layout.w || 4) * 2));
+    card.layout.h = Math.max(1, Math.round(Number(card.layout.h || 4) * 2));
+  });
+  a.grid_version = GRID_VERSION;
+}
 function applyAppearance() {
   const canvas = $('#board-canvas');
   if (!canvas || !board) return;
@@ -91,6 +106,10 @@ function applyAppearance() {
   canvas.style.setProperty('--canvas-custom-bg', a.background);
   canvas.classList.toggle('canvas-grid-off', !a.grid);
   canvas.classList.toggle('canvas-glow-off', !a.glow);
+}
+function renderPublicBadge() {
+  const badge = $('#public-badge');
+  if (badge) badge.hidden = !board?.public_uuid;
 }
 function renderCanvasControls() {
   const host = $('#canvas-controls');
@@ -280,6 +299,8 @@ function renderClock(card) {
 }
 
 function layoutEls() {
+  const grid = $('#grid');
+  if (!grid || !grid.getBoundingClientRect().width) return;
   const cards = tabCards();
   let maxY = 4;
   cards.forEach(card => {
@@ -290,9 +311,38 @@ function layoutEls() {
     el.style.top = r.top + 'px';
     el.style.width = r.width + 'px';
     el.style.height = r.height + 'px';
+    applyCardContentScale(el, card, r);
     maxY = Math.max(maxY, (card.layout.y || 0) + (card.layout.h || 1));
   });
-  $('#grid').style.minHeight = Math.max(420, maxY * (ROW + GAP) + 40) + 'px';
+  grid.style.minHeight = Math.max(420, maxY * (ROW + Y_GAP) + 40) + 'px';
+}
+function applyCardContentScale(el, card, box) {
+  if (card.type !== 'question') return;
+  // A chart has a comfortable design size, but on a data screen a deliberately
+  // small tile should still behave like one visual, not like a scrollable app.
+  // Render it at that size and scale the whole result into the assigned tile.
+  const compactHead = !editing && box.height < 104;
+  const usableWidth = Math.max(1, box.width - (compactHead ? 0 : 24));
+  const usableHeight = Math.max(1, box.height - (compactHead ? 0 : 42));
+  const scale = Math.min(1, usableWidth / 280, usableHeight / 180);
+  const scaled = scale < .995;
+  el.classList.toggle('card-content-scaled', scaled);
+  el.classList.toggle('card-content-mini', compactHead && scaled);
+  el.style.setProperty('--card-content-scale', String(Math.max(.18, scale)));
+}
+function scheduleCanvasLayout() {
+  if (layoutFrame) cancelAnimationFrame(layoutFrame);
+  layoutFrame = requestAnimationFrame(() => {
+    layoutFrame = 0;
+    layoutEls();
+    paintCached();
+  });
+}
+function observeCanvasLayout() {
+  const canvas = $('#board-canvas');
+  if (!canvas || canvasResizeObserver || !window.ResizeObserver) return;
+  canvasResizeObserver = new ResizeObserver(scheduleCanvasLayout);
+  canvasResizeObserver.observe(canvas);
 }
 
 function bindCardChrome() {
@@ -454,17 +504,18 @@ function startDrag(ev, cardId, mode) {
 
 function onDrag(ev) {
   if (!drag) return;
-  const cw = cellW() + GAP;
+  const cw = cellW() + X_GAP;
   const dx = Math.round((ev.clientX - drag.startX) / cw);
-  const dy = Math.round((ev.clientY - drag.startY) / (ROW + GAP));
+  const dy = Math.round((ev.clientY - drag.startY) / (ROW + Y_GAP));
   if (drag.mode === 'move') {
     drag.card.layout.x = clamp(drag.layout.x + dx, 0, COLS - drag.card.layout.w);
     drag.card.layout.y = Math.max(0, drag.layout.y + dy);
   } else {
     drag.card.layout.w = clamp(drag.layout.w + dx, MIN_W, COLS - drag.card.layout.x);
-    drag.card.layout.h = clamp(drag.layout.h + dy, minHeight(drag.card), 24);
+    drag.card.layout.h = clamp(drag.layout.h + dy, minHeight(drag.card), 48);
   }
   layoutEls();
+  requestAnimationFrame(scheduleCanvasLayout);
 }
 
 function endDrag() {
@@ -518,7 +569,7 @@ function bindGridDrop() {
       ghost.className = 'board-ghost';
       grid.appendChild(ghost);
     }
-    const cell = cellAt(ev.clientX, ev.clientY, 6, 5);
+    const cell = cellAt(ev.clientX, ev.clientY, 12, 10);
     const r = rect(cell);
     ghost.style.left = r.left + 'px';
     ghost.style.top = r.top + 'px';
@@ -533,7 +584,7 @@ function bindGridDrop() {
     const g = $('#ghost'); if (g) g.remove();
     const value = ev.dataTransfer.getData('text/plain');
     if (!value) return;
-    const cell = cellAt(ev.clientX, ev.clientY, 6, 5);
+    const cell = cellAt(ev.clientX, ev.clientY, 12, 10);
     if (value.startsWith('component:')) addStatic(value.slice('component:'.length), cell);
     else addQuestion(value, cell);
   };
@@ -542,7 +593,7 @@ function bindGridDrop() {
 async function addQuestion(questionId, layout) {
   if (!questionId || usedQuestionIDs().has(questionId)) return toast('这条分析已经在看板上');
   const q = questionMap[questionId];
-  const place = layout || { x: 0, y: nextY(6), w: 6, h: 5 };
+  const place = layout || { x: 0, y: nextY(12), w: 12, h: 10 };
   const card = {
     id: newID('crd'),
     type: 'question',
@@ -564,13 +615,13 @@ async function addQuestion(questionId, layout) {
 
 async function addStatic(type, layout) {
   const defaults = {
-    heading: { type:'heading', title:'标题', layout:{x:0,y:nextY(12),w:12,h:1} },
-    text: { type:'text', body:'说明文字', layout:{x:0,y:nextY(12),w:12,h:1} },
-    link: { type:'link', title:'链接', body:'https://', layout:{x:0,y:nextY(6),w:6,h:2} },
-    iframe: { type:'iframe', title:'嵌入网页', config:{url:'https://'}, layout:{x:0,y:nextY(6),w:6,h:5} },
-    plugin: { type:'plugin', title:'自定义组件', config:{url:'', plugin_config:{}}, layout:{x:0,y:nextY(6),w:6,h:5} },
-    time: { type:'time', title:'时间', config:{time_mode:'datetime'}, layout:{x:0,y:nextY(3),w:3,h:2} },
-    divider: { type:'divider', title:'', layout:{x:0,y:nextY(12),w:12,h:1} }
+    heading: { type:'heading', title:'标题', layout:{x:0,y:nextY(COLS),w:COLS,h:2} },
+    text: { type:'text', body:'说明文字', layout:{x:0,y:nextY(COLS),w:COLS,h:2} },
+    link: { type:'link', title:'链接', body:'https://', layout:{x:0,y:nextY(12),w:12,h:4} },
+    iframe: { type:'iframe', title:'嵌入网页', config:{url:'https://'}, layout:{x:0,y:nextY(12),w:12,h:10} },
+    plugin: { type:'plugin', title:'自定义组件', config:{url:'', plugin_config:{}}, layout:{x:0,y:nextY(12),w:12,h:10} },
+    time: { type:'time', title:'时间', config:{time_mode:'datetime'}, layout:{x:0,y:nextY(6),w:6,h:4} },
+    divider: { type:'divider', title:'', layout:{x:0,y:nextY(COLS),w:COLS,h:2} }
   };
   const value=defaults[type];
   if(!value)return;
@@ -585,7 +636,7 @@ async function addImage(files) {
   const valid = [...files].filter(file => file.type.startsWith('image/') && file.size <= 3 * 1024 * 1024);
   if (!valid.length) return toast('请选择 3MB 以内的图片文件');
   const images = await Promise.all(valid.map(file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); })));
-  const card = { id:newID('crd'), tab_id:activeTab, type:'image', title:valid[0].name.replace(/\.[^.]+$/, ''), config:{images, carousel:images.length > 1, carousel_interval:5}, layout:{x:0,y:nextY(6),w:6,h:4} };
+  const card = { id:newID('crd'), tab_id:activeTab, type:'image', title:valid[0].name.replace(/\.[^.]+$/, ''), config:{images, carousel:images.length > 1, carousel_interval:5}, layout:{x:0,y:nextY(12),w:12,h:8} };
   board.cards = (board.cards || []).concat([card]); render();
   try { await saveBoard(); toast(images.length > 1 ? '图片轮播已添加' : '图片已添加'); } catch (error) { toast(error.message); }
 }
@@ -694,8 +745,11 @@ async function boot() {
   } else {
     [board, questions, collections] = await Promise.all([api('/api/dashboards/' + boardId), api('/api/questions'), api('/api/collections')]);
   }
+  upgradeCanvasGrid();
   questionMap = Object.fromEntries(questions.map(q => [q.id, q]));
+  if (!isPublicDashboard) viewer = await api('/api/user/current').catch(() => null);
   if ($('#title')) $('#title').textContent = board.name;
+  renderPublicBadge();
   activeTab = board.tabs?.[0]?.id || '';
   editing = !isPublicDashboard && !(board.cards || []).length;
   renderCollectionFilter();
@@ -745,21 +799,52 @@ $$('[data-add]').forEach(button=>{
     event.dataTransfer.effectAllowed='copy';
   };
 });
-window.addEventListener('resize', () => { layoutEls(); paintCached(); });
+observeCanvasLayout();
+window.addEventListener('resize', scheduleCanvasLayout);
 
 function closeActionModal(){ $('#modal').hidden=true;$('#modal').innerHTML=''; }
-async function openShare(){
-  try{
-    const shared=await api(`/api/dashboards/${boardId}/public-link`,'POST',{});
-    const publicURL=shared.public_url||'';
-    const embedURL=shared.embed_url||'';
-    $('#modal').hidden=false;
-    $('#modal').innerHTML=`<section class="action-dialog"><header><div><small>非编辑状态功能</small><h2>分享与嵌入</h2><p>公开链接可直接访问；嵌入地址适合放入门户或业务系统。</p></div><button id="close-action" class="secondary" type="button">关闭</button></header><label>公开链接<div class="copy-row"><input readonly value="${esc(publicURL)}"><button data-copy="${esc(publicURL)}" class="secondary" type="button">复制</button></div></label><label>嵌入地址<div class="copy-row"><input readonly value="${esc(embedURL)}"><button data-copy="${esc(embedURL)}" class="secondary" type="button">复制</button></div></label><button id="disable-public" class="danger-text" type="button">关闭公开访问</button></section>`;
-    $('#close-action').onclick=closeActionModal;
-    $$('[data-copy]').forEach(button=>button.onclick=async()=>{await navigator.clipboard.writeText(button.dataset.copy);toast('已复制')});
-    $('#disable-public').onclick=async()=>{await api(`/api/dashboards/${boardId}/public-link`,'DELETE');closeActionModal();toast('已关闭公开访问')};
-  }catch(error){toast(error.message)}
+function shareURL(kind) {
+  if (!board?.public_uuid) return '';
+  return location.origin + '/' + kind + '/dashboard/' + encodeURIComponent(board.public_uuid) + '/';
 }
+function copyValue(value) {
+  if (!value) return;
+  navigator.clipboard.writeText(value).then(() => toast('已复制')).catch(() => toast('复制失败，请手动复制'));
+}
+function renderShareDialog() {
+  const published = !!board?.public_uuid;
+  const publicURL = shareURL('public');
+  const embedURL = shareURL('embed');
+  const iframe = `<iframe src="${embedURL}" width="100%" height="800" frameborder="0" allowtransparency="true" title="${board?.name || 'Topbase 仪表盘'}"></iframe>`;
+  const canEmbed = !!viewer?.is_admin;
+  const publicDetails = published
+    ? `<label>公开链接<div class="copy-row"><input readonly value="${esc(publicURL)}"><button data-copy="${esc(publicURL)}" class="secondary" type="button">复制</button></div></label>`
+    : `<p class="share-help">开启后会创建一个无需登录即可访问的公开链接。</p>`;
+  const embedDetails = !canEmbed
+    ? `<div class="share-restricted"><b>嵌入仅管理员可配置</b><p>管理员启用后，才会生成可供第三方网页动态加载的 iframe 地址。</p></div>`
+    : `<section class="embed-share-settings ${published ? '' : 'disabled'}"><label class="share-toggle"><input id="embed-enabled" type="checkbox" ${board.public_embed_enabled ? 'checked' : ''} ${published ? '' : 'disabled'}><span><b>允许 iframe 嵌入</b><small>仅管理员可以启用。关闭分享后会自动关闭嵌入。</small></span></label>${board.public_embed_enabled ? `<label>动态加载地址<div class="copy-row"><input readonly value="${esc(embedURL)}"><button data-copy="${esc(embedURL)}" class="secondary" type="button">复制</button></div></label><label>iframe 代码<div class="copy-row"><input readonly value="${esc(iframe)}"><button data-copy="${esc(iframe)}" class="secondary" type="button">复制</button></div></label>` : ''}</section>`;
+  $('#modal').hidden = false;
+  $('#modal').innerHTML = `<section class="action-dialog"><header><div><small>访问控制</small><h2>分享与嵌入</h2><p>分享默认关闭。公开链接与 iframe 都会始终加载仪表盘的最新数据。</p></div><button id="close-action" class="secondary" type="button">关闭</button></header><label class="share-toggle"><input id="public-sharing-toggle" type="checkbox" ${published ? 'checked' : ''}><span><b>公开分享</b><small>生成无需登录即可访问的仪表盘链接。</small></span></label>${publicDetails}<div class="share-section"><h3>嵌入</h3>${embedDetails}</div></section>`;
+  $('#close-action').onclick = closeActionModal;
+  $$('[data-copy]').forEach(button => button.onclick = () => copyValue(button.dataset.copy));
+  $('#public-sharing-toggle').onchange = async event => {
+    try {
+      const result = event.target.checked ? await api(`/api/dashboards/${boardId}/public-link`, 'POST', {}) : await api(`/api/dashboards/${boardId}/public-link`, 'DELETE');
+      board = result.dashboard || result;
+      renderPublicBadge();
+      renderShareDialog();
+      toast(event.target.checked ? '公开分享已开启' : '公开分享已关闭');
+    } catch (error) { renderShareDialog(); toast(error.message); }
+  };
+  $('#embed-enabled')?.addEventListener('change', async event => {
+    try {
+      board = await api(`/api/dashboards/${boardId}/embedding`, 'PUT', { enabled:event.target.checked });
+      renderShareDialog();
+      toast(event.target.checked ? 'iframe 嵌入已启用' : 'iframe 嵌入已关闭');
+    } catch (error) { renderShareDialog(); toast(error.message); }
+  });
+}
+function openShare(){ renderShareDialog(); }
 async function addBookmark(){try{await api('/api/bookmarks','POST',{target_type:'dashboard',target_id:boardId});toast('已加入书签')}catch(error){toast(error.message)}}
 async function archiveBoard(){if(!await confirmDialog({kicker:'仪表盘管理',title:'将这个仪表盘移到回收站？',description:'归档后会从仪表盘列表中隐藏，之后仍可在回收站恢复。',confirmText:'移到回收站',tone:'danger'}))return;try{await api('/api/dashboards/'+boardId,'DELETE');location.href='/dashboard/'}catch(error){toast(error.message)}}
 async function duplicateBoard(){try{const copy=await api(`/api/dashboards/${boardId}/copy`,'POST',{});location.href='/dashboard/'+copy.id+'/'}catch(error){toast(error.message)}}
@@ -773,7 +858,10 @@ async function createAlert(){
   } catch (e) { toast(e.message); }
 }
 async function subscribeBoard(){
-  const channel = await choiceDialog({kicker:'仪表盘订阅',title:'选择每天的推送渠道',description:'订阅将在每天 09:00 执行，可以在管理后台查看运行状态。',label:'通知渠道',value:'inbox',confirmText:'创建订阅',options:[{value:'inbox',label:'站内通知',description:'在 Topbase 通知中心接收结果'},{value:'feishu',label:'飞书通知',description:'发送到已配置的飞书群机器人 Webhook'}]});
+  const hooks = await api('/api/subscription-channels');
+  const channels = hooks.filter(h=>h.enabled).map(h=>({value:'webhook:'+h.id,label:h.name,description:(h.provider||'Webhook')+' · 发送到已配置群'}));
+  if(!channels.length){toast('请联系管理员先在“通知与订阅”中创建并启用 Webhook 通道');return}
+  const channel = await choiceDialog({kicker:'仪表盘订阅',title:'选择每天的推送通道',description:'订阅将在每天 09:00 执行。管理员可在“通知与订阅”统一管理。',label:'Webhook 通道',value:channels[0].value,confirmText:'创建订阅',options:channels});
   if(channel===null)return;
   try {
     const sub = await api(`/api/dashboards/${boardId}/subscriptions`, 'POST', { cron: '0 9 * * *', channel });

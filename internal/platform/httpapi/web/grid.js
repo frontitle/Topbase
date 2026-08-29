@@ -134,7 +134,7 @@
     function render() {
       var cols = visible();
       var rows = filteredRows();
-      var compact = !!opts.compact, dashboardOnly = !!opts.dashboardOnly;
+      var compact = !!opts.compact, dashboardOnly = !!opts.dashboardOnly, hideToolbar = !!opts.hideToolbar;
       var active = host.contains(document.activeElement) ? document.activeElement : null;
       var restore = null;
       if (active && active.classList && active.classList.contains('tb-search')) {
@@ -143,7 +143,7 @@
         restore = { filter: active.dataset.filter, start: active.selectionStart, end: active.selectionEnd };
       }
       host.innerHTML = '<div class="tb-grid tb-row-' + state.rowHeight + (compact ? ' compact' : '') + (dashboardOnly ? ' dashboard-only' : '') + '">' +
-	      '<div class="tb-grid-bar">' +
+        (hideToolbar ? '' : '<div class="tb-grid-bar">' +
 	        '<span class="tb-view-name"><span class="tb-view-dot">▦</span> 表格视图</span>' +
 	        '<span class="tb-toolbar-divider"></span>' +
           (compact ? '' : '<details class="tb-group"><summary>分组' + (state.group ? ' · ' + esc(state.aliases[state.group] || state.group) : '') + '</summary><label>按字段分组<select data-group><option value="">不分组</option>' + state.columns.map(function (c) { return '<option value="' + esc(c) + '"' + (state.group === c ? ' selected' : '') + '>' + esc(state.aliases[c] || c) + '</option>'; }).join('') + '</select></label></details>') +
@@ -157,7 +157,7 @@
               var visibleLabel = state.hidden[c] ? '显示' : '隐藏';
               return '<div class="tb-field-item" draggable="true" data-field="' + esc(c) + '" title="' + esc(state.descriptions[c] || '') + '"><span class="tb-field-grip" aria-hidden="true">⋮⋮</span><span class="tb-type">' + typeMark(c) + '</span><span class="tb-field-name">' + esc(state.aliases[c] || c) + '</span><span class="tb-field-actions"><button type="button" data-move-field="up" data-col="' + esc(c) + '" aria-label="上移字段"' + (index === 0 ? ' disabled' : '') + '>↑</button><button type="button" data-move-field="down" data-col="' + esc(c) + '" aria-label="下移字段"' + (index === state.order.length - 1 ? ' disabled' : '') + '>↓</button><button type="button" data-toggle-column="' + esc(c) + '" aria-label="' + visibleLabel + '字段">' + visibleLabel + '</button></span></div>';
             }).join('') + '</div></details>') +
-        '</div>' +
+        '</div>') +
         '<div class="tb-grid-scroll"><table><thead><tr>' +
           (dashboardOnly ? '' : '<th class="tb-row-number">#</th>') +
           cols.map(function (c) {
@@ -193,8 +193,10 @@
         '</tbody></table></div></div>';
 
       var search = host.querySelector('.tb-search');
-      search.value = state.search;
-      search.oninput = function () { state.search = search.value; render(); notify(); };
+      if (search) {
+        search.value = state.search;
+        search.oninput = function () { state.search = search.value; render(); notify(); };
+      }
 	  var filterButton = host.querySelector('[data-toggle-filters]');
 	  if (filterButton) filterButton.onclick = function () { state.showFilters = !state.showFilters; render(); };
       var clearSort = host.querySelector('[data-clear-sort]');

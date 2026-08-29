@@ -1,0 +1,1 @@
+ALTER TABLE table_annotations ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;

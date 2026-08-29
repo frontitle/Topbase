@@ -74,6 +74,19 @@ func (s Service) DisableDashboardPublicLink(id, userID string) (core.Dashboard, 
 		return core.Dashboard{}, err
 	}
 	d.PublicUUID = "-"
+	d.PublicEmbedEnabled = false
+	return s.UpdateDashboard(d, userID)
+}
+
+func (s Service) SetDashboardEmbedding(id string, enabled bool, userID string) (core.Dashboard, error) {
+	d, err := s.Dashboards.ByID(id)
+	if err != nil {
+		return core.Dashboard{}, err
+	}
+	if enabled && d.PublicUUID == "" {
+		return core.Dashboard{}, fmt.Errorf("publish the dashboard before enabling embedding")
+	}
+	d.PublicEmbedEnabled = enabled
 	return s.UpdateDashboard(d, userID)
 }
 
@@ -88,6 +101,7 @@ func (s Service) DuplicateDashboard(id, userID string) (core.Dashboard, error) {
 	copy.ID = core.NewID("dsh")
 	copy.Name = strings.TrimSpace(src.Name) + " 副本"
 	copy.PublicUUID = ""
+	copy.PublicEmbedEnabled = false
 	copy.ArchivedAt = nil
 	copy.CreatedBy = userID
 	copy.CreatedAt = time.Now().UTC()

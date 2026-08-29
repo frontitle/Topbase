@@ -1,10 +1,21 @@
 .side-select{display:grid;gap:6px;font-size:12px;color:#555;margin-bottom:10px}
 .side-select select,.schema-tables input{width:100%;height:36px;border:1px solid #dedede;border-radius:7px;padding:0 10px;font:13px Geist;background:#fff;margin-bottom:10px}
+.schema-layout{align-items:start}
+.schema-tables{align-self:start;height:calc(100vh - 170px);min-height:360px;max-height:720px;display:flex;flex-direction:column;overflow:hidden}
+.table-browser-head{flex:none}
+.table-list-scroll{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:2px 3px 8px 0}
+.table-list-scroll:focus-visible{outline:2px solid #3370ff;outline-offset:2px;border-radius:6px}
 .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
 .meta-grid label,.meta-grid .full{display:grid;gap:6px;font-size:12px}
 .meta-grid .full{grid-column:1/-1}
 .meta-grid input,.meta-grid textarea,.fields-table input,.fields-table select{height:36px;border:1px solid #dedede;border-radius:7px;padding:0 10px;font:13px Geist;width:100%}
 .meta-grid textarea{height:72px;padding:8px 10px;resize:vertical}
+.meta-grid textarea[readonly]{background:#f5f6f8;color:#747d88;cursor:default}.metadata-hint{color:#7b8491;font-size:10px;line-height:1.4}
+.table-item-row{display:flex;align-items:center;gap:3px;border-radius:7px}.table-item-row.active{background:#ececec}.table-item-row .table-item{flex:1;min-width:0}.table-visibility-icon{display:grid;width:30px;height:30px;place-items:center;flex:none;border:0;border-radius:6px;background:transparent;color:#8a919c;cursor:pointer}.table-visibility-icon:hover{background:#e4e9f5;color:#3370ff}.table-visibility-icon.is-hidden{color:#c05b50}.table-visibility-icon svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.editor-title-row{display:flex;align-items:center;gap:7px}.editor-eye{display:grid;width:28px;height:28px;place-items:center;border:0;border-radius:6px;background:transparent;color:#6f7985;cursor:pointer}.editor-eye:hover{background:#e9efff;color:#3370ff}.editor-eye.is-hidden{color:#c05b50;background:#fff3f1}.editor-eye svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.source-comment{max-width:520px;margin:3px 0 0;overflow:hidden;color:#8b939f;font-size:11px;line-height:1.4;white-space:nowrap;text-overflow:ellipsis}.table-item b,.table-item small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.table-item b{display:block}.table-item small{display:block}.table-item-row{min-width:0}
+.field-visibility-icon{display:grid;width:28px;height:28px;place-items:center;border:0;border-radius:6px;background:transparent;color:#6f7985;cursor:pointer}.field-visibility-icon:hover{background:#e9efff;color:#3370ff}.field-visibility-icon.is-hidden{color:#c05b50}.field-visibility-icon svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.meta-grid .table-visibility{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid #e0e4e9;border-radius:8px;background:#fafbfc;cursor:pointer}.visibility-copy{display:grid;gap:4px;flex:1;min-width:0}.visibility-copy b{font-size:12px;font-weight:600}.visibility-copy small{color:#77818d;font-size:11px;line-height:1.45}.table-visibility input{position:absolute;opacity:0;pointer-events:none}.table-visibility i{position:relative;width:34px;height:20px;flex:none;border-radius:999px;background:#c5cad3;transition:background .16s}.table-visibility i:after{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #0002;content:"";transition:transform .16s}.table-visibility input:checked+i{background:#d05b4c}.table-visibility input:checked+i:after{transform:translateX(14px)}.table-visibility input:focus-visible+i{outline:3px solid #3370ff33}.visibility-state{min-width:70px;color:#77818d;font-size:11px;text-align:right}.table-visibility:has(input:checked){border-color:#f0c9c2;background:#fff8f7}.table-visibility:has(input:checked) .visibility-state{color:#bd4f42}
 .schema-fields h3{font-size:14px;margin:18px 0 10px}
 .field-scroll{overflow:auto}
 .fields-table input,.fields-table select{min-width:110px}
@@ -14,4 +25,4 @@
 .field-default{display:block;max-width:170px;margin-top:4px;color:#777;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #empty-editor{padding:40px 10px;color:#666}
 #empty-editor h2{margin:0 0 8px;color:#111}
-@media(max-width:900px){.meta-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.meta-grid{grid-template-columns:1fr}.schema-tables{height:auto;min-height:0;max-height:none}.table-list-scroll{max-height:360px}}

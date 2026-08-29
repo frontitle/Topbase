@@ -35,6 +35,33 @@
           </div>
         </section>
       </form>
+      <section class="settings-section" aria-labelledby="storage-title">
+        <div class="settings-section-head"><div><h2 id="storage-title">应用数据库与备份</h2><p>这里保存 Topbase 的用户、连接、分析、仪表盘和计划任务，不是被分析的业务数据源。</p></div></div>
+        <div class="settings-card appdb-card">
+          <div class="appdb-status"><span class="settings-link-icon">库</span><div><b id="appdb-engine">正在读取…</b><small id="appdb-description">正在确认项目数据的持久化方式。</small></div><span class="account-state" id="appdb-mode">—</span></div>
+          <div class="appdb-warning" id="appdb-warning" hidden><strong>当前为开发体验模式</strong><p>SQLite 数据位于本机数据目录。Docker 未持久化挂载 <code>/data</code> 时，重建或升级容器可能丢失全部项目数据。正式使用请先备份，再一次性迁移到 PostgreSQL 或 MySQL。</p></div>
+          <div class="appdb-result" id="appdb-result" hidden></div>
+          <footer class="appdb-actions"><span>逻辑备份包含密码哈希和加密后的连接信息，请按敏感数据保存。</span><a class="secondary" href="/api/admin/application-database/backup" download>导出备份</a><button class="primary" id="migrate-appdb" type="button" hidden>迁移到生产环境</button></footer>
+        </div>
+      </section>
+      <section class="settings-section" aria-labelledby="developer-title">
+        <div class="settings-section-head"><div><h2 id="developer-title">开发者模式</h2><p>统一管理 MCP、CLI 与 API Key。关闭后所有密钥立即停止访问，但不会被删除。</p></div><span class="account-state" id="developer-state">正在读取…</span></div>
+        <div class="settings-card developer-card">
+          <label class="setting-toggle" for="developer-enabled"><span><b>启用开发者模式</b><small>允许受控的 API Key 通过 MCP、CLI 或自动化程序访问 Topbase。</small></span><input id="developer-enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
+          <div class="developer-fields" id="developer-fields">
+            <label class="settings-field"><span>对外访问地址</span><input id="developer-public-url" type="url" placeholder="https://topbase.example.com"><small>生成 MCP 配置时使用。生产环境应填写 HTTPS 地址。</small></label>
+            <label class="settings-field"><span>单次查询最大行数</span><input id="developer-max-rows" type="number" min="1" max="2000" required><small>服务端硬限制，MCP 或 CLI 不能自行突破。</small></label>
+            <label class="settings-field"><span>新 Key 默认有效期</span><select id="developer-key-ttl"><option value="30">30 天</option><option value="90">90 天</option><option value="180">180 天</option><option value="365">365 天</option><option value="0">永久有效</option></select><small>只影响之后创建的密钥，已有密钥有效期不变。</small></label>
+          </div>
+          <label class="setting-toggle nested" for="developer-personal-keys"><span><b>允许成员创建个人 Key</b><small>关闭后仅管理员可以创建；成员仍可查看和撤销已有密钥。</small></span><input id="developer-personal-keys" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
+          <label class="setting-toggle nested" for="developer-analysis-write"><span><b>允许 AI 创建分析</b><small>只开放新增可视化分析；原生 SQL、修改和删除仍不对 API Key 开放。</small></span><input id="developer-analysis-write" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
+          <footer class="developer-actions"><span id="developer-save-state" aria-live="polite">已同步</span><button class="primary" id="save-developer" type="button">保存开发者设置</button></footer>
+        </div>
+        <div class="settings-card developer-keys-card">
+          <div class="developer-key-head"><div><b>已签发的 API Key</b><small>管理员可以集中查看归属与有效期，并立即撤销异常密钥。</small></div><span id="developer-key-count">0 个</span></div>
+          <div id="developer-key-list" class="developer-key-list"><div class="developer-empty">正在读取密钥…</div></div>
+        </div>
+      </section>
       <section class="settings-section" aria-labelledby="admin-title">
         <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2><p>按职责分开维护，减少同一页面内的高风险误操作。</p></div></div>
         <div class="settings-links">
@@ -46,6 +73,6 @@
     </main>
   </div>
   <div id="toast"></div>
-  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=1"></script>
+  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=2"></script>
 </body>
 </html>

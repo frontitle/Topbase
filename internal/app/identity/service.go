@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -394,11 +395,26 @@ func (s Service) CreateAPIKey(userID, name string) (core.APIKey, error) {
 	if strings.TrimSpace(name) == "" {
 		return core.APIKey{}, fmt.Errorf("name is required")
 	}
+	if len([]rune(strings.TrimSpace(name))) > 80 {
+		return core.APIKey{}, fmt.Errorf("name must be at most 80 characters")
+	}
+	settings, err := s.DeveloperSettings()
+	if err != nil {
+		return core.APIKey{}, err
+	}
+	if !settings.Enabled {
+		return core.APIKey{}, fmt.Errorf("developer mode is disabled")
+	}
 	raw, prefix, hash, err := core.NewAPIKeySecret()
 	if err != nil {
 		return core.APIKey{}, err
 	}
-	key := core.APIKey{ID: core.NewID("key"), Name: name, Prefix: prefix, Hash: hash, UserID: userID, Key: raw, CreatedAt: time.Now().UTC()}
+	now := time.Now().UTC()
+	key := core.APIKey{ID: core.NewID("key"), Name: strings.TrimSpace(name), Prefix: prefix, Hash: hash, UserID: userID, Key: raw, CreatedAt: now}
+	if settings.DefaultKeyTTLDays > 0 {
+		expiresAt := now.Add(time.Duration(settings.DefaultKeyTTLDays) * 24 * time.Hour)
+		key.ExpiresAt = &expiresAt
+	}
 	if err := s.APIKeys.Create(key); err != nil {
 		return core.APIKey{}, err
 	}
@@ -410,6 +426,13 @@ func (s Service) ListAPIKeys(userID string) ([]core.APIKey, error) {
 		return nil, nil
 	}
 	return s.APIKeys.ListByUser(userID)
+}
+
+func (s Service) ListAllAPIKeys() ([]core.APIKey, error) {
+	if s.APIKeys == nil {
+		return nil, nil
+	}
+	return s.APIKeys.List()
 }
 
 func (s Service) DeleteAPIKey(id string) error {
@@ -518,7 +541,9 @@ func (s Service) SetSiteName(name string) error {
 }
 
 func (s Service) AdminSettings() (core.AdminSettings, error) {
-	settings := core.AdminSettings{SiteName: s.SiteName(), Timezone: "Asia/Shanghai", PublicSharingEnabled: true, EmbeddingEnabled: true}
+	// Public distribution is opt-in for every new Topbase instance. Administrators
+	// can enable it deliberately from the instance settings when needed.
+	settings := core.AdminSettings{SiteName: s.SiteName(), Timezone: "Asia/Shanghai", PublicSharingEnabled: false, EmbeddingEnabled: false}
 	if s.Settings == nil {
 		return settings, nil
 	}
@@ -790,11 +815,76 @@ func (s Service) UserForAPIKey(raw string) (core.User, error) {
 	if s.APIKeys == nil {
 		return core.User{}, fmt.Errorf("not signed in")
 	}
+	settings, err := s.DeveloperSettings()
+	if err != nil {
+		return core.User{}, fmt.Errorf("read developer settings: %w", err)
+	}
+	if !settings.Enabled {
+		return core.User{}, fmt.Errorf("developer mode is disabled")
+	}
 	key, err := s.APIKeys.ByHash(core.HashAPIKey(raw))
 	if err != nil {
 		return core.User{}, fmt.Errorf("invalid api key")
 	}
-	return s.Users.ByID(key.UserID)
+	if key.ExpiresAt != nil && !time.Now().UTC().Before(*key.ExpiresAt) {
+		return core.User{}, fmt.Errorf("api key expired")
+	}
+	user, err := s.Users.ByID(key.UserID)
+	if err != nil || !user.IsActive {
+		return core.User{}, fmt.Errorf("api key owner is inactive")
+	}
+	return user, nil
+}
+
+func (s Service) DeveloperSettings() (core.DeveloperSettings, error) {
+	defaults := core.DeveloperSettings{
+		Enabled: false, AllowPersonalKeys: true, AllowAnalysisWrite: false,
+		DefaultKeyTTLDays: 90, MaxQueryRows: 200,
+	}
+	if s.Settings == nil {
+		return defaults, nil
+	}
+	raw, ok, err := s.Settings.Get("developer_settings")
+	if err != nil || !ok || strings.TrimSpace(raw) == "" {
+		return defaults, err
+	}
+	if err := json.Unmarshal([]byte(raw), &defaults); err != nil {
+		return core.DeveloperSettings{}, err
+	}
+	if defaults.MaxQueryRows == 0 {
+		defaults.MaxQueryRows = 200
+	}
+	return defaults, nil
+}
+
+func (s Service) SaveDeveloperSettings(settings core.DeveloperSettings) (core.DeveloperSettings, error) {
+	settings.PublicBaseURL = strings.TrimRight(strings.TrimSpace(settings.PublicBaseURL), "/")
+	if settings.DefaultKeyTTLDays < 0 || settings.DefaultKeyTTLDays > 3650 {
+		return core.DeveloperSettings{}, fmt.Errorf("default_key_ttl_days must be between 0 and 3650")
+	}
+	if settings.MaxQueryRows < 1 || settings.MaxQueryRows > 2000 {
+		return core.DeveloperSettings{}, fmt.Errorf("max_query_rows must be between 1 and 2000")
+	}
+	if settings.PublicBaseURL != "" {
+		parsed, err := url.Parse(settings.PublicBaseURL)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return core.DeveloperSettings{}, fmt.Errorf("public_base_url must be an http or https URL")
+		}
+		if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return core.DeveloperSettings{}, fmt.Errorf("public_base_url cannot contain credentials, query parameters or fragments")
+		}
+	}
+	if s.Settings == nil {
+		return core.DeveloperSettings{}, fmt.Errorf("settings are not configured")
+	}
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		return core.DeveloperSettings{}, err
+	}
+	if err := s.Settings.Set("developer_settings", string(raw)); err != nil {
+		return core.DeveloperSettings{}, err
+	}
+	return settings, nil
 }
 
 func (s Service) PermissionGraph() (core.PermissionGraph, error) {

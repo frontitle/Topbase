@@ -6,6 +6,7 @@ const path = require('node:path');
 const publicFiles = [
   'docs/README.md',
   'docs/architecture.md',
+	'docs/ai-integrations.md',
   'docs/assets/topbase-dashboard-demo.jpg',
   'docs/configuration.md',
   'docs/database-drivers.md',
@@ -13,6 +14,7 @@ const publicFiles = [
   'docs/frontend-components.md',
   'docs/getting-started.md',
   'docs/information-architecture.md',
+	'docs/releases/0.2.1.md',
   'docs/upgrading.md',
 ];
 
@@ -28,7 +30,7 @@ test('docs contains only reviewed public documentation', () => {
 });
 
 test('public documentation has no internal research references or broken local links', () => {
-  const markdownFiles = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', ...publicFiles.filter(file => file.endsWith('.md'))];
+  const markdownFiles = ['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md', ...publicFiles.filter(file => file.endsWith('.md'))];
   for (const file of markdownFiles) {
     const source = fs.readFileSync(file, 'utf8');
     assert.doesNotMatch(source, /metabase|metabase-master|parity-matrix|\/Users\/wensky/i, file);

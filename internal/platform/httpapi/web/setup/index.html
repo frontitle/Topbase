@@ -12,6 +12,11 @@
     <h1>创建你的工作区</h1>
     <p class="lead">设置管理员账号后即可连接数据源、提问并保存分析。</p>
     <form id="form">
+      <section class="setup-storage" id="storage-mode" aria-live="polite">
+        <div><span class="setup-storage-label">应用数据库</span><strong id="storage-title">正在检查安装模式…</strong></div>
+        <p id="storage-description">Topbase 会先确认项目自身数据的保存位置。</p>
+        <label class="storage-risk" id="storage-risk" hidden><input id="accept_storage_risk" type="checkbox"><span>我知道这是开发体验模式。若 Docker 未持久化挂载 <code>/data</code>，重建或升级容器可能清空用户、连接、分析和仪表盘；正式使用前应迁移到 PostgreSQL 或 MySQL。</span></label>
+      </section>
       <label>工作区名称<input id="site_name" value="Topbase" autocomplete="organization"></label>
       <label>管理员姓名<input id="admin_name" required placeholder="例如：王晨" autocomplete="name"></label>
       <label>管理员邮箱<input id="admin_email" type="email" required placeholder="you@company.com" autocomplete="username"></label>

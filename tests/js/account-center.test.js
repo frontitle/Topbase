@@ -14,6 +14,8 @@ test('personal center exposes profile, security and account binding tabs', () =>
   assert.match(html, /data-tab="bindings"/);
   assert.match(html, /id="avatar-file"/);
   assert.match(html, /id="password-form"/);
+  assert.match(html, /data-tab="api"/);
+  assert.match(html, /id="developer-notice"/);
 });
 
 test('personal center uses real profile APIs and custom interaction components', () => {
@@ -23,6 +25,8 @@ test('personal center uses real profile APIs and custom interaction components',
   assert.match(script, /confirmDialog\(/);
   assert.doesNotMatch(script, /\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(script, /canvas\.toDataURL\('image\/jpeg'/);
+  assert.match(script, /api\('\/api\/developer\/status'/);
+  assert.match(script, /expires_at/);
 });
 
 test('global account menu links to the personal center and signs out through the session API', () => {

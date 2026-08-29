@@ -21,10 +21,14 @@
       </div>
       <div class="schema-layout">
         <aside class="schema-tables">
-          <label class="side-select">数据源<select id="database"></select></label>
-          <input id="search" placeholder="搜索表">
-          <div class="side-title">数据表 <span id="table-count"></span></div>
-          <div id="table-list">先选择数据源。</div>
+          <div class="table-browser-head">
+            <label class="side-select">数据源<select id="database"></select></label>
+            <input id="search" placeholder="搜索表">
+            <div class="side-title">数据表 <span id="table-count"></span></div>
+          </div>
+          <div class="table-list-scroll" tabindex="0" aria-label="数据表列表">
+            <div id="table-list">先选择数据源。</div>
+          </div>
         </aside>
         <section class="schema-fields" id="editor">
           <div id="empty-editor">
@@ -35,13 +39,12 @@
             <header class="table-head">
               <div>
                 <small id="physical-name"></small>
-                <h2 id="editor-title">表元数据</h2>
+                <h2 class="editor-title-row"><span id="editor-title">表元数据</span><button id="editor-visibility" class="editor-eye" type="button" aria-label="切换前台可见性" title="切换前台可见性"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg></button></h2><p id="source-description" class="source-comment" title=""></p>
               </div>
-              <button class="primary" id="save-all" type="button">保存表与字段</button>
             </header>
             <div class="meta-grid">
               <label>表显示名称（别称）<input id="display-name" placeholder="例如：订单明细"></label>
-              <label class="full">表说明<textarea id="description" placeholder="优先读取数据库表注释，也可以在这里补充用途、刷新频率和口径"></textarea></label>
+              <label class="full">业务备注<textarea id="description" placeholder="例如：口径说明、用途、刷新频率；填写后将优先展示给成员"></textarea><small class="metadata-hint">这是 Topbase 内的备注，可替换前台显示的源表注释。</small></label>
             </div>
             <h3>字段</h3>
             <div class="field-scroll">
@@ -55,6 +58,7 @@
                     <th>语义</th>
                     <th>外键表</th>
                     <th>外键字段</th>
+                    <th>可见性</th>
                   </tr>
                 </thead>
                 <tbody id="field-body"></tbody>

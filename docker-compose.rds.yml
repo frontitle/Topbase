@@ -1,0 +1,51 @@
+services:
+  topbase:
+    build:
+      context: .
+      args:
+        VERSION: "${TOPBASE_VERSION:-0.2.1}"
+        COMMIT: "${TOPBASE_COMMIT:-unknown}"
+        BUILD_TIME: "${TOPBASE_BUILD_TIME:-unknown}"
+    image: topbase/topbase:local
+    ports:
+      - "8080:8080"
+    environment:
+      TOPBASE_ADDR: ":8080"
+      TOPBASE_DATA_DIR: /data
+      TOPBASE_APP_DB_ENGINE: "${TOPBASE_APP_DB_ENGINE:?use postgres or mysql}"
+      TOPBASE_APP_DB_DSN: "${TOPBASE_APP_DB_DSN:-}"
+      TOPBASE_APP_DB_HOST: "${TOPBASE_APP_DB_HOST:-}"
+      TOPBASE_APP_DB_PORT: "${TOPBASE_APP_DB_PORT:-}"
+      TOPBASE_APP_DB_NAME: "${TOPBASE_APP_DB_NAME:-}"
+      TOPBASE_APP_DB_SCHEMA: "${TOPBASE_APP_DB_SCHEMA:-public}"
+      TOPBASE_APP_DB_USER: "${TOPBASE_APP_DB_USER:-}"
+      TOPBASE_APP_DB_PASSWORD: "${TOPBASE_APP_DB_PASSWORD:-}"
+      TOPBASE_APP_DB_TLS_MODE: "${TOPBASE_APP_DB_TLS_MODE:-verify-full}"
+      TOPBASE_APP_DB_CA_FILE: "${TOPBASE_APP_DB_CA_FILE:-/run/secrets/rds-ca.pem}"
+      TOPBASE_APP_DB_MAX_OPEN_CONNS: "${TOPBASE_APP_DB_MAX_OPEN_CONNS:-20}"
+      TOPBASE_APP_DB_MAX_IDLE_CONNS: "${TOPBASE_APP_DB_MAX_IDLE_CONNS:-5}"
+      TOPBASE_MASTER_KEY: "${TOPBASE_MASTER_KEY:?set the same 32-byte base64 key on every Topbase instance}"
+      TOPBASE_INSTANCE_ID: "${TOPBASE_INSTANCE_ID:-topbase-rds-1}"
+      TOPBASE_CRON: "${TOPBASE_CRON:-on}"
+      TOPBASE_SECURE_COOKIES: "${TOPBASE_SECURE_COOKIES:-true}"
+      FEISHU_APP_ID: "${FEISHU_APP_ID:-}"
+      FEISHU_APP_SECRET: "${FEISHU_APP_SECRET:-}"
+      FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:-}"
+    volumes:
+      - topbase_data:/data
+      - topbase_backups:/backups
+      - "${TOPBASE_APP_DB_CA_HOST_FILE:-./secrets/rds-ca.pem}:/run/secrets/rds-ca.pem:ro"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+volumes:
+  topbase_data:
+  topbase_backups:

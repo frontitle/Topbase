@@ -21,6 +21,7 @@ body{
 h1{margin:10px 0 8px;font-size:26px;letter-spacing:-.03em}
 .lead{color:#6b6b6b;font-size:14px;line-height:1.6;margin:0 0 24px}
 form{display:grid;gap:14px}
+.setup-storage{display:grid;gap:7px;padding:13px;border:1px solid #dfe6d9;border-radius:9px;background:#f8fbf6}.setup-storage.is-risk{border-color:#efcf9b;background:#fff9ef}.setup-storage>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.setup-storage-label{color:#777;font-size:10px;letter-spacing:.04em}.setup-storage strong{font-size:12px}.setup-storage>p{margin:0;color:#6b6b6b;font-size:11px;line-height:1.5}.storage-risk{grid-template-columns:16px 1fr;align-items:start;margin-top:4px;padding-top:9px;border-top:1px solid #ead8b8;color:#75531e;line-height:1.5}.storage-risk[hidden]{display:none}.storage-risk input{width:14px;height:14px;margin:2px 0 0;padding:0}.storage-risk code{padding:1px 4px;border-radius:4px;background:#0000000a;font-size:10px}
 label{display:grid;gap:6px;font-size:12px;color:#333}
 input{
   height:40px;

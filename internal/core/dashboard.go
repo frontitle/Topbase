@@ -65,6 +65,7 @@ type Dashboard struct {
 	CreatedBy          string            `json:"created_by,omitempty"`
 	CreatedAt          time.Time         `json:"created_at"`
 	PublicUUID         string            `json:"public_uuid,omitempty"`
+	PublicEmbedEnabled bool              `json:"public_embed_enabled"`
 }
 
 type FilterValue map[string]any

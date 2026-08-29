@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
 	"github.com/topbase/topbase/internal/core"
@@ -18,7 +20,7 @@ import (
 )
 
 type Store struct {
-	db            *sql.DB
+	db            *database
 	schemaVersion int
 }
 
@@ -27,26 +29,94 @@ func Open(path string) (*Store, error) {
 }
 
 func OpenWithVersion(path, appVersion string) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	return OpenConfig(Config{Engine: EngineSQLite, Path: path, AppVersion: appVersion})
+}
+
+func OpenConfig(cfg Config) (*Store, error) {
+	if cfg.Engine == EnginePostgres && cfg.Schema == "" {
+		cfg.Schema = "public"
+	}
+	if cfg.Engine == EnginePostgres && cfg.Port == 0 {
+		cfg.Port = 5432
+	}
+	if cfg.Engine == EngineMySQL && cfg.Port == 0 {
+		cfg.Port = 3306
+	}
+	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	dsn := "file:" + filepath.ToSlash(path) + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
-	db, err := sql.Open("sqlite", dsn)
+	if cfg.Engine == EngineSQLite && cfg.Path != "" {
+		if err := os.MkdirAll(filepath.Dir(cfg.Path), 0700); err != nil {
+			return nil, err
+		}
+	}
+	driver, dsn, err := cfg.driverAndDSN()
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
-		db.Close()
+	rawDB, err := sql.Open(driver, dsn)
+	if err != nil {
 		return nil, err
+	}
+	if cfg.MaxOpenConns > 0 {
+		rawDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	}
+	if cfg.MaxIdleConns >= 0 {
+		rawDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	}
+	if cfg.ConnMaxLifetime > 0 {
+		rawDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	}
+	db := &database{DB: rawDB, engine: cfg.Engine}
+	connectTimeout := cfg.ConnectTimeout
+	if connectTimeout <= 0 {
+		connectTimeout = 10 * time.Second
+	}
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), connectTimeout)
+	defer connectCancel()
+	if err := db.PingContext(connectCtx); err != nil {
+		rawDB.Close()
+		return nil, fmt.Errorf("connect application database: %w", err)
+	}
+	if cfg.Engine == EngineSQLite {
+		if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
+			rawDB.Close()
+			return nil, err
+		}
+	}
+	if cfg.Engine == EnginePostgres && cfg.Schema != "" && cfg.Schema != "public" {
+		if _, err := db.Exec(`CREATE SCHEMA IF NOT EXISTS ` + quotePostgresIdentifier(cfg.Schema)); err != nil {
+			rawDB.Close()
+			return nil, fmt.Errorf("prepare application database schema: %w", err)
+		}
 	}
 	migrationCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	schemaVersion, err := applyMigrations(migrationCtx, db, appVersion)
+	schemaVersion, err := applyMigrations(migrationCtx, db, cfg.AppVersion)
 	if err != nil {
-		db.Close()
+		rawDB.Close()
 		return nil, fmt.Errorf("migrate app db: %w", err)
 	}
 	return &Store{db: db, schemaVersion: schemaVersion}, nil
+}
+
+func (s *Store) Engine() Engine { return s.db.engine }
+
+func validIdentifier(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (i > 0 && r >= '0' && r <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func quotePostgresIdentifier(value string) string {
+	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
 }
 
 func (s *Store) Close() error { return s.db.Close() }
@@ -395,13 +465,16 @@ func (s *Store) Delete(id string) error {
 func (s *Store) GetTableAnnotation(databaseID, schema, table string) (core.TableAnnotation, error) {
 	var note core.TableAnnotation
 	var fieldTypes sql.NullString
-	err := s.db.QueryRow(`SELECT display_name, description, field_types FROM table_annotations WHERE database_id=? AND schema_name=? AND table_name=?`, databaseID, schema, table).
-		Scan(&note.DisplayName, &note.Description, &fieldTypes)
+	err := s.db.QueryRow(`SELECT display_name, description, user_note, hidden, field_types FROM table_annotations WHERE database_id=? AND schema_name=? AND table_name=?`, databaseID, schema, table).
+		Scan(&note.DisplayName, &note.Description, &note.UserNote, &note.Hidden, &fieldTypes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return core.TableAnnotation{FieldTypes: map[string]string{}}, nil
 	}
 	if err != nil {
 		return core.TableAnnotation{}, err
+	}
+	if note.UserNote == "" {
+		note.UserNote = note.Description
 	}
 	note.FieldTypes = map[string]string{}
 	if fieldTypes.String != "" {
@@ -415,8 +488,8 @@ func (s *Store) SaveTableAnnotation(databaseID, schema, table string, annotation
 		annotation.FieldTypes = map[string]string{}
 	}
 	raw, _ := json.Marshal(annotation.FieldTypes)
-	_, err := s.db.Exec(`INSERT INTO table_annotations(database_id, schema_name, table_name, display_name, description, field_types) VALUES(?,?,?,?,?,?) ON CONFLICT(database_id, schema_name, table_name) DO UPDATE SET display_name=excluded.display_name, description=excluded.description, field_types=excluded.field_types`,
-		databaseID, schema, table, annotation.DisplayName, annotation.Description, string(raw))
+	_, err := s.db.Exec(`INSERT INTO table_annotations(database_id, schema_name, table_name, display_name, description, user_note, hidden, field_types) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(database_id, schema_name, table_name) DO UPDATE SET display_name=excluded.display_name, description=excluded.description, user_note=excluded.user_note, hidden=excluded.hidden, field_types=excluded.field_types`,
+		databaseID, schema, table, annotation.DisplayName, annotation.Description, annotation.UserNote, annotation.Hidden, string(raw))
 	return err
 }
 

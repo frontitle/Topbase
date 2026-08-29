@@ -9,29 +9,35 @@ import (
 	"time"
 
 	"github.com/topbase/topbase/internal/core"
+	appmigrations "github.com/topbase/topbase/migrations"
 
 	_ "modernc.org/sqlite"
 )
 
 func TestOpenAppliesAndRecordsMigrations(t *testing.T) {
+	files, err := appmigrations.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest := files[len(files)-1].Version
 	path := filepath.Join(t.TempDir(), "app.db")
 	store, err := OpenWithVersion(path, "v0.1.0-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if store.SchemaVersion() != 9 {
-		t.Fatalf("schema version = %d, want 9", store.SchemaVersion())
+	if store.SchemaVersion() != latest {
+		t.Fatalf("schema version = %d, want %d", store.SchemaVersion(), latest)
 	}
 	var count int
 	if err := store.db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 9 {
-		t.Fatalf("migration count = %d, want 9", count)
+	if count != len(files) {
+		t.Fatalf("migration count = %d, want %d", count, len(files))
 	}
 	var appVersion string
-	if err := store.db.QueryRow(`SELECT app_version FROM schema_migrations WHERE version=9`).Scan(&appVersion); err != nil {
+	if err := store.db.QueryRow(`SELECT app_version FROM schema_migrations WHERE version=?`, latest).Scan(&appVersion); err != nil {
 		t.Fatal(err)
 	}
 	if appVersion != "v0.1.0-test" {

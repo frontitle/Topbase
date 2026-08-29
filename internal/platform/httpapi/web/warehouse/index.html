@@ -15,33 +15,23 @@
       <div class="page-head">
         <div>
           <h1>数据沉淀</h1>
-          <p>把需要长期追踪的分析结果按计划保存到 Topbase，形成可复用的本地数据。</p>
+          <p>把一条分析按周期计算并保存下来；后续查询只读取沉淀结果，减少源库压力。</p>
         </div>
+        <button class="primary" id="create-materialization" type="button">新建数据沉淀</button>
       </div>
       <aside class="warehouse-role-note" aria-label="数据沉淀说明">
         <span>本地保存 · 按计划更新</span>
-        <div><b>这是 Topbase 管理的数据</b><p>结果会从源数据定期计算并保存，适合历史对比、稳定指标和后续再次分析。</p></div>
+        <div><b>这是 Topbase 管理的数据</b><p>首次会从源数据计算并落库；之后可按水位仅处理变化数据，并像普通数据表一样再次分析。</p></div>
         <a href="/data/">想看实时原始内容？前往源数据 →</a>
       </aside>
       <section class="section-block">
-        <h2>已沉淀的数据</h2>
-        <div class="cards" id="tables"></div>
-      </section>
-      <section class="section-block">
-        <h2>更新计划</h2>
-        <div class="cards" id="schedules"></div>
-      </section>
-      <section class="section-block">
-        <h2>创建更新计划</h2>
-        <form id="form" class="create-box">
-          <label>分析<select id="questions" required></select></label>
-          <label>更新要求<input id="message" value="每天 9 点保存最新结果"></label>
-          <pre id="proposal" class="muted-box">先提案，再确认创建。</pre>
-          <div class="actions">
-            <button class="secondary" type="button" id="propose">AI 生成计划</button>
-            <button class="primary" type="submit">确认创建计划</button>
-          </div>
-        </form>
+        <div class="section-row"><div><h2>沉淀数据列表</h2><p class="section-note">每一行对应一份本地数据及其更新计划；可以立即更新或继续创建分析。</p></div><span id="materialization-count"></span></div>
+        <div class="warehouse-table-shell">
+          <table class="warehouse-table">
+            <thead><tr><th>沉淀数据</th><th>来源分析</th><th>更新计划</th><th>保存方式</th><th>最近更新</th><th>状态</th><th></th></tr></thead>
+            <tbody id="materializations"></tbody>
+          </table>
+        </div>
       </section>
     </main>
   </div>

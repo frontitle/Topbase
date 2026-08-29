@@ -120,6 +120,18 @@ func (s *server) adminMonitor(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"alerts": alerts, "schedules": schedules, "runs": runs, "subscriptions": subs})
 }
 
+func (s *server) listAdminNotifications(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	items, err := s.content.ListNotifications("")
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (s *server) listIdentityProviders(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return
@@ -170,6 +182,24 @@ func (s *server) listWebhooks(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, items)
 }
+
+func (s *server) listSubscriptionChannels(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
+	items, err := s.identity.Webhooks()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	channels := make([]map[string]string, 0, len(items))
+	for _, item := range items {
+		if item.Enabled {
+			channels = append(channels, map[string]string{"id": item.ID, "name": item.Name, "provider": item.Provider})
+		}
+	}
+	writeJSON(w, http.StatusOK, channels)
+}
 func (s *server) saveWebhooks(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return
@@ -214,9 +244,17 @@ func (s *server) deliverNotification(title, body, channel string) {
 		}
 		text := title + "\n" + body
 		var payload any = map[string]string{"title": title, "body": body}
+		if hook.Template != "" {
+			rawTemplate := strings.NewReplacer("{{title}}", title, "{{body}}", body).Replace(hook.Template)
+			if json.Unmarshal([]byte(rawTemplate), &payload) != nil {
+				return
+			}
+		}
 		switch hook.Provider {
 		case "feishu":
-			payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": text}}
+			if hook.Template == "" {
+				payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": text}}
+			}
 		case "dingtalk":
 			payload = map[string]any{"msgtype": "text", "text": map[string]string{"content": text}}
 		case "wecom":
@@ -249,6 +287,22 @@ func (s *server) createSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 	var input core.Subscription
 	if !decodeJSON(w, r, &input) {
+		return
+	}
+	hooks, err := s.identity.Webhooks()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	validChannel := false
+	for _, hook := range hooks {
+		if hook.Enabled && input.Channel == "webhook:"+hook.ID {
+			validChannel = true
+			break
+		}
+	}
+	if !validChannel {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请先在通知与订阅中创建并启用 Webhook 通道"})
 		return
 	}
 	input.DashboardID = r.PathValue("id")

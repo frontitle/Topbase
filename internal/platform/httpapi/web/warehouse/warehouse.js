@@ -1,37 +1,45 @@
-let proposal=null;
-
+let questions=[];
+const frequencyCron={hourly:'0 * * * *',daily:'0 9 * * *',weekly:'0 9 * * 1'};
+function slug(value){return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,48)||'analysis_result'}
+function tableURL(table){return '/data/?db='+encodeURIComponent(table.database_id)+'&schema='+encodeURIComponent(table.schema)+'&table='+encodeURIComponent(table.name)}
+function scheduleLabel(schedule){if(!schedule)return '尚未配置';if(schedule.cron==='0 * * * *')return '每小时';if(schedule.cron==='0 9 * * 1')return '每周一 09:00';if(schedule.cron==='0 9 * * *')return '每天 09:00';return schedule.cron}
+function status(table){const value=table.last_status||'pending';return {succeeded:'更新成功',failed:'更新失败',pending:'待首次更新'}[value]||value}
+function statusClass(table){return table.last_status==='failed'?'failed':table.last_status==='succeeded'?'':'pending'}
 async function load(){
-  const [tables, schedules, questions]=await Promise.all([
-    api('/api/warehouse/tables'), api('/api/schedules'), api('/api/questions')
-  ]);
-  $('#tables').innerHTML=tables.map(t=>cardHTML({title:t.schema+'.'+t.name,meta:'本地沉淀 · '+(t.row_count||0)+' 行 · '+(t.last_status||'尚未更新')+(t.watermark?' · 增量位置 '+t.watermark:'')})).join('')||emptyHTML({icon:'▣',title:'还没有沉淀数据',body:'选择一条已保存分析，为它创建周期更新计划。',href:'/questions/',cta:'先选择分析'});
-  $('#schedules').innerHTML=schedules.map(s=>cardHTML({title:s.name,meta:(s.strategy||'replace')+(s.watermark_field?' / '+s.watermark_field:'')+' · '+s.cron+' → '+s.materialize_to,action:'<button class="secondary" data-run="'+esc(s.id)+'" type="button">立即更新</button>'})).join('')||emptyHTML({icon:'▣',title:'还没有更新计划',body:'先让 AI 生成计划，确认后创建。'});
-  $('#questions').innerHTML=questions.map(q=>'<option value="'+q.id+'">'+esc(q.name)+'</option>').join('');
-  $$('[data-run]').forEach(b=>b.onclick=async()=>{
-    try{const run=await api('/api/schedules/'+b.dataset.run+'/run','POST',{});toast('已沉淀 '+run.row_count+' 行');load()}catch(e){toast(e.message)}
-  });
+  const [tables,schedules,items]=await Promise.all([api('/api/warehouse/tables'),api('/api/schedules'),api('/api/questions')]);
+  questions=items;
+  $('#materialization-count').textContent=tables.length+' 项';
+  const byID=Object.fromEntries(schedules.map(schedule=>[schedule.id,schedule]));
+  const questionsByID=Object.fromEntries(questions.map(question=>[question.id,question]));
+  $('#materializations').innerHTML=tables.map(table=>{
+    const schedule=byID[table.schedule_id], question=questionsByID[table.question_id];
+    return '<tr><td><b>'+esc(table.schema+'.'+table.name)+'</b><small>'+(table.row_count||0)+' 行'+(table.watermark?' · 水位 '+esc(table.watermark):'')+'</small></td><td><b>'+esc(question&&question.name||'原始分析已不可用')+'</b><small>'+(question?(question.query_type==='native'?'SQL 分析':'可视化分析'):'—')+'</small></td><td><b>'+esc(scheduleLabel(schedule))+'</b><small>'+esc(schedule&&schedule.timezone||'Asia/Shanghai')+'</small></td><td><b>'+esc(schedule&&schedule.strategy==='incremental'?'增量更新':'全量刷新')+'</b><small>'+esc(schedule&&schedule.watermark_field||'每次重算完整结果')+'</small></td><td><b>'+esc(table.last_run_at?new Date(table.last_run_at).toLocaleString('zh-CN'):'尚未更新')+'</b></td><td><span class="warehouse-status '+statusClass(table)+'">'+esc(status(table))+'</span></td><td><div class="warehouse-table-actions"><a class="secondary" href="'+esc(tableURL(table))+'">创建分析</a>'+(schedule?'<button class="secondary" data-run="'+esc(schedule.id)+'" type="button">立即更新</button>':'')+'</div></td></tr>';
+  }).join('')||'<tr><td class="warehouse-empty" colspan="7">还没有沉淀数据。点击右上角“新建数据沉淀”，选择一条分析后即可开始。</td></tr>';
+  $$('[data-run]').forEach(button=>button.onclick=async()=>{button.disabled=true;button.textContent='更新中…';try{const run=await api('/api/schedules/'+button.dataset.run+'/run','POST',{});toast('已沉淀 '+run.row_count+' 行');await load()}catch(error){toast(error.message);button.disabled=false;button.textContent='立即更新'}});
 }
-
-$('#propose').onclick=async()=>{
+async function createMaterialization(){
+  if(!questions.length){toast('请先创建一条分析，再进行数据沉淀。');return}
+  const wanted=new URLSearchParams(location.search).get('question');
+  const selected=questions.find(question=>question.id===wanted)||questions[0];
+  const values=await formDialog({
+    kicker:'数据沉淀',title:'新建数据沉淀',description:'首次会立即把分析结果保存到本地表；后续按设置的计划更新。',confirmText:'创建并立即沉淀',size:'wide',
+    fields:[
+      {name:'question_id',label:'来源分析',type:'select',value:selected.id,required:true,options:questions.map(question=>({value:question.id,label:question.name+(question.query_type==='native'?' · SQL':' · 可视化')})),help:'复用已验证的分析逻辑。'},
+      {name:'name',label:'沉淀名称',value:selected.name+' 数据',required:true,placeholder:'例如：每日订单明细'},
+      {name:'frequency',label:'更新频率',type:'select',value:'daily',required:true,options:[{value:'hourly',label:'每小时'},{value:'daily',label:'每天 09:00'},{value:'weekly',label:'每周一 09:00'}]},
+      {name:'target',label:'保存表名',value:slug(selected.name),required:true,placeholder:'例如：daily_orders',help:'会写入 warehouse.wh_*，不会改写源表。'},
+      {name:'strategy',label:'保存方式',type:'select',value:'replace',required:true,options:[{value:'replace',label:'全量刷新'},{value:'incremental',label:'仅追加变化数据'}]},
+      {name:'watermark_field',label:'变化字段（仅增量更新需要）',placeholder:'例如：created_at',help:'增量方式下，下一次只读取此字段晚于上次水位的数据。'}
+    ],
+    validate:value=>value.strategy==='incremental'&&!value.watermark_field?'增量更新需要填写变化字段。':''
+  });
+  if(!values)return;
   try{
-    proposal=await api('/api/ai/propose-schedule','POST',{question_id:$('#questions').value,message:$('#message').value});
-    $('#proposal').textContent=proposal.rationale+'\n'+proposal.cron+' → '+proposal.materialize_to+'（'+proposal.strategy+(proposal.watermark_field?' / '+proposal.watermark_field:'')+'，需确认）';
-  }catch(e){toast(e.message)}
-};
-
-$('#form').onsubmit=async ev=>{
-  ev.preventDefault();
-  if(!proposal) return toast('请先生成更新计划');
-  try{
-    await api('/api/schedules','POST',{
-      name:proposal.name, question_id:$('#questions').value, cron:proposal.cron,
-      timezone:proposal.timezone, materialize_to:proposal.materialize_to, strategy:proposal.strategy,
-      watermark_field:proposal.watermark_field
-    });
-    toast('更新计划已创建');
-    proposal=null;
-    load();
-  }catch(e){toast(e.message)}
-};
-
-load().catch(e=>toast(e.message));
+    const schedule=await api('/api/schedules','POST',{name:values.name,question_id:values.question_id,cron:frequencyCron[values.frequency],timezone:'Asia/Shanghai',materialize_to:'warehouse.wh_'+slug(values.target),strategy:values.strategy,watermark_field:values.watermark_field});
+    const run=await api('/api/schedules/'+schedule.id+'/run','POST',{});
+    toast('数据沉淀已创建，首次已保存 '+run.row_count+' 行。');
+    history.replaceState({},'',location.pathname);await load();
+  }catch(error){toast(error.message)}
+}
+$('#create-materialization').onclick=createMaterialization;
+load().catch(error=>toast(error.message));

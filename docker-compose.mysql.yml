@@ -1,0 +1,66 @@
+services:
+  appdb:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: "${TOPBASE_APP_DB_NAME:-topbase}"
+      MYSQL_USER: "${TOPBASE_APP_DB_USER:-topbase}"
+      MYSQL_PASSWORD: "${TOPBASE_APP_DB_PASSWORD:?set TOPBASE_APP_DB_PASSWORD in .env}"
+      MYSQL_ROOT_PASSWORD: "${TOPBASE_MYSQL_ROOT_PASSWORD:?set TOPBASE_MYSQL_ROOT_PASSWORD in .env}"
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - topbase_appdb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  topbase:
+    build:
+      context: .
+      args:
+        VERSION: "${TOPBASE_VERSION:-0.2.1}"
+        COMMIT: "${TOPBASE_COMMIT:-unknown}"
+        BUILD_TIME: "${TOPBASE_BUILD_TIME:-unknown}"
+    image: topbase/topbase:local
+    ports:
+      - "8080:8080"
+    environment:
+      TOPBASE_ADDR: ":8080"
+      TOPBASE_DATA_DIR: /data
+      TOPBASE_APP_DB_ENGINE: mysql
+      TOPBASE_APP_DB_HOST: appdb
+      TOPBASE_APP_DB_PORT: "3306"
+      TOPBASE_APP_DB_NAME: "${TOPBASE_APP_DB_NAME:-topbase}"
+      TOPBASE_APP_DB_USER: "${TOPBASE_APP_DB_USER:-topbase}"
+      TOPBASE_APP_DB_PASSWORD: "${TOPBASE_APP_DB_PASSWORD:?set TOPBASE_APP_DB_PASSWORD in .env}"
+      TOPBASE_APP_DB_TLS_MODE: disable
+      TOPBASE_MASTER_KEY: "${TOPBASE_MASTER_KEY:?set TOPBASE_MASTER_KEY in .env}"
+      TOPBASE_INSTANCE_ID: "${TOPBASE_INSTANCE_ID:-topbase-compose-1}"
+      TOPBASE_CRON: "on"
+      TOPBASE_SECURE_COOKIES: "${TOPBASE_SECURE_COOKIES:-false}"
+      FEISHU_APP_ID: "${FEISHU_APP_ID:-}"
+      FEISHU_APP_SECRET: "${FEISHU_APP_SECRET:-}"
+      FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:-}"
+    volumes:
+      - topbase_data:/data
+      - topbase_backups:/backups
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+    depends_on:
+      appdb:
+        condition: service_healthy
+
+volumes:
+  topbase_appdb:
+  topbase_data:
+  topbase_backups:

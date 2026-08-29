@@ -8,26 +8,38 @@
 
 ## 使用 Docker Compose
 
+安装时先选择应用数据的保存方式：
+
+- **生产正式模式**：使用 `docker-compose.postgres.yml` 或 `docker-compose.mysql.yml`，适合持续使用、升级、RDS 和多节点；
+- **开发体验模式**：使用仓库兼容的 `docker-compose.yml` 或直接 `go run`，SQLite 保存在 `TOPBASE_DATA_DIR/app.db`，无需额外数据库。
+
+SQLite 模式只用于本地体验和单机开发。Docker 必须持久化挂载 `/data`；如果数据目录只存在于容器可写层，重建或升级容器会清空项目数据。首次初始化页面会显示当前模式并要求确认风险。
+
 ```bash
 cp .env.example .env
-docker compose up --build -d
+# 编辑 .env，至少填写：
+# TOPBASE_APP_DB_PASSWORD=<随机数据库密码>
+# TOPBASE_MASTER_KEY=<openssl rand -base64 32 的输出>
+docker compose -f docker-compose.postgres.yml up --build -d
 ```
+
+使用 MySQL 作为应用数据库时，另外填写 `TOPBASE_MYSQL_ROOT_PASSWORD`，并将文件名替换为 `docker-compose.mysql.yml`。
 
 访问 <http://localhost:8080>，按照首次初始化页面创建管理员。运行状态和日志：
 
 ```bash
-docker compose ps
-docker compose logs -f topbase
+docker compose -f docker-compose.postgres.yml ps
+docker compose -f docker-compose.postgres.yml logs -f topbase
 curl --fail http://localhost:8080/api/ready
 ```
 
-应用状态保存在命名卷 `topbase_data`。删除容器不会删除数据；执行 `docker compose down -v` 会删除数据卷，不应在生产环境使用。
+应用状态保存在 `topbase_appdb` PostgreSQL 命名卷，兼容文件保存在 `topbase_data`。删除容器不会删除数据；执行 `docker compose down -v` 会删除数据卷，不应在生产环境使用。
 
-需要备份时使用镜像内置工具，不要直接复制运行中的 SQLite 文件：
+需要备份时使用 PostgreSQL 一致性导出，不要直接复制运行中的数据库目录：
 
 ```bash
-docker compose exec topbase /app/topbase-backup /backups/topbase-first-backup
-docker compose cp topbase:/backups/topbase-first-backup ./backups/
+docker compose -f docker-compose.postgres.yml exec -T appdb \
+  pg_dump -U topbase -d topbase -Fc > topbase-first-backup.dump
 ```
 
 ## 从源代码运行
@@ -38,11 +50,13 @@ make check
 go run ./cmd/topbase
 ```
 
-默认监听 `:8080`，运行数据写入 `./data`。需要并行启动测试实例时，使用独立地址与数据目录：
+默认监听 `:8080`。未设置应用数据库变量时，为兼容旧安装使用 `./data/app.db`；新部署应设置 PostgreSQL 或 MySQL 应用数据库。需要并行启动测试实例时，使用独立地址与数据目录：
 
 ```bash
 TOPBASE_ADDR=:18080 TOPBASE_DATA_DIR=/tmp/topbase-dev go run ./cmd/topbase
 ```
+
+开发验证完成后，管理员可以进入“管理后台 → 设置 → 应用数据库与备份”，先下载逻辑备份，再把 SQLite 一次性迁移到空的 PostgreSQL 或 MySQL 数据库。迁移不会在运行中切换数据库；完成后必须保持原 `TOPBASE_MASTER_KEY`，修改部署环境变量并重启。
 
 ## 接入第一个数据库
 
