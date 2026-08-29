@@ -12,6 +12,8 @@ const dataJS = read('internal/platform/httpapi/web/data/data.js');
 const questionHTML = read('internal/platform/httpapi/web/questions/view/index.html');
 const questionJS = read('internal/platform/httpapi/web/question-view.js');
 const dataSaveHTML = read('internal/platform/httpapi/web/data/index.html');
+const warehouseHTML = read('internal/platform/httpapi/web/warehouse/index.html');
+const warehouseJS = read('internal/platform/httpapi/web/warehouse/warehouse.js');
 const queryEditor = read('internal/platform/httpapi/web/components/query-editor/query-editor.js');
 const code = read('internal/platform/httpapi/web/components/code/code.js');
 const docs = read('docs/frontend-components.md');
@@ -45,6 +47,20 @@ test('analysis names are edited in place instead of through a rename action', ()
   assert.match(questionJS, /on\('title', editName\)/);
   assert.match(questionJS, /on\('heading', editName\)/);
   assert.doesNotMatch(questionJS, /promptDialog\(\{ kicker: '分析设置', title: '重命名分析'/);
+});
+
+test('analysis detail links directly into the materialization flow', () => {
+  assert.match(questionHTML, /id="materialize" href="\/warehouse\/"/);
+  assert.match(questionJS, /\/warehouse\/\?question=' \+ encodeURIComponent\(question\.id\) \+ '#create-materialization'/);
+});
+
+test('warehouse presents materializations as a unified list and creates them in a shared dialog', () => {
+  assert.match(warehouseHTML, /id="materializations"/);
+  assert.match(warehouseHTML, /id="create-materialization" type="button"/);
+  assert.doesNotMatch(warehouseHTML, /id="schedules"|id="tables"/);
+  assert.match(warehouseJS, /function createMaterialization\(\)/);
+  assert.match(warehouseJS, /formDialog\(\{/);
+  assert.match(warehouseJS, /api\('\/api\/schedules\/'.*'\/run','POST'/);
 });
 
 test('saving an analysis selects its destination group and follows metadata editing', () => {

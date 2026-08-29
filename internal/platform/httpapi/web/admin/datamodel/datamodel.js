@@ -10,8 +10,9 @@ function setURL(){
 }
 function renderTables(items){
   $('#table-count').textContent=items.length;
-  $('#table-list').innerHTML=items.map(t=>`<button class="table-item ${active&&key(active)===key(t)?'active':''}" data-key="${esc(key(t))}" title="${esc(t.description||'')}"><b>${esc(t.schema)}.${esc(t.name)}</b><small>${esc(t.description||((t.columns||[]).length+' 个字段'))}</small></button>`).join('')||'<p>没有表。请先在数据源里同步结构。</p>';
+  $('#table-list').innerHTML=items.map(t=>`<div class="table-item-row ${active&&key(active)===key(t)?'active':''}"><button class="table-item" data-key="${esc(key(t))}" title="${esc(t.display_name||t.name)}"><b>${esc(t.display_name||t.name)}</b><small title="${esc(t.user_note||t.description||'')}">${esc(t.user_note||t.description||'暂无说明')}</small></button><button class="table-visibility-icon ${t.hidden?'is-hidden':''}" data-toggle-hidden="${esc(key(t))}" type="button" title="${t.hidden?'在前台显示':'在前台隐藏'}" aria-label="${t.hidden?'在前台显示':'在前台隐藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>${t.hidden?'<path d="M4 4 20 20"></path>':''}</svg></button></div>`).join('')||'<p>没有表。请先在数据源里同步结构。</p>';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>key(t)===b.dataset.key)).catch(e=>toast(e.message)));
+  $$('[data-toggle-hidden]').forEach(b=>b.onclick=async event=>{event.stopPropagation();const table=tables.find(t=>key(t)===b.dataset.toggleHidden);if(!table)return;await saveAnnotation(table,!table.hidden);});
 }
 async function loadTables(){
   const id=$('#database').value;
@@ -31,7 +32,7 @@ async function loadTables(){
 async function openTable(table){
   active=table;
   const q=($('#search').value||'').toLowerCase();
-  renderTables(q?tables.filter(t=>(t.name+' '+t.schema).toLowerCase().includes(q)):tables);
+  renderTables(q?tables.filter(t=>((t.display_name||'')+' '+t.name+' '+t.schema).toLowerCase().includes(q)):tables);
   $('#empty-editor').hidden=true;$('#meta-editor').hidden=false;
   $('#physical-name').textContent=table.schema+'.'+table.name;
   $('#editor-title').textContent=table.name;
@@ -42,7 +43,9 @@ async function openTable(table){
     api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/fields`).catch(()=>[])
   ]);
   $('#display-name').value=note.display_name||'';
-  $('#description').value=note.description||table.description||'';
+  table.hidden=!!note.hidden;setEditorVisibility();
+  $('#source-description').textContent=table.description||'数据源没有提供表注释';$('#source-description').title=table.description||'数据源没有提供表注释';
+  $('#description').value=note.user_note||'';
   const byName=Object.fromEntries((saved||[]).map(f=>[f.name,f]));
   const typeOpts='<option value="">未设置</option>'+types.map(t=>`<option value="${t}">${t}</option>`).join('');
   $('#field-body').innerHTML=(table.columns||[]).map(c=>{
@@ -58,52 +61,37 @@ async function openTable(table){
       <td><select data-k="semantic">${typeOpts}</select></td>
       <td><input data-k="fk_table" placeholder="users" value="${esc(foreign.table||'')}"></td>
       <td><input data-k="fk_field" placeholder="id" value="${esc(foreign.name||'')}"></td>
+      <td><button class="field-visibility-icon ${f.visibility==='hidden'?'is-hidden':''}" data-k="visibility" type="button" title="${f.visibility==='hidden'?'在前台显示':'在前台隐藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>${f.visibility==='hidden'?'<path d="M4 4 20 20"></path>':''}</svg></button></td>
     </tr>`;
   }).join('');
   $$('#field-body tr').forEach(row=>{
     const f=byName[row.dataset.field]||{};
     const c=(table.columns||[]).find(column=>column.name===row.dataset.field)||{};
     row.querySelector('[data-k="semantic"]').value=f.semantic_type||(c.primary_key?'EntityKey':(c.foreign_key?'ForeignKey':''));
+    let fieldTimer;row.querySelectorAll('input').forEach(input=>input.oninput=()=>{clearTimeout(fieldTimer);fieldTimer=setTimeout(()=>saveField(row),500)});row.querySelector('select').onchange=()=>saveField(row);row.querySelector('[data-k="visibility"]').onclick=()=>{const button=row.querySelector('[data-k="visibility"]'),hidden=button.classList.toggle('is-hidden');button.title=hidden?'在前台显示':'在前台隐藏';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>'+(hidden?'<path d="M4 4 20 20"></path>':'')+'</svg>';saveField(row)};
   });
 }
 $('#database').onchange=()=>{topbaseRememberDatabase($('#database').value);history.replaceState({},'','/admin/datamodel/?db='+encodeURIComponent($('#database').value));loadTables().catch(e=>toast(e.message))};
 $('#search').oninput=()=>{
   const q=($('#search').value||'').toLowerCase();
-  renderTables(q?tables.filter(t=>(t.name+' '+t.schema).toLowerCase().includes(q)):tables);
+  renderTables(q?tables.filter(t=>((t.display_name||'')+' '+t.name+' '+t.schema).toLowerCase().includes(q)):tables);
 };
-$('#save-all').onclick=async()=>{
-  if(!active)return;
+let saveTimer;
+function setEditorVisibility(){const button=$('#editor-visibility');if(!button||!active)return;button.classList.toggle('is-hidden',!!active.hidden);button.title=active.hidden?'在前台显示':'在前台隐藏';button.setAttribute('aria-label',button.title);button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>'+(active.hidden?'<path d="M4 4 20 20"></path>':'')+'</svg>'}
+async function saveAnnotation(table=active, hidden=active&&active.hidden){
+  if(!table)return;
   const id=$('#database').value;
-  const schema=active.schema, table=active.name;
   try{
-    await api(`/api/databases/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/annotation`,'PUT',{
-      display_name:$('#display-name').value, description:$('#description').value, field_types:{}
+    await api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/annotation`,'PUT',{
+      display_name:table===active?$('#display-name').value.trim():(table.display_name||''), description:'', user_note:table===active?$('#description').value.trim():'', hidden, field_types:{}
     });
-    const rows=$$('#field-body tr');
-    for(const row of rows){
-      const name=row.dataset.field;
-      const semantic=row.querySelector('[data-k="semantic"]').value;
-      const fkTable=row.querySelector('[data-k="fk_table"]').value.trim();
-      const fkField=row.querySelector('[data-k="fk_field"]').value.trim();
-      const payload={
-        name,
-        display_name:row.querySelector('[data-k="display_name"]').value.trim(),
-        description:row.querySelector('[data-k="description"]').value.trim(),
-        semantic_type:semantic
-      };
-      if(fkTable&&fkField){
-        const sourceColumn=(active.columns||[]).find(column=>column.name===name);
-        const sourceForeign=sourceColumn&&sourceColumn.foreign_key;
-        const targetSchema=sourceForeign&&sourceForeign.table===fkTable?sourceForeign.schema:schema;
-        payload.semantic_type=payload.semantic_type||'ForeignKey';
-        payload.fk_target={schema:targetSchema||schema, table:fkTable, name:fkField};
-      }
-      await api(`/api/databases/${id}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/fields`,'PUT',payload);
-    }
-    $('#editor-title').textContent=$('#display-name').value.trim()||table;
-    toast('已保存表与字段元数据');
+    table.hidden=hidden;if(table===active){table.display_name=$('#display-name').value.trim();$('#editor-title').textContent=table.display_name||table.name;setEditorVisibility();}
+    renderTables(tables);toast(hidden?'已在前台隐藏':'已恢复前台可见');
   }catch(e){toast(e.message)}
-};
+}
+function scheduleAnnotationSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveAnnotation(),500)}
+async function saveField(row){if(!active)return;const id=$('#database').value,name=row.dataset.field,semantic=row.querySelector('[data-k="semantic"]').value,fkTable=row.querySelector('[data-k="fk_table"]').value.trim(),fkField=row.querySelector('[data-k="fk_field"]').value.trim(),visibility=row.querySelector('[data-k="visibility"]').classList.contains('is-hidden')?'hidden':'';const payload={name,display_name:row.querySelector('[data-k="display_name"]').value.trim(),description:row.querySelector('[data-k="description"]').value.trim(),semantic_type:semantic,visibility};if(fkTable&&fkField){const source=(active.columns||[]).find(c=>c.name===name),foreign=source&&source.foreign_key;payload.semantic_type=payload.semantic_type||'ForeignKey';payload.fk_target={schema:foreign&&foreign.table===fkTable?foreign.schema:active.schema,table:fkTable,name:fkField}}try{await api(`/api/databases/${id}/tables/${encodeURIComponent(active.schema)}/${encodeURIComponent(active.name)}/fields`,'PUT',payload);toast('字段已自动保存')}catch(e){toast(e.message)}}
+$('#display-name').oninput=scheduleAnnotationSave;$('#description').oninput=scheduleAnnotationSave;$('#editor-visibility').onclick=()=>{if(active)saveAnnotation(active,!active.hidden)};
 async function boot(){
   types=await api('/api/semantic-types');
   const dbs=await api('/api/databases');

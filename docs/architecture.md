@@ -37,7 +37,7 @@ cmd 负责把实现注入端口
 | `app/query` | 展开模型/指标/分段、编译选择、执行、结果元数据 | 浏览器渲染 |
 | `app/content` | 分析、仪表盘、数据组、修订、搜索等用例 | SQLite SQL、HTTP 状态码 |
 | `app/warehouse` | 调度、物化策略、运行、watermark、血缘 | Cron 进程形态、飞书 HTTP |
-| `adapters/appdb` | 应用库仓储与 migrations | 产品规则 |
+| `adapters/appdb` | PostgreSQL/MySQL/SQLite 应用库仓储、加密连接密钥、migrations 与分布式租约 | 产品规则 |
 | `platform/httpapi` | REST、Cookie/API Key 鉴权、静态 UI | 查询语义和权限策略本身 |
 
 ## 必须稳定的扩展点
@@ -86,6 +86,8 @@ cmd 负责把实现注入端口
 ## 数据与迁移
 
 - migration 只向前执行；已发布 migration 不修改，修复必须追加新 migration。
+- 空应用数据库创建当前完整结构；已有安装通过 `schema_migrations` 识别和升级；非空未知数据库拒绝接管。
+- PostgreSQL 使用 advisory lock、MySQL 使用命名锁串行 migration；调度使用跨引擎租约表，支持多节点故障接管。
 - 应用库事务边界位于应用服务，不跨越用户等待或长查询。
 - 分析持久化 QueryIR 版本；读取旧版本先迁移到内存新版本，保存时再升级。
 - 删除默认归档；永久删除前检查依赖并要求显式确认。

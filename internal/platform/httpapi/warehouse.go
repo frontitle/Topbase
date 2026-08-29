@@ -63,7 +63,19 @@ func (s *server) runSchedule(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return
 	}
-	run, err := s.warehouse.Run(r.Context(), r.PathValue("id"))
+	scheduleID := r.PathValue("id")
+	leaseName := "warehouse:schedule:" + scheduleID
+	acquired, err := s.store.AcquireLease(r.Context(), leaseName, s.instanceID, 6*time.Hour)
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "cannot reserve schedule execution"})
+		return
+	}
+	if !acquired {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "schedule is already running on another Topbase instance"})
+		return
+	}
+	defer s.store.ReleaseLease(context.Background(), leaseName, s.instanceID)
+	run, err := s.warehouse.Run(r.Context(), scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "run": run})
 		return
@@ -135,6 +147,14 @@ func (s *server) tickWarehouse(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+		leader, err := s.store.AcquireLease(ctx, "warehouse:scheduler", s.instanceID, 75*time.Second)
+		if err != nil {
+			log.Printf("topbase: acquire scheduler lease: %v", err)
+			continue
+		}
+		if !leader {
+			continue
+		}
 		items, err := s.warehouse.List()
 		if err != nil {
 			log.Printf("topbase: list schedules: %v", err)
@@ -148,8 +168,20 @@ func (s *server) tickWarehouse(ctx context.Context) {
 			if !appwarehouse.Due(item.Cron, item.Timezone, now, item.LastRunAt) {
 				continue
 			}
+			leaseName := "warehouse:schedule:" + item.ID
+			acquired, err := s.store.AcquireLease(ctx, leaseName, s.instanceID, 6*time.Hour)
+			if err != nil {
+				log.Printf("topbase: acquire schedule %s lease: %v", item.ID, err)
+				continue
+			}
+			if !acquired {
+				continue
+			}
 			if _, err := s.warehouse.Run(ctx, item.ID); err != nil {
 				log.Printf("topbase: schedule %s: %v", item.ID, err)
+			}
+			if err := s.store.ReleaseLease(context.Background(), leaseName, s.instanceID); err != nil {
+				log.Printf("topbase: release schedule %s lease: %v", item.ID, err)
 			}
 		}
 		s.notify.RunDueSubscriptions(ctx, now)

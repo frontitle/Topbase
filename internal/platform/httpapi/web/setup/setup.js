@@ -1,5 +1,6 @@
 const form = document.querySelector('#form');
 const errorEl = document.querySelector('#error');
+let storageMode = 'development';
 
 async function api(path, method, body) {
   const r = await fetch(path, {
@@ -16,6 +17,16 @@ async function api(path, method, body) {
   try {
     const status = await api('/api/setup/status', 'GET');
     if (status.completed) location.replace('/auth/login/');
+    const storage = status.application_database || {};
+    storageMode = storage.mode || 'development';
+    const development = storageMode === 'development';
+    document.querySelector('#storage-title').textContent = development ? 'SQLite · 开发体验模式' : `${storage.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'} · 生产正式模式`;
+    document.querySelector('#storage-description').textContent = development
+      ? '无需额外数据库即可快速体验；数据保存在当前服务器的本地目录。'
+      : '项目数据保存在独立应用数据库，可用于持续升级、RDS 和多节点部署。';
+    document.querySelector('#storage-mode').classList.toggle('is-risk', development);
+    document.querySelector('#storage-risk').hidden = !development;
+    document.querySelector('#accept_storage_risk').required = development;
   } catch (e) {
     errorEl.hidden = false;
     errorEl.textContent = e.message;
@@ -25,6 +36,11 @@ async function api(path, method, body) {
 form.onsubmit = async (event) => {
   event.preventDefault();
   errorEl.hidden = true;
+  if (storageMode === 'development' && !document.querySelector('#accept_storage_risk').checked) {
+    errorEl.hidden = false;
+    errorEl.textContent = '请先确认开发体验模式的数据持久化风险。';
+    return;
+  }
   try {
     await api('/api/setup', 'POST', {
       language: 'zh-CN',

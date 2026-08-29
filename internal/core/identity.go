@@ -53,13 +53,15 @@ type ExternalIdentityLink struct {
 }
 
 type WebhookEndpoint struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Provider  string    `json:"provider"` // feishu | dingtalk | wecom | generic
-	URL       string    `json:"url"`
-	Secret    string    `json:"secret,omitempty"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Provider     string    `json:"provider"` // feishu | dingtalk | wecom | generic
+	URL          string    `json:"url"`
+	Secret       string    `json:"secret,omitempty"`
+	TemplateType string    `json:"template_type,omitempty"` // text | post | card | custom
+	Template     string    `json:"template,omitempty"`      // JSON, supports {{title}} and {{body}}
+	Enabled      bool      `json:"enabled"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // AdminSettings contains instance-wide switches that must be enforced by the
@@ -69,6 +71,18 @@ type AdminSettings struct {
 	Timezone             string `json:"timezone"`
 	PublicSharingEnabled bool   `json:"public_sharing_enabled"`
 	EmbeddingEnabled     bool   `json:"embedding_enabled"`
+}
+
+// DeveloperSettings controls every non-browser API entry point. Developer
+// mode is intentionally opt-in: disabling it invalidates all API keys at the
+// authentication boundary without deleting them.
+type DeveloperSettings struct {
+	Enabled            bool   `json:"enabled"`
+	AllowPersonalKeys  bool   `json:"allow_personal_keys"`
+	AllowAnalysisWrite bool   `json:"allow_analysis_write"`
+	DefaultKeyTTLDays  int    `json:"default_key_ttl_days"`
+	MaxQueryRows       int    `json:"max_query_rows"`
+	PublicBaseURL      string `json:"public_base_url,omitempty"`
 }
 
 type Session struct {

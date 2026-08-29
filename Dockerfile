@@ -1,6 +1,6 @@
 FROM golang:1.25-alpine AS builder
 
-ARG VERSION=0.1.0-alpha.0-dev
+ARG VERSION=0.2.1
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 
@@ -14,7 +14,13 @@ RUN CGO_ENABLED=0 go build -trimpath \
     -o /out/topbase ./cmd/topbase \
     && CGO_ENABLED=0 go build -trimpath \
     -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
-    -o /out/topbase-backup ./cmd/topbase-backup
+    -o /out/topbase-backup ./cmd/topbase-backup \
+    && CGO_ENABLED=0 go build -trimpath \
+    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -o /out/topbase-cli ./cmd/topbase-cli \
+    && CGO_ENABLED=0 go build -trimpath \
+    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -o /out/topbase-mcp ./cmd/topbase-mcp
 
 FROM alpine:3.22
 
@@ -27,6 +33,8 @@ RUN apk add --no-cache ca-certificates tzdata \
 WORKDIR /app
 COPY --from=builder /out/topbase /app/topbase
 COPY --from=builder /out/topbase-backup /app/topbase-backup
+COPY --from=builder /out/topbase-cli /app/topbase-cli
+COPY --from=builder /out/topbase-mcp /app/topbase-mcp
 
 USER topbase
 ENV TOPBASE_ADDR=:8080

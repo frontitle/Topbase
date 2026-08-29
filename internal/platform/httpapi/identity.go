@@ -1,10 +1,51 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/topbase/topbase/internal/core"
 )
+
+type releaseNotes struct {
+	Notes string `json:"notes"`
+}
+
+func (s *server) getReleaseNotes(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	item := releaseNotes{}
+	if raw, ok, err := s.identity.Settings.Get("release_notes"); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	} else if ok && raw != "" {
+		_ = json.Unmarshal([]byte(raw), &item)
+	}
+	writeJSON(w, 200, item)
+}
+
+func (s *server) saveReleaseNotes(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var item releaseNotes
+	if !decodeJSON(w, r, &item) {
+		return
+	}
+	item.Notes = strings.TrimSpace(item.Notes)
+	if len(item.Notes) > 12000 {
+		writeJSON(w, 400, map[string]string{"error": "更新说明不能超过 12000 个字符"})
+		return
+	}
+	raw, _ := json.Marshal(item)
+	if err := s.identity.Settings.Set("release_notes", string(raw)); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, 200, item)
+}
 
 func (s *server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 	done, err := s.identity.SetupCompleted()
@@ -12,7 +53,13 @@ func (s *server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"completed": done})
+	engine := s.store.Engine()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"completed": done,
+		"application_database": map[string]any{
+			"engine": engine, "mode": applicationDatabaseMode(engine), "development_risk": engine == "sqlite",
+		},
+	})
 }
 
 func (s *server) completeSetup(w http.ResponseWriter, r *http.Request) {
@@ -147,6 +194,10 @@ func (s *server) createQuestion(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.currentUserOrKey(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	if isAPIKeyRequest(r) && (q.QueryIR == nil || q.QueryType == "native" || strings.TrimSpace(q.NativeSQL) != "") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "MCP and CLI API keys can only create visual QueryIR analyses"})
 		return
 	}
 	if q.CollectionID == "" {
@@ -521,6 +572,14 @@ func (s *server) updateQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	if q.CollectionID != existing.CollectionID && !s.canAccessCollection(user, q.CollectionID, "edit") {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "destination data-group edit permission required"})
+		return
+	}
+	if q.QueryIR != nil && !s.identity.HasCapability(user.ID, "data", "view") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "data view permission required"})
+		return
+	}
+	if q.QueryType == "native" && q.NativeSQL != "" && !s.identity.HasCapability(user.ID, "sql", "native") {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "native SQL permission required"})
 		return
 	}
 	saved, err := s.content.UpdateQuestion(q)

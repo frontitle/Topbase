@@ -205,8 +205,9 @@ func (s *server) tables(w http.ResponseWriter, r *http.Request) {
 	}
 	payload := make([]map[string]any, 0, len(tables))
 	for _, table := range tables {
+		annotation, _ := s.metadata.GetTableAnnotation(id, table.Schema, table.Name)
 		payload = append(payload, map[string]any{
-			"schema": table.Schema, "name": table.Name, "description": table.Description, "columns": table.Columns,
+			"schema": table.Schema, "name": table.Name, "display_name": annotation.DisplayName, "description": table.Description, "user_note": annotation.UserNote, "hidden": annotation.Hidden, "columns": table.Columns,
 			"warehouse": marked[table.Schema+"."+table.Name] || table.Schema == "warehouse",
 		})
 	}

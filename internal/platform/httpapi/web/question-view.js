@@ -131,6 +131,11 @@ function setMeta() {
   const resultMeta = (lastResult && lastResult.meta) || {};
   const freshness = resultMeta.execution === 'direct' && resultMeta.cache_hit === false ? '实时直连' : '查询结果';
   const updated = resultMeta.executed_at ? new Date(resultMeta.executed_at).toLocaleTimeString('zh-CN') : '';
+  const groupCrumb = $('#group-crumb'), groupSeparator = $('#group-crumb-separator');
+  if (groupCrumb && groupSeparator) {
+    groupCrumb.hidden = groupSeparator.hidden = !col;
+    if (col) { groupCrumb.textContent = col.name; groupCrumb.href = '/collections/' + encodeURIComponent(col.id) + '/'; }
+  }
   $('#title').textContent = question.name;
   $('#heading').textContent = question.name;
   $('#meta').textContent = kind + ' · ' + (col ? col.name : '我的分析') + ' · ' + freshness + ' · ' + n + ' 行' + (updated ? ' · 更新于 ' + updated : '');
@@ -218,6 +223,7 @@ async function loadResult() {
 async function boot() {
   question = await api('/api/questions/' + id);
   collections = await api('/api/collections');
+  $('#materialize').href = '/warehouse/?question=' + encodeURIComponent(question.id) + '#create-materialization';
   spec = question.chartspec || { type: 'table' };
   setMeta();
   await loadResult();
@@ -234,7 +240,7 @@ function on(id, fn) {
   const el = document.getElementById(id);
   if (el) el.onclick = fn;
 }
-on('rerun', () => loadResult().catch(e => toast(e.message)));
+on('edit-analysis', () => { location.href = '/data/?edit=' + encodeURIComponent(id); });
 on('title', editName);
 on('heading', editName);
 $('#heading').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); editName(); } };
@@ -259,7 +265,7 @@ on('move', async () => {
   setMeta();
 });
 on('archive', async () => {
-  if (!await confirmDialog({ kicker: '归档分析', title: '将这条分析移到回收站？', description: '分析会从列表和数据组中隐藏，之后仍可在回收站恢复。', confirmText: '移到回收站', tone: 'danger' })) return;
+  if (!await confirmDialog({ kicker: '删除分析', title: '删除这条分析？', description: '分析会从列表和数据组中移除，之后仍可在回收站恢复。', confirmText: '删除', tone: 'danger' })) return;
   await api('/api/questions/' + id, 'DELETE');
   location.href = '/questions/';
 });

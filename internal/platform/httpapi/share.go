@@ -146,7 +146,7 @@ func (s *server) bindUserExternalIdentity(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.currentUserOrKey(r)
+	user, ok := s.currentSessionUser(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
 		return
@@ -160,9 +160,22 @@ func (s *server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) createAPIKey(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.currentUserOrKey(r)
+	user, ok := s.currentSessionUser(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
+		return
+	}
+	settings, err := s.identity.DeveloperSettings()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if !settings.Enabled {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "请先由管理员启用开发者模式"})
+		return
+	}
+	if !settings.AllowPersonalKeys && !s.identity.IsAdmin(user.ID) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "管理员未允许成员创建个人 API Key"})
 		return
 	}
 	var input struct {
@@ -180,7 +193,7 @@ func (s *server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.currentUserOrKey(r)
+	user, ok := s.currentSessionUser(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "not signed in"})
 		return

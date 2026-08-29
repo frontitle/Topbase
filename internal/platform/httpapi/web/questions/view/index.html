@@ -14,11 +14,12 @@
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
     <header class="topbar">
-      <a href="/questions/">分析</a><span>/</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称">加载中</button>
+      <a href="/questions/">分析</a><span>/</span><a id="group-crumb" hidden href="/questions/"></a><span id="group-crumb-separator" hidden>/</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称">加载中</button>
       <div class="top-actions">
-        <button class="secondary" id="rerun" type="button">重新运行</button>
+        <button class="secondary" id="edit-analysis" type="button">编辑</button>
+        <a class="secondary" id="materialize" href="/warehouse/">沉淀数据</a>
         <button class="secondary" id="move" type="button">移动到分组</button>
-        <button class="secondary" id="archive" type="button">归档</button>
+        <button class="secondary" id="archive" type="button">删除</button>
       </div>
     </header>
     <main>

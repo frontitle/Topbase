@@ -105,6 +105,18 @@ func (s Service) UpdateQuestion(patch core.Question) (core.Question, error) {
 	if patch.ChartSpec != nil {
 		existing.ChartSpec = patch.ChartSpec
 	}
+	if patch.QueryIR != nil {
+		existing.QueryIR = patch.QueryIR
+		existing.NativeSQL = ""
+		existing.QueryType = "queryir"
+		existing.DatabaseID = patch.QueryIR.Source.DatabaseID
+	}
+	if patch.QueryType == "native" && strings.TrimSpace(patch.NativeSQL) != "" {
+		existing.NativeSQL = patch.NativeSQL
+		existing.QueryIR = nil
+		existing.QueryType = "native"
+		existing.DatabaseID = patch.DatabaseID
+	}
 	if err := s.Questions.Update(existing); err != nil {
 		return core.Question{}, err
 	}

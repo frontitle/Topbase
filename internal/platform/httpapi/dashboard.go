@@ -77,6 +77,9 @@ func (s *server) updateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.ID = r.PathValue("id")
+	// External publishing settings are controlled by dedicated, permissioned
+	// endpoints; a normal editor must not be able to turn embedding on.
+	d.PublicEmbedEnabled = existing.PublicEmbedEnabled
 	if d.CollectionID == "" {
 		d.CollectionID = existing.CollectionID
 	}
@@ -246,6 +249,30 @@ func (s *server) disableDashboardPublicLink(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, saved)
 }
 
+func (s *server) setDashboardEmbedding(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		Enabled bool `json:"enabled"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	settings, err := s.identity.AdminSettings()
+	if err != nil || !settings.EmbeddingEnabled {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "embedding is disabled by the administrator"})
+		return
+	}
+	saved, err := s.content.SetDashboardEmbedding(r.PathValue("id"), input.Enabled, user.ID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, saved)
+}
+
 func (s *server) copyDashboard(w http.ResponseWriter, r *http.Request) {
 	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "edit")
 	if !ok {
@@ -338,6 +365,18 @@ func (s *server) servePublicDashboard(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !settings.PublicSharingEnabled || (strings.HasPrefix(r.URL.Path, "/embed/") && !settings.EmbeddingEnabled) {
 		http.NotFound(w, r)
 		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/embed/") {
+		board, err := s.content.GetDashboardByPublicUUID(r.PathValue("uuid"))
+		if err != nil || !board.PublicEmbedEnabled {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Security-Policy", "frame-ancestors *")
+	} else {
+		// Published pages remain visitable links, but cannot be repurposed as an
+		// iframe without an administrator explicitly enabling the embed endpoint.
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
 	}
 	s.serveHTML(w, r, "embed/dashboard.html")
 }

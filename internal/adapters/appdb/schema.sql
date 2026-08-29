@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS table_annotations (
   table_name TEXT NOT NULL,
   display_name TEXT,
   description TEXT,
+  user_note TEXT NOT NULL DEFAULT '',
+  hidden INTEGER NOT NULL DEFAULT 0,
   field_types TEXT,
   PRIMARY KEY (database_id, schema_name, table_name)
 );
@@ -98,6 +100,7 @@ CREATE TABLE IF NOT EXISTS dashboards (
   auto_refresh_seconds INTEGER,
   appearance TEXT,
   public_uuid TEXT,
+  public_embed_enabled INTEGER NOT NULL DEFAULT 0,
   archived_at TEXT,
   created_by TEXT,
   created_at TEXT NOT NULL
@@ -180,7 +183,8 @@ CREATE TABLE IF NOT EXISTS api_keys (
   prefix TEXT NOT NULL,
   hash TEXT NOT NULL,
   user_id TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  expires_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS field_metadata (
@@ -304,4 +308,25 @@ CREATE TABLE IF NOT EXISTS schema_snapshots (
   database_id TEXT PRIMARY KEY,
   tables_json TEXT NOT NULL,
   synced_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS topbase_installation (
+  id TEXT PRIMARY KEY,
+  installation_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS connection_secrets (
+  database_id TEXT PRIMARY KEY,
+  ciphertext TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  key_version INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS distributed_leases (
+  name TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );

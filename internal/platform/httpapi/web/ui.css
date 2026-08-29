@@ -146,6 +146,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 }
 .avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .sidebar footer strong { font-size: 13px; font-weight: 500; }
+.sidebar-version{display:flex;align-items:center;justify-content:space-between;margin:0 4px 8px;padding:8px 9px;border:1px solid #e4e7eb;border-radius:7px;background:#fafbfc;color:#7b8491;font-size:10px;text-decoration:none}.sidebar-version:before{color:#a0a7b1;content:'当前版本'}.sidebar-version:hover{border-color:#c9d4e8;background:#f7f9fd;color:#3370ff}.sidebar-version b{padding:2px 4px;border-radius:4px;background:#ffebe9;color:#d34739;font-size:8px;letter-spacing:.04em}
 
 .page { margin-left: var(--tb-sidebar); min-height: 100vh; }
 body.sidebar-collapsed { --tb-sidebar: 62px; }

@@ -53,6 +53,8 @@
 .binding-action.linked { border-color: #bee4ca; color: #18713a; }
 .binding-action:disabled { color: #aaa; cursor: default; }
 .account-loading { padding: 28px 22px; color: #888; font-size: 12px; text-align: center; }
+.api-key-reveal { display: grid; grid-template-columns: minmax(160px,.8fr) minmax(240px,1.5fr) auto; align-items: center; gap: 14px; margin: 18px 22px; padding: 14px; border: 1px solid #efd49e; border-radius: 9px; background: #fffaf0; }.api-key-reveal[hidden]{display:none}.api-key-reveal strong{display:block;color:#74521b;font-size:12px}.api-key-reveal small{display:block;margin-top:4px;color:#8a6b3d;font-size:10px;line-height:1.45}.api-key-reveal code{min-width:0;overflow:auto;padding:10px;border:1px solid #eadbbf;border-radius:7px;background:#fff;color:#29241d;font-size:11px;white-space:nowrap}.binding-icon{font-size:11px}.binding-card .danger-subtle{min-width:64px}
+.developer-notice,.developer-command{display:flex;align-items:center;gap:14px;margin:18px 22px;padding:13px 14px;border:1px solid #e1e4e8;border-radius:9px;background:#fafafa}.developer-notice>div,.developer-command>div{display:grid;min-width:0;flex:1;gap:4px}.developer-notice strong,.developer-command strong{font-size:12px}.developer-notice small,.developer-command small{color:#787f89;font-size:10px;line-height:1.45}.developer-notice.is-disabled{border-color:#efd49e;background:#fffaf0}.developer-notice.is-disabled strong{color:#74521b}.developer-notice .account-state{flex:none}.developer-command{display:grid;grid-template-columns:minmax(160px,.8fr) minmax(240px,1.5fr) auto}.developer-command[hidden]{display:none}.developer-command code{min-width:0;overflow:auto;padding:9px;border:1px solid #e1e4e8;border-radius:7px;background:#fff;font-size:10px;white-space:nowrap}.binding-card.is-expired{opacity:.62}.binding-card .key-expired{color:#b42318}
 
 @media (max-width: 760px) {
   .account-page { padding-right: 18px; padding-left: 18px; }
@@ -66,4 +68,5 @@
   .binding-card { align-items: flex-start; flex-wrap: wrap; }
   .binding-copy { min-width: calc(100% - 56px); }
   .binding-action { margin-left: 51px; }
+  .api-key-reveal,.developer-command { grid-template-columns: 1fr; }
 }

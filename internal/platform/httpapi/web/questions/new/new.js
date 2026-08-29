@@ -23,13 +23,13 @@ function renderDatabases() {
 }
 function renderTables() {
   const query = normalize($('#source-search').value);
-  const items = tables.filter(table => matches(`${table.schema} ${table.name} ${table.description || ''} ${(table.columns || []).map(column => `${column.name} ${column.description || ''}`).join(' ')}`, query));
+  const items = tables.filter(table => !table.hidden && matches(`${table.schema} ${table.display_name || ''} ${table.name} ${table.description || ''} ${(table.columns || []).map(column => `${column.name} ${column.description || ''}`).join(' ')}`, query));
   $('#picker-path').hidden = false;
   $('#picker-current').textContent = activeDatabase.name;
   setStatus(`${items.length} 张可分析的数据表`);
   const groups = {};
   items.forEach(table => (groups[table.schema] || (groups[table.schema] = [])).push(table));
-  $('#source-list').innerHTML = Object.keys(groups).sort().map(schema => `<div class="source-group-title">${esc(schema)}</div>` + groups[schema].map(table => row('▦', table.name, table.description || `${(table.columns || []).length} 个字段 · ${schema}`, `data-schema="${esc(table.schema)}" data-table="${esc(table.name)}"`)).join('')).join('') || empty('没有匹配的数据表', '可以搜索表名、Schema、字段名或数据库注释。');
+  $('#source-list').innerHTML = Object.keys(groups).sort().map(schema => `<div class="source-group-title">${esc(schema)}</div>` + groups[schema].map(table => row('▦', table.display_name || table.name, table.display_name ? `${schema}.${table.name}${table.description ? ' · '+table.description : ''}` : (table.description || `${(table.columns || []).length} 个字段 · ${schema}`), `data-schema="${esc(table.schema)}" data-table="${esc(table.name)}"`)).join('')).join('') || empty('没有匹配的数据表', '可以搜索表别称、表名、Schema、字段名或数据库注释。');
   $$('#source-list [data-table]').forEach(button => button.onclick = () => {
     const params = new URLSearchParams({ db: activeDatabase.id, schema: button.dataset.schema, table: button.dataset.table, from: 'new-analysis' });
     location.href = '/data/?' + params.toString();

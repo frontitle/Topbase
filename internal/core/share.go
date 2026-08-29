@@ -51,13 +51,14 @@ type SearchHit struct {
 }
 
 type APIKey struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Prefix    string    `json:"prefix"`
-	Hash      string    `json:"-"`
-	UserID    string    `json:"user_id,omitempty"`
-	Key       string    `json:"key,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Prefix    string     `json:"prefix"`
+	Hash      string     `json:"-"`
+	UserID    string     `json:"user_id,omitempty"`
+	Key       string     `json:"key,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 type PermissionGraph struct {

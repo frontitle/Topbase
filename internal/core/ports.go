@@ -51,6 +51,7 @@ type SessionStore interface {
 type APIKeyStore interface {
 	Create(APIKey) error
 	ListByUser(userID string) ([]APIKey, error)
+	List() ([]APIKey, error)
 	ByHash(hash string) (APIKey, error)
 	Delete(id string) error
 }

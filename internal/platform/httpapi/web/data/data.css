@@ -9,9 +9,10 @@
 .side-title{font-size:12px;font-weight:600;margin-bottom:10px}
 .side-title span{color:#777;font-weight:400}
 .schema-label{font-size:11px;color:#888;margin:12px 4px 6px}
-.table-item{width:100%;text-align:left;border:0;background:transparent;padding:9px;border-radius:6px;font:12px Geist,sans-serif}
-.table-item:hover,.table-item.active{background:#ececec}
-.table-item small{display:block;color:#777;margin-top:3px}
+.table-item{width:100%;text-align:left;border:1px solid transparent;background:transparent;padding:9px;border-radius:7px;color:#2f3540;font:12px Geist,sans-serif;transition:background .15s,border-color .15s,color .15s}
+.table-item:hover{background:#f0f3f8}
+.table-item.active{border-color:#b9ccff;background:#e8f0ff;color:#1554d1;box-shadow:inset 3px 0 0 #3370ff}
+.table-item.active b{font-weight:700}.table-item small{display:block;color:#777;margin-top:3px}.table-item.active small{color:#4f70ae}
 .reconnect{display:grid;gap:9px;padding:12px 4px;font-size:12px;line-height:1.5}
 .reconnect small{color:#666}
 .reconnect a{width:max-content;color:#111;text-decoration:underline;font-weight:600}

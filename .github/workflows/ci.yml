@@ -32,5 +32,65 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+      - name: Validate Compose deployment definitions
+        env:
+          TOPBASE_APP_DB_HOST: db.example.internal
+          TOPBASE_APP_DB_PASSWORD: topbase-ci-password
+          TOPBASE_MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          TOPBASE_MYSQL_ROOT_PASSWORD: topbase-ci-root-password
+        run: |
+          for file in \
+            docker-compose.yml \
+            docker-compose.postgres.yml \
+            docker-compose.mysql.yml \
+            docker-compose.rds.yml \
+            docker-compose.release.yml
+          do
+            docker compose --file "$file" config --quiet
+          done
       - name: Build container image
-        run: docker build --tag topbase-ci .
+        run: |
+          docker build \
+            --build-arg VERSION="$(cat VERSION)" \
+            --build-arg COMMIT="${GITHUB_SHA}" \
+            --tag topbase-ci .
+      - name: Verify initialization and persistent restart
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm --force topbase-ci >/dev/null 2>&1 || true
+            docker volume rm topbase-ci-data >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create topbase-ci-data >/dev/null
+
+          start_topbase() {
+            docker run --detach \
+              --name topbase-ci \
+              --publish 18080:8080 \
+              --env TOPBASE_CRON=off \
+              --volume topbase-ci-data:/data \
+              topbase-ci >/dev/null
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent http://127.0.0.1:18080/api/ready >ready.json; then
+                return 0
+              fi
+              sleep 1
+            done
+            docker logs topbase-ci
+            return 1
+          }
+
+          start_topbase
+          python3 -c 'import json; p=json.load(open("ready.json")); assert p["status"] == "ready" and p["schema_version"] == 14 and p["application_database"] == "sqlite", p'
+          curl --fail --silent \
+            --header 'Content-Type: application/json' \
+            --data '{"language":"zh-CN","admin_name":"CI Admin","admin_email":"ci@example.com","admin_password":"topbase-ci-password","site_name":"Topbase CI"}' \
+            http://127.0.0.1:18080/api/setup >/dev/null
+
+          docker rm --force topbase-ci >/dev/null
+          start_topbase
+          curl --fail --silent http://127.0.0.1:18080/api/setup/status >setup-status.json
+          curl --fail --silent http://127.0.0.1:18080/api/version >version.json
+          python3 -c 'import json; p=json.load(open("setup-status.json")); assert p["completed"] is True, p'
+          python3 -c 'import json; p=json.load(open("version.json")); assert p["version"] == "0.2.1" and p["schema_version"] == 14, p'

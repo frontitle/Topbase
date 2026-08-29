@@ -6,6 +6,7 @@
   <title>Topbase · 权限</title>
   <link rel="stylesheet" href="/admin/admin.css">
   <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
+  <link rel="stylesheet" href="/admin/permissions/permissions.css?v=1">
 </head>
 <body>
   <aside class="sidebar" data-shell="admin" data-active="permissions"></aside>
@@ -22,7 +23,7 @@
   <script src="/shell.js"></script>
   <script>
     let groups=[],graph={revision:1,data_graph:{},collection_graph:{}};
-    const choices=(value,opts)=>'<select>'+opts.map(x=>'<option value="'+x[0]+'" '+(value===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
+    const choices=(value,opts)=>'<span class="permission-select-wrap"><select class="permission-select">'+opts.map(x=>'<option value="'+x[0]+'" '+(value===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></span>';
     function perm(id){return graph.data_graph[id]||{data:'none',sql:'none',collections:'none',admin:'none'}}
     function draw(){ $('#matrix').innerHTML=groups.map(g=>{const p=perm(g.id);return '<tr data-id="'+g.id+'"><td><b>'+g.name+'</b><br><small>'+g.kind+'</small></td><td>'+choices(p.data,[['none','无访问'],['view','可浏览'],['curate','可管理']])+'</td><td>'+choices(p.sql,[['none','禁止'],['query','可查询'],['native','原生 SQL']])+'</td><td>'+choices(p.collections,[['none','无访问'],['view','可查看'],['edit','可编辑']])+'</td><td>'+choices(p.admin,[['none','无'],['admin','管理员']])+'</td></tr>'}).join('')||'<tr><td colspan="5">尚无用户组</td></tr>'; $('#matrix').querySelectorAll('tr[data-id]').forEach(row=>row.querySelectorAll('select').forEach(s=>s.disabled=row.dataset.id==='grp_admins')) }
     async function load(){[groups,graph]=await Promise.all([api('/api/groups'),api('/api/permissions/graph')]);graph.data_graph=graph.data_graph||{};draw()}

@@ -1,10 +1,59 @@
-let databases=[], tables=[], active=null, currentDB=null, lastQueryIR=null, lastChart=null, lastResultMode='visual', isAdmin=false, aliases={}, fieldMeta=[], filterBar=null, gridState={hidden:{}}, creationMode=false, queryEditor=null;
+let databases=[], tables=[], active=null, currentDB=null, lastQueryIR=null, lastChart=null, lastResultMode='visual', isAdmin=false, aliases={}, fieldMeta=[], filterBar=null, gridState={hidden:{}}, creationMode=false, queryEditor=null, editingQuestion=null;
 function key(t){return t.schema+'.'+t.name}
 function setURL(){
   const p=new URLSearchParams();
+  if(editingQuestion)p.set('edit',editingQuestion.id);
+  else if(creationMode)p.set('from','new-analysis');
   if(currentDB) p.set('db', currentDB.id);
   if(active){p.set('schema', active.schema);p.set('table', active.name)}
   history.replaceState({}, '', '/data/'+(p.toString()?'?'+p:''));
+}
+function baseField(value){return String(value||'').split('.').pop()}
+async function hydrateQuestion(question){
+  if(question.query_type==='native'){
+    queryEditor.setMode('sql');
+    queryEditor.setSQL(question.native_sql||'',{dirty:false});
+    $('#section-title').textContent='编辑分析';
+    return;
+  }
+  const query=question.queryir;
+  if(!query)return;
+  lastQueryIR=query;lastChart=question.chartspec||lastChart;
+  const join=(query.joins||[])[0];
+  if(join&&join.table){
+    const target=tables.find(table=>table.schema===join.table.schema&&table.name===join.table.name);
+    if(target){
+      $('#join-table').value=key(target);updateJoinTarget();
+      $('#join-type').value=join.type||'left';
+      const condition=(join.conditions||[])[0]||{};
+      $('#join-left-field').value=baseField(condition.left);$('#join-right-field').value=baseField(condition.right);
+      const joinedFields=(query.fields||[]).filter(field=>String(field).startsWith(target.name+'.')).map(baseField);
+      $$('#join-fields input').forEach(input=>input.checked=joinedFields.includes(input.value));
+    }
+  }
+  const selected=(query.fields||[]).map(baseField);
+  if(selected.length)$$('#fields input').forEach(input=>input.checked=selected.includes(input.value));
+  const aggregation=(query.aggregations||[])[0];
+  if(aggregation){
+    $('#aggregation').value=aggregation.fn||'';updateAggregationControls();
+    $('#aggregation-field').value=baseField(aggregation.field);
+    const group=(query.group_by||[])[0];
+    if(group){$('#group-by-field').value=baseField(group.field);updateGroupControls();$('#group-by-temporal').value=group.temporal||''}
+  }
+  const expression=(query.expressions||[])[0];
+  if(expression){$('#expression-alias').value=expression.alias||'';$('#expression-left').value=baseField(expression.left);$('#expression-op').value=expression.op||'add';$('#expression-right').value=String(expression.right??'')}
+  $('#row-limit').value=String(query.limit||1000);
+  const order=(query.order_by||[])[0];
+  if(order){
+    const group=(query.group_by||[])[0];
+    const aggregation=(query.aggregations||[])[0];
+    const value=order.field===(aggregation&&aggregation.fn)?'__metric__':(group&&order.field===baseField(group.field)?'__group__':baseField(order.field));
+    refreshSortOptions();if($$('#sort-field option').some(option=>option.value===value))$('#sort-field').value=value;
+    $('#sort-direction').value=order.dir==='desc'?'desc':'asc';
+  }
+  mountFilter();
+  try{const result=await api('/api/dataset','POST',query);lastQueryIR=result.queryir||query;lastChart=question.chartspec||result.chartspec;renderGrid(result,'visual')}catch(error){toast('已载入配置，但暂时无法运行：'+error.message)}
+  updateSelectedFieldCount();updateBuilderSummary();
 }
 function showDatabases(){
   currentDB=null;active=null;tables=[];
@@ -37,32 +86,34 @@ async function openDatabase(id){
     return;
   }
   $('#table-count').textContent=tables.length;
-  renderTables(tables);
+  renderTables(tables.filter(t=>!t.hidden));
 }
 function renderTables(items){
   const groups={};
   items.forEach(t=>{ (groups[t.schema]||(groups[t.schema]=[])).push(t) });
   const html=Object.keys(groups).sort().map(schema=>{
-    const rows=groups[schema].map(t=>`<button class="table-item ${active&&key(active)===key(t)?'active':''}" data-key="${esc(key(t))}" title="${esc(t.description||'')}"><b>${esc(t.name)}${t.warehouse?' · 已沉淀':''}</b><small>${esc(t.description||((t.columns||[]).length+' 个字段'))}</small></button>`).join('');
+    const rows=groups[schema].map(t=>{const selected=!!(active&&key(active)===key(t));return `<button class="table-item ${selected?'active':''}" data-key="${esc(key(t))}" ${selected?'aria-current="true"':''} title="${esc(t.description||'')}"><b>${esc(t.display_name||t.name)}${t.warehouse?' · 已沉淀':''}</b><small>${esc(t.display_name?t.schema+'.'+t.name:(t.description||((t.columns||[]).length+' 个字段')))}</small></button>`}).join('');
     return `<div class="schema-label">${esc(schema)}</div>${rows}`;
   }).join('');
   $('#table-list').innerHTML=html||'没有可读取的数据表。';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>key(t)===b.dataset.key)).catch(e=>toast(e.message)));
+  const selected=$('#table-list .table-item.active');
+  if(selected)requestAnimationFrame(()=>selected.scrollIntoView({block:'center',inline:'nearest'}));
 }
 async function openTable(table){
   active=table;lastQueryIR=null;lastChart=null;lastResultMode='visual';aliases={};fieldMeta=[];gridState={hidden:{}};
   if(filterBar){filterBar.destroy();filterBar=null}
   queryEditor.setMode('visual');queryEditor.setSQL('',{dirty:false});queryEditor.setGeneratedSQL('');
-  renderTables(tables);
+  renderTables(tables.filter(t=>!t.hidden));
   $('#empty-state').hidden=true;$('#table-workspace').hidden=false;$('#ask-panel').hidden=false;
   $('#toggle-ask').textContent='收起查询编辑器';
   $('#toggle-ask').setAttribute('aria-expanded','true');
   $('#source-name').textContent=table.schema;
-  $('#table-name').textContent=table.name;
+  $('#table-name').textContent=table.display_name||table.name;
   $('#table-description').textContent='正在拉取数据…';
   $('#grid-status').textContent='正在拉取数据…';
   $('#grid-wrap').innerHTML='';
-  $('#crumb').textContent=(currentDB.name||'')+' / '+table.schema+'.'+table.name;
+  $('#crumb').textContent=(currentDB.name||'')+' / '+table.schema+'.'+(table.display_name||table.name);
   $('#edit-meta').hidden=!isAdmin;
   $('#edit-meta').href=`/admin/datamodel/?db=${encodeURIComponent(currentDB.id)}&schema=${encodeURIComponent(table.schema)}&table=${encodeURIComponent(table.name)}`;
   setURL();
@@ -97,7 +148,7 @@ async function openTable(table){
   fieldMeta=fields||[];
   fieldMeta.forEach(f=>{if(f.display_name)aliases[f.name]=f.display_name});
   $('#table-name').textContent=note.display_name||table.name;
-  $('#table-description').textContent=note.description||table.description||(table.schema+'.'+table.name);
+  $('#table-description').textContent=note.user_note||table.description||(table.schema+'.'+table.name);
   lastQueryIR=preview.queryir||query;
   lastChart=preview.chartspec;
   configureJoinBuilder();
@@ -110,7 +161,7 @@ async function openTable(table){
   renderGrid(preview,'visual');
 }
 function columnModels(){
-  return (active&&active.columns||[]).map(c=>{
+  return (active&&active.columns||[]).filter(c=>{const meta=fieldMeta.find(f=>f.name===c.name)||{};return meta.visibility!=='hidden'}).map(c=>{
     const meta=fieldMeta.find(f=>f.name===c.name)||{};
     return {
       name:c.name,
@@ -289,7 +340,7 @@ function renderGrid(d, mode){
     if(descriptions[column.name]===undefined)descriptions[column.name]=column.description||'';
   }));
   fieldMeta.forEach(field=>{if(field.description)descriptions[field.name]=field.description});
-  TopbaseGrid('#grid-wrap',{columns:cols, rows, aliases, types, descriptions, filtersEnabled:false, hidden:gridState.hidden, onChange:state=>{gridState.hidden=state.hidden}});
+  TopbaseGrid('#grid-wrap',{columns:cols, rows, aliases, types, descriptions, filtersEnabled:false, hideToolbar:true, hidden:gridState.hidden, onChange:state=>{gridState.hidden=state.hidden}});
 }
 queryEditor=TopbaseQueryEditor.mount('#ask-panel',{
   onSQLChange:()=>{lastChart=null},
@@ -303,9 +354,9 @@ queryEditor=TopbaseQueryEditor.mount('#ask-panel',{
   },
   onRun:mode=>mode==='sql'?runNativeSQL():runVisualQuery()
 });
-$('#back-dbs').onclick=()=>creationMode?location.assign('/questions/new/'):showDatabases();
+$('#back-dbs').onclick=()=>editingQuestion?location.assign('/questions/'+editingQuestion.id+'/'):(creationMode?location.assign('/questions/new/'):showDatabases());
 $('#db-search').oninput=renderDatabases;
-$('#search').oninput=e=>renderTables(tables.filter(t=>(t.name+' '+t.schema+' '+(t.description||'')+' '+(t.columns||[]).map(c=>c.name+' '+(c.description||'')).join(' ')).toLowerCase().includes(e.target.value.toLowerCase())));
+$('#search').oninput=e=>renderTables(tables.filter(t=>!t.hidden&&((t.display_name||'')+' '+t.name+' '+t.schema+' '+(t.description||'')+' '+(t.columns||[]).map(c=>c.name+' '+(c.description||'')).join(' ')).toLowerCase().includes(e.target.value.toLowerCase())));
 $('#toggle-ask').onclick=()=>{
   const panel=$('#ask-panel');
   panel.hidden=!panel.hidden;
@@ -403,12 +454,12 @@ $('#save-question').onclick=async()=>{
   const personal=writableCollections.find(collection=>collection.kind==='personal_project');
   const values=await formDialog({
     kicker:'保存查询',
-    title:'将当前查询保存为分析',
+    title:editingQuestion?'保存分析修改':'将当前查询保存为分析',
     description:'为分析命名，并选择它在分析列表中的分组。',
-    confirmText:'保存分析',
+    confirmText:editingQuestion?'保存修改':'保存分析',
     fields:[
-      {name:'name',label:'分析名称',value:(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',required:true},
-      {name:'collection_id',label:'保存到分组',type:'select',value:personal?personal.id:'__personal__',required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,label:collection.name+(collection.kind==='personal_project'?' · 个人分组':' · 企业项目')})))}
+      {name:'name',label:'分析名称',value:(editingQuestion&&editingQuestion.name)||(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',required:true},
+      {name:'collection_id',label:'保存到分组',type:'select',value:(editingQuestion&&editingQuestion.collection_id)||(personal?personal.id:'__personal__'),required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,label:collection.name+(collection.kind==='personal_project'?' · 个人分组':' · 企业项目')})))}
     ]
   });
   if(!values)return;
@@ -417,7 +468,7 @@ $('#save-question').onclick=async()=>{
     ?{name:values.name,collection_id:values.collection_id==='__personal__'?'':values.collection_id,query_type:'native',database_id:currentDB.id,native_sql:sql,chartspec:lastChart}
     :{name:values.name,collection_id:values.collection_id==='__personal__'?'':values.collection_id,query_type:'queryir',queryir:lastQueryIR,chartspec:lastChart};
   if(payload.query_type==='native'&&!sql)return toast('请先输入要保存的 SQL');
-  try{const saved=await api('/api/questions','POST',payload);toast('已保存为分析');location.href='/questions/'+saved.id+'/'}catch(e){toast(e.message)}
+  try{const saved=editingQuestion?await api('/api/questions/'+editingQuestion.id,'PUT',payload):await api('/api/questions','POST',payload);toast(editingQuestion?'分析修改已保存':'已保存为分析');location.href='/questions/'+saved.id+'/'}catch(e){toast(e.message)}
 };
 async function drill(kind){
   if(queryEditor.mode()==='sql')return toast('SQL 结果暂不支持可视化下钻，请切换到可视化查询。');
@@ -440,17 +491,20 @@ async function boot(){
     isAdmin=!!(me&&me.is_admin);
     databases=await api('/api/databases');
     const params=new URLSearchParams(location.search);
-    creationMode=params.get('from')==='new-analysis';
+    const editID=params.get('edit');
+    if(editID){editingQuestion=await api('/api/questions/'+encodeURIComponent(editID));$('#section-title').textContent='编辑分析';$('#back-dbs').textContent='← 返回分析';$('#toggle-ask').textContent='查询步骤';}
+    creationMode=!!editingQuestion||params.get('from')==='new-analysis';
     if(creationMode){$('#section-title').textContent='新建分析';$('#back-dbs').textContent='← 更换起始数据';$('#toggle-ask').textContent='查询步骤'}
-    const db=params.get('db') || topbasePickDatabase(databases);
+    const source=editingQuestion&&editingQuestion.queryir&&editingQuestion.queryir.source;
+    const db=params.get('db') || (source&&source.database_id) || (editingQuestion&&editingQuestion.database_id) || topbasePickDatabase(databases);
     renderDatabases();
     if(db && databases.some(d=>d.id===db)){
       topbaseRememberDatabase(db);
       await openDatabase(db);
-      const schema=params.get('schema'), table=params.get('table');
-      if(schema&&table){
-        const found=tables.find(t=>t.schema===schema&&t.name===table);
-        if(found) await openTable(found);
+      const schema=params.get('schema') || (source&&source.table&&source.table.schema), table=params.get('table') || (source&&source.table&&source.table.name);
+      if((schema&&table)||(editingQuestion&&editingQuestion.query_type==='native'&&tables.length)){
+        const found=(schema&&table?tables.find(t=>t.schema===schema&&t.name===table):tables[0]);
+        if(found){await openTable(found);if(editingQuestion)await hydrateQuestion(editingQuestion);}
       }
     }
   }catch(e){toast(e.message)}

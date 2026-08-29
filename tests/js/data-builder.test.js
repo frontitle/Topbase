@@ -20,3 +20,11 @@ test('data browser keeps one canonical filter and exposes guided query steps', (
   assert.match(html, /id="run-query"[^>]*>运行并预览/);
   assert.match(script, /api\('\/api\/queries\/run','POST'/);
 });
+
+test('opened source table is highlighted and brought into the visible table list', () => {
+  assert.match(script, /aria-current="true"/);
+  assert.match(script, /table-item\.active/);
+  assert.match(script, /scrollIntoView\(\{block:'center',inline:'nearest'\}\)/);
+  const css = fs.readFileSync('internal/platform/httpapi/web/data/data.css', 'utf8');
+  assert.match(css, /\.table-item\.active\{border-color:#b9ccff;background:#e8f0ff/);
+});
