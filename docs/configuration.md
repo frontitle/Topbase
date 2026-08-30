@@ -4,7 +4,11 @@ Topbase 使用环境变量配置进程。生产环境不要把真实值写入镜
 
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `TOPBASE_ADDR` | `:8080` | HTTP 监听地址 |
+| `TOPBASE_ADDR` | `:80` | 源码或二进制监听地址；填写后优先于 `TOPBASE_PORT` |
+| `TOPBASE_PORT` | `80` | 未设置 `TOPBASE_ADDR` 时使用的监听端口，范围 1–65535 |
+| `TOPBASE_HTTP_PORT` | `8101` | Docker Compose 发布到宿主机的端口；容器内部固定使用 8080 |
+| `TOPBASE_TLS_CERT_FILE` | 空 | 直接 TLS 的 PEM 证书链文件；必须与私钥同时配置 |
+| `TOPBASE_TLS_KEY_FILE` | 空 | 直接 TLS 的 PEM 私钥文件；必须与证书同时配置 |
 | `TOPBASE_DATA_DIR` | `./data` | 应用库、目录与开发密钥存储目录 |
 | `TOPBASE_APP_DB_ENGINE` | 兼容模式为 `sqlite` | 新部署使用 `postgres` 或 `mysql` |
 | `TOPBASE_APP_DB_DSN` | 空 | 完整应用库连接串；填写后优先于分项配置 |
@@ -69,4 +73,6 @@ RDS 和多节点部署不自动生成本地主密钥，必须通过部署平台�
 
 ## 反向代理
 
-生产环境应在 Topbase 前部署支持 HTTPS 的反向代理，设置 `TOPBASE_SECURE_COOKIES=true`，并透传客户端地址与请求 ID。只对可信来源开放管理入口，数据库账号使用最小权限，SSH 私钥使用独立受限密钥。
+管理员可在“管理后台 → 设置 → 域名与 SSL”配置对外协议、域名和端口。该地址用于生成分享链接、嵌入地址和 OAuth 回调，不会自动修改 DNS、签发证书或重启进程。域名字段只填写主机名，例如 `bi.example.com`；非标准端口在单独字段填写。
+
+生产环境推荐在 Topbase 前部署支持 HTTPS 的反向代理或云负载均衡，设置 `TOPBASE_SECURE_COOKIES=true`，并透传 `Forwarded` 或 `X-Forwarded-Proto`、客户端地址与请求 ID。也可以同时配置 `TOPBASE_TLS_CERT_FILE` 和 `TOPBASE_TLS_KEY_FILE` 让 Topbase 直接提供 HTTPS；只配置其中一个会阻止进程启动，避免误以为已经启用 TLS。只对可信来源开放管理入口，数据库账号使用最小权限，SSH 私钥使用独立受限密钥。

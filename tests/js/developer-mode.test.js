@@ -8,6 +8,10 @@ const html = fs.readFileSync(path.join(root, 'internal/platform/httpapi/web/admi
 const script = fs.readFileSync(path.join(root, 'internal/platform/httpapi/web/admin/settings/settings.js'), 'utf8');
 
 test('admin settings exposes governed developer mode controls', () => {
+	assert.match(html, /id="public_scheme"/);
+	assert.match(html, /id="custom_domain"/);
+	assert.match(html, /id="public_port"/);
+	assert.match(html, /id="public-address-preview"/);
   assert.match(html, /id="developer-enabled"/);
   assert.match(html, /id="developer-public-url"/);
   assert.match(html, /id="developer-max-rows"/);

@@ -5,11 +5,7 @@
 .analysis-start-head h1 { margin: 7px 0 8px; font-size: 30px; letter-spacing: -.04em; }
 .analysis-start-head p { max-width: 650px; margin: 0; color: #6b6b6b; line-height: 1.55; }
 .analysis-picker { overflow: hidden; border: 1px solid #dedede; border-radius: 12px; background: #fff; box-shadow: 0 12px 38px #0000000a; }
-.picker-tabs { display: flex; gap: 4px; padding: 10px 12px 0; border-bottom: 1px solid #ededed; }
-.picker-tab { position: relative; border: 0; background: transparent; color: #737373; padding: 10px 12px 12px; font: 500 13px var(--tb-font); }
-.picker-tab:hover { color: #111; }
-.picker-tab.active { color: #111; }
-.picker-tab.active::after { content: ""; position: absolute; right: 12px; bottom: -1px; left: 12px; height: 1px; background: #111; }
+.picker-tabs { margin: 10px 12px 0; }
 .picker-search { height: 56px; display: flex; align-items: center; gap: 11px; margin: 18px; padding: 0 14px; border: 1px solid #dfe2e6; border-radius: 9px; background: #f7f9fb; }
 .picker-search:focus-within { border-color: #999; background: #fff; box-shadow: 0 0 0 3px #0000000b; }
 .picker-search > span { color: #4d535b; font-size: 23px; line-height: 1; }

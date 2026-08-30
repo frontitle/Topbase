@@ -170,26 +170,7 @@
 .viz-seg button + button { border-left: 1px solid #e5e5e5; }
 .viz-seg button.active { background: #111; color: #fff; }
 .viz-muted { font-size: 13px; color: #777; line-height: 1.55; margin: 8px 0 0; }
-.viz-tabs {
-  display: flex;
-  gap: 0;
-  margin: 8px 0 14px;
-  border-bottom: 1px solid #eee;
-}
-.viz-tabs button {
-  flex: 1;
-  height: 32px;
-  border: 0;
-  background: none;
-  color: #777;
-  font: 500 12px var(--tb-font);
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-}
-.viz-tabs button.active {
-  color: #111;
-  border-bottom-color: #111;
-}
+.viz-tabs { margin: 8px 0 14px; }
 .viz-series-card {
   border: 1px solid #eee;
   border-radius: 10px;

@@ -140,6 +140,7 @@ function scheduleSave() {
 function renderTabs() {
   const tabs = board.tabs || [];
   $('#tabs').hidden = tabs.length <= 1;
+  $('#tabs').className = 'tb-tabs tabs';
   $('#tabs').innerHTML = tabs.length <= 1 ? '' : tabs.map(t => `<button data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
   $('.board-toolbar').hidden = tabs.length <= 1 && !(board.filters || []).length;
   $$('#tabs button').forEach(b => b.onclick = () => { activeTab = b.dataset.tab; render(); loadCards(); });

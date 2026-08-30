@@ -30,18 +30,18 @@ func (s *server) oauthLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: state, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: 600})
+	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: state, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secureCookieRequest(r), MaxAge: 600})
 	if r.URL.Query().Get("intent") == "bind" {
 		user, signedIn := s.currentSessionUser(r)
 		if !signedIn {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in before linking an account"})
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: state + ":" + user.ID, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: 600})
+		http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: state + ":" + user.ID, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secureCookieRequest(r), MaxAge: 600})
 	} else {
 		clearOAuthBindCookie(w, r)
 	}
-	redirectURI := externalURL(r, "/auth/oauth/"+provider.ID+"/callback")
+	redirectURI := s.externalURL(r, "/auth/oauth/"+provider.ID+"/callback")
 	values := url.Values{"state": {state}, "redirect_uri": {redirectURI}}
 	switch provider.Type {
 	case "google":
@@ -70,7 +70,7 @@ func (s *server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid OAuth state"})
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: "", Path: "/auth/oauth/", MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: "", Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secureCookieRequest(r), MaxAge: -1})
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		writeJSON(w, 400, map[string]string{"error": "OAuth authorization was cancelled or failed"})
@@ -104,7 +104,7 @@ func (s *server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func clearOAuthBindCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: "", Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: oauthBindCookie, Value: "", Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secureCookieRequest(r), MaxAge: -1})
 }
 
 func (s *server) oauthProvider(id string) (core.IdentityProvider, bool) {
@@ -121,7 +121,7 @@ func (s *server) oauthProvider(id string) (core.IdentityProvider, bool) {
 }
 
 func (s *server) oauthProfile(r *http.Request, provider core.IdentityProvider, code string) (string, string, error) {
-	redirectURI := externalURL(r, "/auth/oauth/"+provider.ID+"/callback")
+	redirectURI := s.externalURL(r, "/auth/oauth/"+provider.ID+"/callback")
 	switch provider.Type {
 	case "google":
 		form := url.Values{"code": {code}, "client_id": {provider.ClientID}, "client_secret": {provider.ClientSecret}, "redirect_uri": {redirectURI}, "grant_type": {"authorization_code"}}
@@ -215,13 +215,6 @@ func fallback(value, standard string) string {
 		return value
 	}
 	return standard
-}
-func externalURL(r *http.Request, path string) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	return scheme + "://" + r.Host + path
 }
 func newOAuthState() (string, error) {
 	b := make([]byte, 24)

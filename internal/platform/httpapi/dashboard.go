@@ -233,7 +233,7 @@ func (s *server) enableDashboardPublicLink(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, publicLinkPayload(r, saved))
+	writeJSON(w, http.StatusOK, s.publicLinkPayload(r, saved))
 }
 
 func (s *server) disableDashboardPublicLink(w http.ResponseWriter, r *http.Request) {
@@ -286,15 +286,8 @@ func (s *server) copyDashboard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, saved)
 }
 
-func publicLinkPayload(r *http.Request, d core.Dashboard) map[string]any {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		origin = scheme + "://" + r.Host
-	}
+func (s *server) publicLinkPayload(r *http.Request, d core.Dashboard) map[string]any {
+	origin := s.publicBaseURL(r)
 	publicURL := origin + "/public/dashboard/" + d.PublicUUID + "/"
 	embedURL := origin + "/embed/dashboard/" + d.PublicUUID + "/"
 	return map[string]any{

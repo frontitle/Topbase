@@ -69,6 +69,9 @@ type WebhookEndpoint struct {
 type AdminSettings struct {
 	SiteName             string `json:"site_name"`
 	Timezone             string `json:"timezone"`
+	PublicScheme         string `json:"public_scheme"`
+	CustomDomain         string `json:"custom_domain,omitempty"`
+	PublicPort           int    `json:"public_port,omitempty"`
 	PublicSharingEnabled bool   `json:"public_sharing_enabled"`
 	EmbeddingEnabled     bool   `json:"embedding_enabled"`
 }

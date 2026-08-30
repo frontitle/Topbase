@@ -342,6 +342,10 @@ func (s *server) serveAdminStatic(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
+	if r.URL.Path == "/admin/permissions/" || r.URL.Path == "/admin/permissions" {
+		http.Redirect(w, r, "/admin/people/", http.StatusMovedPermanently)
+		return
+	}
 	http.FileServer(http.FS(s.static)).ServeHTTP(w, r)
 }
 

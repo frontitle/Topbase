@@ -25,12 +25,12 @@ docker compose -f docker-compose.postgres.yml up --build -d
 
 使用 MySQL 作为应用数据库时，另外填写 `TOPBASE_MYSQL_ROOT_PASSWORD`，并将文件名替换为 `docker-compose.mysql.yml`。
 
-访问 <http://localhost:8080>，按照首次初始化页面创建管理员。运行状态和日志：
+访问 <http://localhost:8101>，按照首次初始化页面创建管理员。运行状态和日志：
 
 ```bash
 docker compose -f docker-compose.postgres.yml ps
 docker compose -f docker-compose.postgres.yml logs -f topbase
-curl --fail http://localhost:8080/api/ready
+curl --fail http://localhost:8101/api/ready
 ```
 
 应用状态保存在 `topbase_appdb` PostgreSQL 命名卷，兼容文件保存在 `topbase_data`。删除容器不会删除数据；执行 `docker compose down -v` 会删除数据卷，不应在生产环境使用。
@@ -50,7 +50,7 @@ make check
 go run ./cmd/topbase
 ```
 
-默认监听 `:8080`。未设置应用数据库变量时，为兼容旧安装使用 `./data/app.db`；新部署应设置 PostgreSQL 或 MySQL 应用数据库。需要并行启动测试实例时，使用独立地址与数据目录：
+默认监听 `:80`。可以通过 `TOPBASE_PORT=9000` 只修改端口，或使用 `TOPBASE_ADDR=127.0.0.1:9000` 同时限制监听地址。未设置应用数据库变量时，为兼容旧安装使用 `./data/app.db`；新部署应设置 PostgreSQL 或 MySQL 应用数据库。需要并行启动测试实例时，使用独立地址与数据目录：
 
 ```bash
 TOPBASE_ADDR=:18080 TOPBASE_DATA_DIR=/tmp/topbase-dev go run ./cmd/topbase

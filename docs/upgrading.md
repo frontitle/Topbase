@@ -53,8 +53,8 @@ git fetch --tags
 git checkout <目标版本标签>
 docker compose -f docker-compose.postgres.yml build --pull
 docker compose -f docker-compose.postgres.yml up -d
-curl --fail http://localhost:8080/api/ready
-curl --fail http://localhost:8080/api/version
+curl --fail http://localhost:8101/api/ready
+curl --fail http://localhost:8101/api/version
 ```
 
 使用正式镜像时执行：

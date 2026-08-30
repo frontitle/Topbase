@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	baseURL := flag.String("url", envOr("TOPBASE_URL", "http://localhost:8080"), "Topbase base URL")
+	baseURL := flag.String("url", envOr("TOPBASE_URL", "http://localhost"), "Topbase base URL")
 	apiKey := flag.String("api-key", os.Getenv("TOPBASE_API_KEY"), "Topbase API key (prefer TOPBASE_API_KEY)")
 	maxRows := flag.Int("max-rows", 200, "maximum rows returned per query")
 	flag.Usage = usage

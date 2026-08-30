@@ -2,9 +2,11 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-111111.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.1-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.2-111111.svg)](CHANGELOG.md)
 
 > **看见数据，理解业务，沉淀增长。**
+
+<img src="docs/assets/topbase-logo.png" alt="Topbase logo" width="176">
 
 Topbase 是一站式数据分析与可视化数仓平台，让团队通过连接数据、可视化分析、仪表盘观测和周期物化，把业务问题转化为持续可用的数据资产。
 
@@ -29,7 +31,7 @@ _截图使用模拟零售数据，仅用于展示仪表盘的指标、趋势、�
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.1
+git checkout v0.2.2
 cp .env.example .env
 # 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
@@ -38,10 +40,10 @@ docker compose -f docker-compose.release.yml up -d
 确认服务已经就绪：
 
 ```bash
-curl --fail http://localhost:8080/api/ready
+curl --fail http://localhost:8101/api/ready
 ```
 
-打开 `http://localhost:8080`，首次访问时按照页面引导创建管理员和工作区。
+打开 `http://localhost:8101`，首次访问时按照页面引导创建管理员和工作区。可通过 `.env` 中的 `TOPBASE_HTTP_PORT` 修改 Docker 对外端口；域名和 HTTPS 配置见[部署与备份](docs/deployment.md)。
 
 应用数据默认持久化在 PostgreSQL 数据卷中。`TOPBASE_MASTER_KEY` 用于加密数据源连接，首次启动后必须保持不变。升级前建议先导出应用数据库，随后拉取新版本并重建服务：
 
@@ -61,7 +63,7 @@ docker compose -f docker-compose.release.yml up -d
 - [版本升级](docs/upgrading.md)
 - [数据库支持](docs/database-drivers.md)
 - [AI、MCP 与 CLI](docs/ai-integrations.md)
-- [0.2.1 升级说明](docs/releases/0.2.1.md)
+- [0.2.2 升级说明](docs/releases/0.2.2.md)
 - [更新日志](CHANGELOG.md)
 
 ## 开源说明

@@ -48,6 +48,9 @@ func (s *server) getDeveloperStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	if settings.PublicBaseURL == "" {
+		settings.PublicBaseURL = s.publicBaseURL(r)
+	}
 	keys, err := s.identity.ListAPIKeys(user.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

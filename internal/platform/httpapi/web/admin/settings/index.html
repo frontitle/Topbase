@@ -6,7 +6,7 @@
   <title>Topbase · 设置</title>
   <link rel="stylesheet" href="/admin/admin.css">
   <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
-  <link rel="stylesheet" href="/admin/settings/settings.css?v=1">
+  <link rel="stylesheet" href="/admin/settings/settings.css?v=2">
 </head>
 <body>
   <aside class="sidebar" data-shell="admin" data-active="settings"></aside>
@@ -14,7 +14,7 @@
     <header class="topbar"><strong>管理后台</strong><span>/</span><strong>设置</strong></header>
     <main class="settings-page">
       <div class="page-head settings-head">
-        <div><h1>工作区设置</h1><p>维护实例级偏好与对外访问策略。成员、权限和订阅在各自的管理页面维护。</p></div>
+        <div><h1>工作区设置</h1><p>维护实例级偏好与对外访问策略。成员、分组权限和订阅在对应管理页面维护。</p></div>
         <div class="settings-head-actions"><span class="save-state" id="save-state" aria-live="polite">已同步</span><button class="primary" id="save" type="submit" form="form">保存更改</button></div>
       </div>
       <form id="form" class="settings-layout">
@@ -23,6 +23,18 @@
           <div class="settings-card settings-fields">
             <label class="settings-field"><span>工作区名称</span><input id="site_name" maxlength="80" required placeholder="例如：增长分析中心"><small>显示在工作台、登录页和系统通知中。</small></label>
             <label class="settings-field"><span>默认时区</span><select id="timezone"><option value="Asia/Shanghai">中国标准时间 · UTC+8</option><option value="Asia/Singapore">新加坡时间 · UTC+8</option><option value="UTC">协调世界时 · UTC</option></select><small>新建订阅与定时任务默认采用此时区，已有任务不受影响。</small></label>
+          </div>
+        </section>
+        <section class="settings-section" aria-labelledby="address-title">
+          <div class="settings-section-head"><div><h2 id="address-title">域名与 SSL</h2><p>设置用户访问 Topbase 时使用的固定地址，并用于分享、嵌入和 OAuth 回调链接。</p></div></div>
+          <div class="settings-card public-address-card">
+            <div class="public-address-fields">
+              <label class="settings-field"><span>访问协议</span><select id="public_scheme"><option value="auto">自动识别</option><option value="https">HTTPS（推荐）</option><option value="http">HTTP</option></select><small>使用负载均衡或反向代理时请选择外部实际协议。</small></label>
+              <label class="settings-field"><span>自定义域名（选填）</span><input id="custom_domain" inputmode="url" maxlength="253" placeholder="bi.example.com"><small>只填写域名，不包含协议、路径和端口。</small></label>
+              <label class="settings-field"><span>外部端口（选填）</span><input id="public_port" type="number" min="1" max="65535" placeholder="使用协议默认端口"><small>仅影响生成的外部地址；留空使用 HTTP 80 或 HTTPS 443。</small></label>
+            </div>
+            <div class="public-address-preview"><span>生成地址</span><code id="public-address-preview">自动使用当前访问地址</code></div>
+            <p class="access-note">保存后无需重启。DNS 解析、证书签发和进程监听端口仍在服务器、云负载均衡或部署环境中配置；证书文件模式使用 <code>TOPBASE_TLS_CERT_FILE</code> 与 <code>TOPBASE_TLS_KEY_FILE</code>。</p>
           </div>
         </section>
         <section class="settings-section" aria-labelledby="sharing-title">
@@ -49,7 +61,7 @@
         <div class="settings-card developer-card">
           <label class="setting-toggle" for="developer-enabled"><span><b>启用开发者模式</b><small>允许受控的 API Key 通过 MCP、CLI 或自动化程序访问 Topbase。</small></span><input id="developer-enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
           <div class="developer-fields" id="developer-fields">
-            <label class="settings-field"><span>对外访问地址</span><input id="developer-public-url" type="url" placeholder="https://topbase.example.com"><small>生成 MCP 配置时使用。生产环境应填写 HTTPS 地址。</small></label>
+            <label class="settings-field"><span>开发者地址覆盖（选填）</span><input id="developer-public-url" type="url" placeholder="留空继承上面的域名设置"><small>仅在 MCP / CLI 需要使用另一入口时填写。</small></label>
             <label class="settings-field"><span>单次查询最大行数</span><input id="developer-max-rows" type="number" min="1" max="2000" required><small>服务端硬限制，MCP 或 CLI 不能自行突破。</small></label>
             <label class="settings-field"><span>新 Key 默认有效期</span><select id="developer-key-ttl"><option value="30">30 天</option><option value="90">90 天</option><option value="180">180 天</option><option value="365">365 天</option><option value="0">永久有效</option></select><small>只影响之后创建的密钥，已有密钥有效期不变。</small></label>
           </div>
@@ -66,13 +78,12 @@
         <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2><p>按职责分开维护，减少同一页面内的高风险误操作。</p></div></div>
         <div class="settings-links">
           <a href="/admin/people/"><span class="settings-link-icon">人</span><span><b>人员与组</b><small>成员、权限分组与组织绑定</small></span><em>›</em></a>
-          <a href="/admin/permissions/"><span class="settings-link-icon">权</span><span><b>权限</b><small>数据、企业项目与操作能力</small></span><em>›</em></a>
           <a href="/admin/integrations/"><span class="settings-link-icon">通</span><span><b>通知与订阅</b><small>Webhook、推送通道与订阅消息</small></span><em>›</em></a>
         </div>
       </section>
     </main>
   </div>
   <div id="toast"></div>
-  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=2"></script>
+  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=3"></script>
 </body>
 </html>

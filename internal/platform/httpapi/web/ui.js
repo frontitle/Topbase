@@ -203,6 +203,60 @@
     return '<article class="db-card">' + inner + '</article>';
   }
 
+  // Shared underline-tab controller. Pages only provide a tab container and
+  // matching values on their buttons/panels; visual state and keyboard support
+  // stay consistent everywhere.
+  function mountTabs(target, options) {
+    var host = typeof target === 'string' ? $(target) : target;
+    if (!host) return null;
+    var settings = options || {};
+    var tabSelector = settings.tabSelector || '[data-tab]';
+    var panelSelector = settings.panelSelector || '[data-panel]';
+    var tabValue = settings.tabValue || function (tab) { return tab.dataset.tab; };
+    var panelValue = settings.panelValue || function (panel) { return panel.dataset.panel; };
+    var tabs = $$(tabSelector, host);
+    var panels = settings.panels ? $$(panelSelector, settings.panels) : $$(panelSelector);
+    if (!tabs.length) return null;
+    host.classList.add('tb-tabs');
+
+    function activate(value, focus, notify) {
+      var selected = tabs.find(function (tab) { return tabValue(tab) === value && !tab.disabled && !tab.hidden; }) || tabs.find(function (tab) { return !tab.disabled && !tab.hidden; });
+      if (!selected) return null;
+      value = tabValue(selected);
+      tabs.forEach(function (tab) {
+        var active = tab === selected;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.tabIndex = active ? 0 : -1;
+      });
+      panels.forEach(function (panel) { panel.hidden = panelValue(panel) !== value; });
+      if (focus) selected.focus();
+      if (notify !== false) {
+        host.dispatchEvent(new CustomEvent('topbase:tabchange', { detail: { value: value, tab: selected } }));
+        if (typeof settings.onChange === 'function') settings.onChange(value, selected);
+      }
+      return value;
+    }
+
+    tabs.forEach(function (tab, index) {
+      tab.onclick = function () { activate(tabValue(tab), true); };
+      tab.onkeydown = function (event) {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        var enabled = tabs.filter(function (item) { return !item.disabled && !item.hidden; });
+        var next = event.key === 'Home' ? enabled[0] : event.key === 'End' ? enabled[enabled.length - 1] : enabled[(enabled.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length];
+        activate(tabValue(next), true);
+      };
+      tab.setAttribute('role', 'tab');
+      if (!tab.id) tab.id = 'tb-tab-' + Date.now() + '-' + index;
+    });
+    host.setAttribute('role', 'tablist');
+    var initial = settings.initial || tabValue(tabs.find(function (tab) { return tab.classList.contains('active'); }) || tabs[0]);
+    activate(initial, false, false);
+    return { activate: activate, value: function () { var active = tabs.find(function (tab) { return tab.classList.contains('active'); }); return active ? tabValue(active) : ''; } };
+  }
+
   global.$ = $;
   global.$$ = $$;
   global.esc = esc;
@@ -214,4 +268,5 @@
   global.api = api;
   global.emptyHTML = emptyHTML;
   global.cardHTML = cardHTML;
+  global.TopbaseTabs = { mount: mountTabs };
 })(window);

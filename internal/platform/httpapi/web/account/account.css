@@ -11,10 +11,7 @@
 .account-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .account-badges span,.account-state { padding: 4px 7px; border: 1px solid #e2e2e2; border-radius: 999px; background: #fff; color: #666; font-size: 10px; }
 .danger-subtle { color: #a52222; }
-.account-tabs { display: flex; gap: 24px; margin: 22px 0 0; border-bottom: 1px solid var(--tb-line); }
-.account-tabs button { position: relative; padding: 0 2px 12px; border: 0; background: transparent; color: #777; font-size: 13px; }
-.account-tabs button:hover,.account-tabs button.active { color: #111; }
-.account-tabs button.active::after { content: ''; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #111; }
+.account-tabs { margin: 22px 0 0; }
 .account-panel { margin-top: 18px; border: 1px solid var(--tb-line); border-radius: 10px; background: #fff; }
 .account-panel[hidden] { display: none; }
 .account-panel-head { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 22px; border-bottom: 1px solid var(--tb-line-soft); }
@@ -60,8 +57,7 @@
   .account-page { padding-right: 18px; padding-left: 18px; }
   .account-hero { align-items: flex-start; flex-wrap: wrap; }
   .account-hero .danger-subtle { width: 100%; }
-  .account-tabs { gap: 18px; overflow-x: auto; }
-  .account-tabs button { white-space: nowrap; }
+  .account-tabs { overflow-x: auto; }
   .account-form-grid,.security-form { grid-template-columns: 1fr; }
   .email-password,.security-form > label:first-child { grid-column: auto; max-width: none; }
   .security-form .account-form-footer { grid-column: auto; }
