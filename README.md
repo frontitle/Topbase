@@ -26,26 +26,50 @@ _截图使用模拟零售数据，仅用于展示仪表盘的指标、趋势、�
 
 ## 安装
 
-推荐直接使用正式镜像部署。请先安装 [Docker](https://docs.docker.com/get-docker/) 和 Docker Compose，然后执行：
+选择一种方式即可。首次启动后访问 `http://服务器 IP:端口`，按页面引导创建管理员。
+
+### 方式一：服务器直接运行
+
+适合已安装 Go 的单机服务器。Topbase 直接运行时默认监听 `:80`；为避免首次运行需要低位端口权限，下面显式改为 `8080`，应用数据保存到当前目录的 `data/`：
+
+```bash
+git clone https://github.com/frontitle/Topbase.git
+cd Topbase
+git checkout v0.2.2
+go build -o topbase ./cmd/topbase
+TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
+```
+
+看到 `listening on http://localhost:8080` 后，在浏览器打开 `http://服务器 IP:8080`。如需绑定指定网卡，使用 `TOPBASE_ADDR=127.0.0.1:8080`；不设置 `TOPBASE_PORT` 或 `TOPBASE_ADDR` 时，程序默认监听 `:80`。终端保持运行；需要长期托管、HTTPS 或 PostgreSQL/MySQL 应用数据库时，继续阅读[部署与备份](docs/deployment.md)。
+
+### 方式二：Docker 安装
+
+适合大多数服务器。先安装 [Docker](https://docs.docker.com/get-docker/) 与 Docker Compose，然后执行：
 
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
 git checkout v0.2.2
 cp .env.example .env
-# 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
+# 编辑 .env：至少设置 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
 ```
+
+Docker 默认将宿主机 `8101` 映射到容器内 Topbase 的 `8080`，即 `8101:8080`；访问地址是 `http://服务器 IP:8101`。如需使用服务器指定端口，例如 `9000`，执行：
+
+```bash
+TOPBASE_HTTP_PORT=9000 docker compose -f docker-compose.release.yml up -d
+```
+
+这会映射为 `9000:8080`，访问地址改为 `http://服务器 IP:9000`。也可以将 `TOPBASE_HTTP_PORT=9000` 写入 `.env`，之后直接运行同一条 `docker compose` 命令。
 
 确认服务已经就绪：
 
 ```bash
-curl --fail http://localhost:8101/api/ready
+curl --fail http://127.0.0.1:8101/api/ready
 ```
 
-打开 `http://localhost:8101`，首次访问时按照页面引导创建管理员和工作区。可通过 `.env` 中的 `TOPBASE_HTTP_PORT` 修改 Docker 对外端口；域名和 HTTPS 配置见[部署与备份](docs/deployment.md)。
-
-应用数据默认持久化在 PostgreSQL 数据卷中。`TOPBASE_MASTER_KEY` 用于加密数据源连接，首次启动后必须保持不变。升级前建议先导出应用数据库，随后拉取新版本并重建服务：
+Docker 方式默认将应用数据持久化在 PostgreSQL 数据卷中。`TOPBASE_MASTER_KEY` 用于加密数据源连接，首次启动后必须保持不变。升级前建议先导出应用数据库，随后拉取新版本并重建服务：
 
 ```bash
 docker compose -f docker-compose.release.yml exec -T appdb \
