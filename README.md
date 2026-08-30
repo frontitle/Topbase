@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-111111.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.2-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.3-111111.svg)](CHANGELOG.md)
 
 > **看见数据，理解业务，沉淀增长。**
 
@@ -35,7 +35,7 @@ _截图使用模拟零售数据，仅用于展示仪表盘的指标、趋势、�
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.2
+git checkout v0.2.3
 go build -o topbase ./cmd/topbase
 TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```
@@ -49,7 +49,7 @@ TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.2
+git checkout v0.2.3
 cp .env.example .env
 # 编辑 .env：至少设置 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
@@ -87,7 +87,7 @@ docker compose -f docker-compose.release.yml up -d
 - [版本升级](docs/upgrading.md)
 - [数据库支持](docs/database-drivers.md)
 - [AI、MCP 与 CLI](docs/ai-integrations.md)
-- [0.2.2 升级说明](docs/releases/0.2.2.md)
+- [0.2.3 升级说明](docs/releases/0.2.3.md)
 - [更新日志](CHANGELOG.md)
 
 ## 开源说明

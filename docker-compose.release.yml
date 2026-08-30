@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   topbase:
-    image: "ghcr.io/frontitle/topbase:${TOPBASE_VERSION:-0.2.2}"
+    image: "ghcr.io/frontitle/topbase:${TOPBASE_VERSION:-0.2.3}"
     pull_policy: always
     ports:
       - "${TOPBASE_HTTP_PORT:-8101}:8080"

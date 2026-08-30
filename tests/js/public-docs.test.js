@@ -17,6 +17,7 @@ const publicFiles = [
   'docs/information-architecture.md',
   'docs/releases/0.2.1.md',
   'docs/releases/0.2.2.md',
+  'docs/releases/0.2.3.md',
   'docs/upgrading.md',
 ];
 
