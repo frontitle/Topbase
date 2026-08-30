@@ -72,13 +72,12 @@ async function boot() {
     $('#source-list').innerHTML = empty('无法读取数据', error.message);
   }
 }
-$$('[data-picker-tab]').forEach(tab => tab.onclick = () => {
-  activeTab = tab.dataset.pickerTab;
+TopbaseTabs.mount('.picker-tabs', { tabSelector: '[data-picker-tab]', tabValue: tab => tab.dataset.pickerTab, onChange: function (tab) {
+  activeTab = tab;
   activeDatabase = null;
   $('#source-search').value = '';
-  $$('[data-picker-tab]').forEach(item => { const active = item === tab; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
   render();
-});
+} });
 $('#picker-back').onclick = () => { activeDatabase = null; tables = []; $('#source-search').value = ''; renderDatabases(); };
 $('#source-search').oninput = render;
 document.addEventListener('keydown', event => { if (event.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { event.preventDefault(); $('#source-search').focus(); } });

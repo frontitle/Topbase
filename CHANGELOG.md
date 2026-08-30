@@ -2,6 +2,23 @@
 
 Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明和可复现构建元数据。
 
+## [0.2.2] - 2026-08-30
+
+### 新增
+
+- 引入 Topbase 正式产品 Logo，并应用到工作台、管理后台和公开仓库首页。
+- 支持以 `TOPBASE_PORT` 配置直接运行端口，并可选使用 `TOPBASE_TLS_CERT_FILE` 与 `TOPBASE_TLS_KEY_FILE` 直接提供 HTTPS。
+- 管理后台可保存公开协议、域名和端口，用于生成分享、嵌入和 OAuth 的外部地址。
+
+### 调整
+
+- Docker 默认将宿主机 `8101` 映射至容器内的 Topbase 服务端口；部署和升级文档同步更新。
+- 精简工作台与管理后台的交互与可视化编辑体验，并修复既有安装的 migration 010 校验兼容性。
+
+### 升级
+
+完整步骤和验收清单见 [0.2.2 升级说明](docs/releases/0.2.2.md)。
+
 ## [0.2.1] - 2026-08-30
 
 ### 新增
@@ -24,3 +41,4 @@ Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明�
 完整步骤和兼容性说明见 [0.2.1 升级说明](docs/releases/0.2.1.md)。
 
 [0.2.1]: https://github.com/frontitle/Topbase/releases/tag/v0.2.1
+[0.2.2]: https://github.com/frontitle/Topbase/releases/tag/v0.2.2

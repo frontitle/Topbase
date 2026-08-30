@@ -768,7 +768,7 @@
   }
   function tabsHtml(spec, tab) {
     var tabs = tabsFor(spec);
-    return '<div class="viz-tabs">' + tabs.map(function (t) {
+    return '<div class="tb-tabs viz-tabs">' + tabs.map(function (t) {
       return '<button type="button" data-tab="' + t.id + '" class="' + (t.id === tab ? 'active' : '') + '">' + t.label + '</button>';
     }).join('') + '</div>';
   }

@@ -158,14 +158,10 @@ function resizeAvatar(file) {
   });
 }
 
-$$('[data-tab]').forEach(button => {
-  button.onclick = () => {
-    $$('[data-tab]').forEach(item => item.classList.toggle('active', item === button));
-    $$('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== button.dataset.tab; });
-    history.replaceState(null, '', `#${button.dataset.tab}`);
-    if (button.dataset.tab === 'api' && !apiKeysLoaded) loadAPIKeys();
-  };
-});
+TopbaseTabs.mount('.account-tabs', { onChange: function (tab) {
+  history.replaceState(null, '', `#${tab}`);
+  if (tab === 'api' && !apiKeysLoaded) loadAPIKeys();
+} });
 
 function renderAPIKeys(keys) {
   const list = $('#api-key-list');

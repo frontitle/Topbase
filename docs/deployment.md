@@ -7,7 +7,7 @@
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.1
+git checkout v0.2.2
 cp .env.example .env
 # 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
@@ -30,14 +30,14 @@ docker compose -f docker-compose.postgres.yml up --build -d
 验证：
 
 ```bash
-curl --fail http://localhost:8080/api/ready
-curl --fail http://localhost:8080/api/version
+curl --fail http://localhost:8101/api/ready
+curl --fail http://localhost:8101/api/version
 docker compose -f docker-compose.postgres.yml ps
 ```
 
 需要 MySQL 时，另在 `.env` 设置随机 `TOPBASE_MYSQL_ROOT_PASSWORD`，并使用 `docker-compose.mysql.yml`。两个 Compose 方案都只把数据库开放给容器内部网络。
 
-生产部署时应把 `8080` 只暴露给反向代理，由代理提供 HTTPS，并设置 `TOPBASE_SECURE_COOKIES=true`。飞书等秘密通过部署平台的 Secret 功能注入，不要直接写进 `.env` 后提交。
+Docker 默认把宿主机 `8101` 映射到容器内的 `8080`，可通过 `.env` 的 `TOPBASE_HTTP_PORT` 修改。生产部署时应只让该宿主机端口对反向代理开放，由代理提供 HTTPS，并设置 `TOPBASE_SECURE_COOKIES=true`。飞书等秘密通过部署平台的 Secret 功能注入，不要直接写进 `.env` 后提交。
 
 容器会响应 `SIGTERM`，停止接收请求、等待在途请求结束，并关闭源数据库连接和 SSH 隧道。`/api/health` 表示进程存活；`/api/ready` 还会验证应用库可用并返回当前 schema 版本。
 
@@ -66,7 +66,7 @@ docker compose -f docker-compose.postgres.yml ps
 
 ```bash
 docker compose -f docker-compose.rds.yml up --build -d
-curl --fail http://localhost:8080/api/ready
+curl --fail http://localhost:8101/api/ready
 ```
 
 总连接预算约为“Topbase 节点数 × `TOPBASE_APP_DB_MAX_OPEN_CONNS`”，必须低于 RDS 账号和实例连接上限，并预留管理与迁移连接。
@@ -83,15 +83,28 @@ curl --fail http://localhost:8080/api/ready
 
 ```bash
 git fetch --tags
-git checkout v0.2.1
+git checkout v0.2.2
 make check
 make build
-TOPBASE_ADDR=:8080 \
+TOPBASE_ADDR=:80 \
 TOPBASE_APP_DB_ENGINE=postgres \
 TOPBASE_APP_DB_DSN='postgres://topbase:password@rds.internal:5432/topbase?sslmode=verify-full' \
 TOPBASE_MASTER_KEY_FILE=/run/secrets/topbase-master-key \
 ./bin/topbase
 ```
+
+源码和二进制直接运行时默认监听 `:80`。可改用 `TOPBASE_PORT=9000` 或更精确的 `TOPBASE_ADDR=127.0.0.1:9000`。systemd 模板授予非 root 的 Topbase 进程 `CAP_NET_BIND_SERVICE`，仅用于绑定 80 等低位端口。
+
+如需 Topbase 直接提供 HTTPS，同时配置证书和私钥；生产中仍建议由云负载均衡或反向代理统一管理证书：
+
+```bash
+TOPBASE_PORT=443 \
+TOPBASE_TLS_CERT_FILE=/run/secrets/topbase-fullchain.pem \
+TOPBASE_TLS_KEY_FILE=/run/secrets/topbase-key.pem \
+./bin/topbase
+```
+
+完成 DNS 和证书配置后，在“管理后台 → 设置 → 域名与 SSL”填写外部协议、域名和端口。后台保存的是公开地址规则，用于分享、嵌入和 OAuth 回调；它不会代替 DNS、负载均衡或监听端口配置。
 
 建议创建独立系统用户，并让 `/var/lib/topbase` 只对该用户可读写。仓库提供 [systemd 服务模板](../deploy/systemd/topbase.service)，默认从 `/etc/topbase/topbase.env` 读取配置并执行 `/opt/topbase/topbase`。安装时可以：
 

@@ -8,6 +8,7 @@
 | --- | --- | --- | --- | --- |
 | 应用外壳 | `web/shell.js` | 页面上的 `data-shell` | 全部登录后页面 | 稳定 |
 | UI 基础设施 | `web/ui.js` | `api`、`toast`、`promptDialog`、`choiceDialog`、`confirmDialog` | 全站 | 稳定 |
+| 页签切换 | `web/ui.js`、`web/ui.css` | `TopbaseTabs.mount`、`.tb-tabs` | 通知与订阅、人员与组、个人中心、新建分析、数据源连接 | 稳定 |
 | 查询编辑器 | `web/components/query-editor/` | `TopbaseQueryEditor.mount` | 数据浏览、创建分析 | 稳定 |
 | 代码展示与编辑 | `web/components/code/` | `TopbaseCode.mountBlock`、`mountEditor`、`setCode` | 查询编辑器、分析详情 | 稳定 |
 | 筛选构建器 | `web/filter.js`、`web/filter.css` | `TopbaseFilter` | 数据浏览、分析详情 | 稳定 |
@@ -36,6 +37,20 @@ editor.setSQL('SELECT 1', { dirty: true });
 editor.setGeneratedSQL('SELECT * FROM orders LIMIT 1000');
 editor.setSummary('1 条筛选 · 按日期汇总');
 ```
+
+### 页签切换
+
+```js
+TopbaseTabs.mount('.tb-tabs', {
+  tabSelector: '[data-tab]',
+  panelSelector: '[data-panel]',
+  onChange(tab) {}
+});
+```
+
+- 所有常规页签使用 `.tb-tabs`，统一采用“底部细线 + 蓝色选中态”的样式；不再为单个页面复制页签 CSS。
+- 按钮与面板使用相同的值关联。组件统一管理 `active`、`aria-selected`、`hidden`、左右方向键及 Home/End 键。
+- 页面只在 `onChange` 中处理业务副作用，例如加载 API Key 或限制未配置 Webhook 时进入订阅页签。
 
 - 页面负责把可视化 QueryIR 交给 `/api/dataset`，把 SQL 交给 `/api/queries/run`。
 - 首次切换到 SQL 模式时，组件可载入最近一次可视化查询生成的 SQL；用户编辑后不再自动覆盖。

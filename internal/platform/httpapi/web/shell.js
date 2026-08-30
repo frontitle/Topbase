@@ -27,7 +27,6 @@ window.topbaseRememberDatabase = function (id) {
     { id: 'databases', href: '/admin/', icon: 'database', label: '数据源' },
     { id: 'datamodel', href: '/admin/datamodel/', icon: 'network', label: '数据模型' },
     { id: 'people', href: '/admin/people/', icon: 'users', label: '人员与组' },
-    { id: 'permissions', href: '/admin/permissions/', icon: 'shield-check', label: '权限' },
     { id: 'integrations', href: '/admin/integrations/', icon: 'webhook', label: '通知与订阅' },
     { id: 'embedding', href: '/admin/embedding/', icon: 'panels-top-left', label: '嵌入与公开链接' },
     { id: 'settings', href: '/admin/settings/', icon: 'settings', label: '设置' }
@@ -104,7 +103,7 @@ window.topbaseRememberDatabase = function (id) {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     host.classList.add('sidebar', kind === 'admin' ? 'sidebar-admin' : 'sidebar-app');
     const context = kind === 'admin' ? '<p>管理后台</p>' : '<p>数据工作台</p>';
-    host.innerHTML = `<div class="sidebar-panel"><div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><span class="mark">T</span><strong>${heading}</strong><span class="shell-context">${kind === 'admin' ? '管理后台' : '工作台'}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">${icon(collapsed ? 'panel-left-open' : 'panel-left-close', 'sidebar-toggle-icon')}</button></div><label class="sidebar-search">${icon('search', 'sidebar-search-icon')}<input type="search" placeholder="搜索功能" aria-label="搜索功能"></label><nav>${context}${links(items, active)}</nav><footer><details class="sidebar-account" data-active="${active === 'account'}"><summary class="sidebar-profile" title="账户菜单">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></summary><div class="account-menu"><a href="/account/">个人中心</a><button type="button" data-logout>退出登录</button></div></details></footer></div>`;
+    host.innerHTML = `<div class="sidebar-panel"><div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><img class="mark mark-image" src="/assets/topbase-logo.png" alt="Topbase logo"><strong>${heading}</strong><span class="shell-context">${kind === 'admin' ? '管理后台' : '工作台'}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">${icon(collapsed ? 'panel-left-open' : 'panel-left-close', 'sidebar-toggle-icon')}</button></div><label class="sidebar-search">${icon('search', 'sidebar-search-icon')}<input type="search" placeholder="搜索功能" aria-label="搜索功能"></label><nav>${context}${links(items, active)}</nav><footer><details class="sidebar-account" data-active="${active === 'account'}"><summary class="sidebar-profile" title="账户菜单">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></summary><div class="account-menu"><a href="/account/">个人中心</a><button type="button" data-logout>退出登录</button></div></details></footer></div>`;
     if (kind === 'admin' && active === 'integrations') {
       const script = document.createElement('script'); script.src = '/admin/integrations/tabs.js?v=1'; document.body.appendChild(script);
     }

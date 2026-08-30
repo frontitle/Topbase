@@ -23,6 +23,12 @@ const migrationTableSQL = `CREATE TABLE IF NOT EXISTS schema_migrations (
   app_version TEXT NOT NULL
 )`
 
+// legacyMigration010Checksum is the checksum written by the development build
+// that first introduced migration 010. Its SQL only differed from the released
+// file by one trailing blank line, which has no effect on the schema.
+const legacyMigration010Checksum = "4a04457ec92ce1f35d127af9ef18426bfd4beb2586fb73cf7c093622f26bf1b6"
+const releasedMigration010Checksum = "ae81ddd40e199a3dfd7590281c7707966d5a187b683da3fe163ee8c6a7cbb01d"
+
 //go:embed schema.sql
 var currentSchemaSQL string
 
@@ -62,7 +68,7 @@ func migrateIncrementally(ctx context.Context, db *database, appVersion string) 
 	for _, file := range files {
 		checksum := migrationChecksum(file.SQL)
 		if existing, ok := applied[file.Version]; ok {
-			if existing != checksum {
+			if !migrationChecksumMatches(file.Version, existing, checksum) {
 				return 0, fmt.Errorf("migration %03d checksum changed; restore the released SQL and add a new migration", file.Version)
 			}
 			latest = file.Version
@@ -99,6 +105,15 @@ func migrateIncrementally(ctx context.Context, db *database, appVersion string) 
 		return 0, err
 	}
 	return latest, nil
+}
+
+func migrationChecksumMatches(version int, existing, current string) bool {
+	if existing == current {
+		return true
+	}
+	// The released 010 migration removed one trailing blank line from the
+	// development build. Accept only that exact, schema-equivalent checksum.
+	return version == 10 && existing == legacyMigration010Checksum && current == releasedMigration010Checksum
 }
 
 func readAppliedMigrations(ctx context.Context, db *database) (map[int]string, error) {

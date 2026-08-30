@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -543,7 +544,7 @@ func (s Service) SetSiteName(name string) error {
 func (s Service) AdminSettings() (core.AdminSettings, error) {
 	// Public distribution is opt-in for every new Topbase instance. Administrators
 	// can enable it deliberately from the instance settings when needed.
-	settings := core.AdminSettings{SiteName: s.SiteName(), Timezone: "Asia/Shanghai", PublicSharingEnabled: false, EmbeddingEnabled: false}
+	settings := core.AdminSettings{SiteName: s.SiteName(), Timezone: "Asia/Shanghai", PublicScheme: "auto", PublicSharingEnabled: false, EmbeddingEnabled: false}
 	if s.Settings == nil {
 		return settings, nil
 	}
@@ -560,12 +561,17 @@ func (s Service) AdminSettings() (core.AdminSettings, error) {
 	if settings.Timezone == "" {
 		settings.Timezone = "Asia/Shanghai"
 	}
+	if settings.PublicScheme == "" {
+		settings.PublicScheme = "auto"
+	}
 	return settings, nil
 }
 
 func (s Service) SaveAdminSettings(settings core.AdminSettings) (core.AdminSettings, error) {
 	settings.SiteName = strings.TrimSpace(settings.SiteName)
 	settings.Timezone = strings.TrimSpace(settings.Timezone)
+	settings.PublicScheme = strings.ToLower(strings.TrimSpace(settings.PublicScheme))
+	settings.CustomDomain = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(settings.CustomDomain), "."))
 	if settings.SiteName == "" {
 		return core.AdminSettings{}, fmt.Errorf("site_name is required")
 	}
@@ -574,6 +580,18 @@ func (s Service) SaveAdminSettings(settings core.AdminSettings) (core.AdminSetti
 	}
 	if _, err := time.LoadLocation(settings.Timezone); err != nil {
 		return core.AdminSettings{}, fmt.Errorf("invalid timezone")
+	}
+	if settings.PublicScheme == "" {
+		settings.PublicScheme = "auto"
+	}
+	if settings.PublicScheme != "auto" && settings.PublicScheme != "http" && settings.PublicScheme != "https" {
+		return core.AdminSettings{}, fmt.Errorf("public_scheme must be auto, http or https")
+	}
+	if settings.CustomDomain != "" && !validPublicHost(settings.CustomDomain) {
+		return core.AdminSettings{}, fmt.Errorf("custom_domain must be a hostname without scheme, path or port")
+	}
+	if settings.PublicPort < 0 || settings.PublicPort > 65535 {
+		return core.AdminSettings{}, fmt.Errorf("public_port must be between 1 and 65535, or 0 for the protocol default")
 	}
 	raw, err := json.Marshal(settings)
 	if err != nil {
@@ -589,6 +607,29 @@ func (s Service) SaveAdminSettings(settings core.AdminSettings) (core.AdminSetti
 		return core.AdminSettings{}, err
 	}
 	return settings, nil
+}
+
+func validPublicHost(host string) bool {
+	if strings.ContainsAny(host, "/?#@ \\\t\r\n") || strings.Contains(host, "://") {
+		return false
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		return !strings.Contains(host, ":") || (strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]"))
+	}
+	if len(host) > 253 {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, char := range label {
+			if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (s Service) IdentityProviders() ([]core.IdentityProvider, error) {

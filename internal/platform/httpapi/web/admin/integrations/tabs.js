@@ -1,1 +1,32 @@
-(function(){function init(){var sections=[...document.querySelectorAll('.notify-page .section-block')];if(sections.length<3)return setTimeout(init,120);var style=document.createElement('style');style.textContent='.notify-tabs{display:flex;gap:5px;margin:-2px 0 20px;border-bottom:1px solid #e5e8ec}.notify-tabs button{border:0;border-bottom:2px solid transparent;background:transparent;padding:9px 12px;color:#717986;font:500 13px var(--tb-font);cursor:pointer}.notify-tabs button.active{border-bottom-color:#3370ff;color:#3370ff}';document.head.appendChild(style);var labels=['Webhook 通道','订阅管理','发送记录'],tabs=document.createElement('nav');tabs.className='notify-tabs';labels.forEach(function(label,index){var button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=function(){activate(index)};tabs.appendChild(button)});document.querySelector('.notify-page .page-head').after(tabs);function activate(index){var hasHooks=!!document.querySelector('#hooks .hook-card');if(index>0&&!hasHooks){index=0;toast('请先创建并启用至少一个 Webhook 通道');}sections.forEach(function(section,i){section.hidden=i!==index});tabs.querySelectorAll('button').forEach(function(button,i){button.classList.toggle('active',i===index)});}new MutationObserver(function(){if(!document.querySelector('#hooks .hook-card'))activate(0)}).observe(document.querySelector('#hooks'),{childList:true,subtree:true});activate(0)}setTimeout(init,160)}());
+(function () {
+  function init() {
+    var sections = [].slice.call(document.querySelectorAll('.notify-page .section-block'));
+    if (sections.length < 3 || !window.TopbaseTabs) return setTimeout(init, 120);
+    var labels = ['Webhook 通道', '订阅管理', '发送记录'];
+    var tabs = document.createElement('nav');
+    tabs.className = 'tb-tabs notify-tabs';
+    labels.forEach(function (label, index) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.tab = String(index);
+      button.textContent = label;
+      tabs.appendChild(button);
+      sections[index].dataset.panel = String(index);
+    });
+    document.querySelector('.notify-page .page-head').after(tabs);
+    var controller = TopbaseTabs.mount(tabs, {
+      initial: '0',
+      onChange: function (index) {
+        var hasHooks = !!document.querySelector('#hooks .hook-card');
+        if (Number(index) > 0 && !hasHooks) {
+          toast('请先创建并启用至少一个 Webhook 通道');
+          controller.activate('0', false);
+        }
+      }
+    });
+    new MutationObserver(function () {
+      if (!document.querySelector('#hooks .hook-card') && controller.value() !== '0') controller.activate('0', false);
+    }).observe(document.querySelector('#hooks'), { childList: true, subtree: true });
+  }
+  setTimeout(init, 160);
+}());

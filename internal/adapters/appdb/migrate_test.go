@@ -97,6 +97,25 @@ func TestOpenRejectsChangedAppliedMigrationChecksum(t *testing.T) {
 	}
 }
 
+func TestOpenAcceptsHistoricalMigration010WhitespaceChecksum(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.db")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`UPDATE schema_migrations SET checksum=? WHERE version=10`, legacyMigration010Checksum); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err = Open(path)
+	if err != nil {
+		t.Fatalf("historical migration 010 checksum should remain compatible: %v", err)
+	}
+	defer store.Close()
+}
+
 func TestStorePing(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "app.db"))
 	if err != nil {

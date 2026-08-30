@@ -6,15 +6,17 @@ const path = require('node:path');
 const publicFiles = [
   'docs/README.md',
   'docs/architecture.md',
-	'docs/ai-integrations.md',
+  'docs/ai-integrations.md',
   'docs/assets/topbase-dashboard-demo.jpg',
+  'docs/assets/topbase-logo.png',
   'docs/configuration.md',
   'docs/database-drivers.md',
   'docs/deployment.md',
   'docs/frontend-components.md',
   'docs/getting-started.md',
   'docs/information-architecture.md',
-	'docs/releases/0.2.1.md',
+  'docs/releases/0.2.1.md',
+  'docs/releases/0.2.2.md',
   'docs/upgrading.md',
 ];
 

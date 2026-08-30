@@ -1,4 +1,4 @@
-let testPassed=false, databases=[], current=null, tables=[], activeTable=null, editingId=null;
+let testPassed=false, databases=[], current=null, tables=[], activeTable=null, editingId=null, wizardTabs=null;
 const engineProfiles={
   postgres:{label:'PostgreSQL',port:5432,network:true,username:true,ssh:true,dsn:'postgres://user:password@host:5432/database?sslmode=require',hint:'标准 PostgreSQL 协议。'},
   mysql:{label:'MySQL / MariaDB',port:3306,network:true,username:true,ssh:true,dsn:'user:password@tcp(host:3306)/database?parseTime=true',hint:'同时兼容 MariaDB、TiDB、OceanBase MySQL 模式、Doris 和 StarRocks。'},
@@ -40,8 +40,7 @@ function setWizardMode(id){
 function clearWizard(){
   ['#name','#host','#database','#username','#password','#dsn','#ssh-host','#ssh-username','#ssh-password','#ssh-private-key','#ssh-key-password','#ssh-fingerprint'].forEach(id=>$(id).value='');
   $('#engine').value='postgres';$('#port').value='5432';$('#ssh-port').value='22';$('#ssl').value='prefer';$('#ssh-auth').value='key';
-  $$('.tab').forEach(e=>e.classList.toggle('active',e.dataset.tab==='connection'));
-  $$('.panel').forEach(e=>e.classList.toggle('active',e.dataset.panel==='connection'));
+  if(wizardTabs)wizardTabs.activate('connection');
   syncSSHAuth();applyEngineUI(true);
 }
 function catalogHint(db){
@@ -168,7 +167,7 @@ $('#edit-connection').onclick=()=>showEditWizard().catch(e=>toast(e.message));
 $('#sync-schema').onclick=async()=>{if(!current)return;try{$('#sync-schema').disabled=true;const snap=await api('/api/databases/'+current.id+'/sync','POST',{});tables=snap.tables||[];current.last_synced_at=snap.synced_at;current.table_count=tables.length;current.connected=true;renderDetailMeta();activeTable=null;renderTables();toast('已扫描 '+tables.length+' 张表')}catch(e){toast(e.message+'  可点「编辑连接」修正主机、库名、账号、SSL 或 SSH 后再同步。')}finally{$('#sync-schema').disabled=false}};
 $('#rescan-table').onclick=async()=>{if(!current||!activeTable)return;try{const snap=await api(`/api/databases/${current.id}/tables/${encodeURIComponent(activeTable.schema)}/${encodeURIComponent(activeTable.name)}/rescan`,'POST',{});tables=snap.tables||[];const next=tables.find(t=>t.schema===activeTable.schema&&t.name===activeTable.name);if(next)openTable(next);toast('已重新扫描 '+activeTable.schema+'.'+activeTable.name)}catch(e){toast(e.message)}};
 $('#remove-db').onclick=async()=>{if(!current||!await confirmDialog({kicker:'数据源管理',title:'移除“'+current.name+'”？',description:'只会删除 Topbase 中保存的连接和元数据，不会删除源数据库中的任何数据。',confirmText:'移除数据源',tone:'danger'}))return;try{await api('/api/databases/'+current.id,'DELETE');toast('已移除数据源');showList();load()}catch(e){toast(e.message)}};
-$$('.tab').forEach(tab=>tab.onclick=()=>{$$('.tab').forEach(e=>e.classList.toggle('active',e===tab));$$('.panel').forEach(e=>e.classList.toggle('active',e.dataset.panel===tab.dataset.tab))});
+wizardTabs=TopbaseTabs.mount('.tabbar',{onChange:tab=>{$$('.panel').forEach(panel=>panel.classList.toggle('active',panel.dataset.panel===tab))}});
 $('#ssh-auth').onchange=()=>{syncSSHAuth();resetTest()};syncSSHAuth();
 $$('#wizard input,#wizard select,#wizard textarea').forEach(e=>{e.addEventListener('input',resetTest);e.addEventListener('change',resetTest)});
 $('#engine').addEventListener('change',()=>applyEngineUI(true));
