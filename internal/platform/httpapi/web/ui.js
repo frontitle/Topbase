@@ -165,7 +165,8 @@
     }));
     return result ? result.value : null;
   }
-  async function api(path, method, body) {
+  async function api(path, method, body, options) {
+    options = options || {};
     var requestMethod = (method || 'GET').toUpperCase();
     var headers = body ? { 'Content-Type': 'application/json' } : {};
     if (!['GET', 'HEAD', 'OPTIONS'].includes(requestMethod)) {
@@ -176,12 +177,21 @@
       method: requestMethod,
       headers: headers,
       body: body ? JSON.stringify(body) : undefined,
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      signal: options.signal
     });
     if (res.status === 204) return null;
     var data = await res.json().catch(function () { return {}; });
     if (!res.ok) throw Error(data.error || '请求失败');
     return data;
+  }
+  function queryLimitMessage(meta) {
+    meta = meta || {};
+    if (!meta.truncated) return '';
+    if (meta.truncation_reason === 'result_byte_limit') return '结果体积较大，仅展示已安全加载的部分数据';
+    if (meta.truncation_reason === 'cell_byte_limit') return '部分超大字段已截断显示';
+    if (meta.truncation_reason === 'row_limit') return '结果已达到 ' + (meta.row_limit || 1000) + ' 行展示上限';
+    return '当前展示的是部分查询结果';
   }
   function emptyHTML(opts) {
     opts = opts || {};
@@ -266,6 +276,7 @@
   global.confirmDialog = confirmDialog;
   global.choiceDialog = choiceDialog;
   global.api = api;
+  global.queryLimitMessage = queryLimitMessage;
   global.emptyHTML = emptyHTML;
   global.cardHTML = cardHTML;
   global.TopbaseTabs = { mount: mountTabs };

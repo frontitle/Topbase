@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -22,6 +23,15 @@ type transportConfig struct {
 	Scheme   string
 	CertFile string
 	KeyFile  string
+}
+
+const defaultMemoryLimit = 512 << 20
+
+func configureRuntimeMemory() int64 {
+	if strings.TrimSpace(os.Getenv("GOMEMLIMIT")) == "" {
+		debug.SetMemoryLimit(defaultMemoryLimit)
+	}
+	return debug.SetMemoryLimit(-1)
 }
 
 func loadTransportConfig() (transportConfig, error) {
@@ -64,6 +74,7 @@ func (config transportConfig) displayURL() string {
 }
 
 func main() {
+	memoryLimit := configureRuntimeMemory()
 	transport, err := loadTransportConfig()
 	if err != nil {
 		log.Fatal(err)
@@ -74,12 +85,19 @@ func main() {
 		}
 	}
 	handler := httpapi.NewServer()
-	server := &http.Server{Addr: transport.Address, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	server := &http.Server{
+		Addr:              transport.Address,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 	stopped, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	errorsCh := make(chan error, 1)
 	go func() { errorsCh <- transport.serve(server) }()
-	log.Printf("Topbase %s (%s) listening on %s", buildinfo.Version, buildinfo.Commit, transport.displayURL())
+	log.Printf("Topbase %s (%s) listening on %s; Go memory limit %d MiB", buildinfo.Version, buildinfo.Commit, transport.displayURL(), memoryLimit>>20)
 	var serveErr error
 	select {
 	case err := <-errorsCh:

@@ -66,6 +66,7 @@ function paint() {
     rows: d.rows || [],
     spec,
     queryir: question.queryir,
+    semanticTypes: d.meta && d.meta.semantic_types || {},
     tableFilters: false,
     onViewChange: spec.type === 'table' ? saveView : null
   });
@@ -131,6 +132,7 @@ function setMeta() {
   const resultMeta = (lastResult && lastResult.meta) || {};
   const freshness = resultMeta.execution === 'direct' && resultMeta.cache_hit === false ? '实时直连' : '查询结果';
   const updated = resultMeta.executed_at ? new Date(resultMeta.executed_at).toLocaleTimeString('zh-CN') : '';
+  const limited = queryLimitMessage(resultMeta);
   const groupCrumb = $('#group-crumb'), groupSeparator = $('#group-crumb-separator');
   if (groupCrumb && groupSeparator) {
     groupCrumb.hidden = groupSeparator.hidden = !col;
@@ -138,7 +140,7 @@ function setMeta() {
   }
   $('#title').textContent = question.name;
   $('#heading').textContent = question.name;
-  $('#meta').textContent = kind + ' · ' + (col ? col.name : '我的分析') + ' · ' + freshness + ' · ' + n + ' 行' + (updated ? ' · 更新于 ' + updated : '');
+  $('#meta').textContent = kind + ' · ' + (col ? col.name : '我的分析') + ' · ' + freshness + ' · ' + n + ' 行' + (limited ? ' · ' + limited : '') + (updated ? ' · 更新于 ' + updated : '');
   const isSQL = !!(question.native_sql || (lastResult && lastResult.sql));
   TopbaseCode.setCode('#query-json', queryPreview(), {
     language: isSQL ? 'sql' : 'json',

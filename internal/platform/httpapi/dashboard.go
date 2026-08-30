@@ -78,7 +78,8 @@ func (s *server) updateDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	d.ID = r.PathValue("id")
 	// External publishing settings are controlled by dedicated, permissioned
-	// endpoints; a normal editor must not be able to turn embedding on.
+	// endpoints; a normal editor must not publish or turn embedding on.
+	d.PublicUUID = existing.PublicUUID
 	d.PublicEmbedEnabled = existing.PublicEmbedEnabled
 	if d.CollectionID == "" {
 		d.CollectionID = existing.CollectionID

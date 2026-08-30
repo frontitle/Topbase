@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Topbase · 数据源</title>
+  <title>Topbase · 数据</title>
   <link rel="stylesheet" href="/admin/admin.css">
   <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
   <link rel="stylesheet" href="/admin/ssh.css">
@@ -13,13 +13,13 @@
 <body>
 <aside class="sidebar" data-shell="admin" data-active="databases"></aside>
 <div class="page">
-  <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据源</strong></header>
+  <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据</strong></header>
   <main>
     <div id="list-view">
       <div class="page-head">
         <div>
-          <h1>数据源</h1>
-          <p>连接、查看表结构，并重新扫描字段。普通成员在工作台浏览数据，不进入此后台。</p>
+          <h1>数据</h1>
+          <p>统一管理远程连接的数据源与 Topbase 本地数仓。普通成员在工作台浏览数据，不进入此后台。</p>
         </div>
         <button class="primary" id="show-form">添加数据库 <span>⌄</span></button>
       </div>
@@ -67,6 +67,12 @@
           <div id="field-table"></div>
         </section>
       </div>
+      <nav class="tb-tabs data-admin-tabs" aria-label="数据分类"><button class="active" type="button" data-data-tab="remote">远程数据源</button><button type="button" data-data-tab="local">本地数仓</button></nav>
+      <section id="local-warehouse" hidden>
+        <div class="section-row"><div><h2>本地数仓</h2><p class="section-note">包含 Excel 上传的数据集与按计划沉淀的分析结果。</p></div><button class="primary" id="upload-excel" type="button">上传 Excel</button></div>
+        <input id="excel-file" type="file" accept=".xlsx,.xlsm" hidden>
+        <div id="upload-list" class="cards"></div>
+      </section>
     </div>
   </main>
 </div>

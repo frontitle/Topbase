@@ -1,6 +1,6 @@
 FROM golang:1.25-alpine AS builder
 
-ARG VERSION=0.2.3
+ARG VERSION=0.2.4
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 

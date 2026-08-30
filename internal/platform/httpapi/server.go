@@ -293,6 +293,9 @@ func NewServer() http.Handler {
 	mux.HandleFunc("POST /api/schedules/{id}/run", s.runSchedule)
 	mux.HandleFunc("GET /api/runs", s.listRuns)
 	mux.HandleFunc("GET /api/warehouse/tables", s.listWarehouseTables)
+	mux.HandleFunc("GET /api/warehouse/uploads", s.listUploadedTables)
+	mux.HandleFunc("POST /api/warehouse/uploads", s.uploadWorkbook)
+	mux.HandleFunc("DELETE /api/warehouse/uploads/{id}", s.deleteUploadedTable)
 	mux.HandleFunc("GET /api/lineage/{type}/{id}", s.listLineage)
 	mux.HandleFunc("POST /api/ai/propose-schedule", s.proposeSchedule)
 	mux.HandleFunc("GET /api/groups", s.listGroups)
@@ -302,6 +305,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("PUT /api/projects/{id}/access", s.putProjectAccess)
 	mux.HandleFunc("GET /api/identity/providers", s.listIdentityProviders)
 	mux.HandleFunc("PUT /api/identity/providers", s.saveIdentityProviders)
+	mux.HandleFunc("POST /api/identity/providers/{id}/sync", s.syncIdentityProvider)
 	mux.HandleFunc("GET /api/webhooks", s.listWebhooks)
 	mux.HandleFunc("GET /api/subscription-channels", s.listSubscriptionChannels)
 	mux.HandleFunc("PUT /api/webhooks", s.saveWebhooks)
@@ -328,7 +332,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /questions/{id}/{$}", s.serveQuestionView)
 	mux.HandleFunc("GET /collections/{id}/{$}", s.serveCollectionView)
 	mux.Handle("GET /", http.FileServer(http.FS(static)))
-	handler := s.accessControl(s.csrfProtection(securityHeaders(mux)))
+	handler := compression(s.accessControl(s.csrfProtection(securityHeaders(mux))))
 	return &runtimeHandler{handler: handler, close: s.close}
 }
 

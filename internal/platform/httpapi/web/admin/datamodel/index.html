@@ -19,6 +19,7 @@
           <p>为表和字段设置显示名称（别称）、说明、语义类型和外键。工作台浏览数据时会使用这些别称。</p>
         </div>
       </div>
+      <nav class="tb-tabs model-source-tabs" aria-label="数据模型范围"><button class="active" type="button" data-model-source="remote">远程数据源</button><button type="button" data-model-source="local">本地数仓</button></nav>
       <div class="schema-layout">
         <aside class="schema-tables">
           <div class="table-browser-head">
@@ -46,7 +47,7 @@
               <label>表显示名称（别称）<input id="display-name" placeholder="例如：订单明细"></label>
               <label class="full">业务备注<textarea id="description" placeholder="例如：口径说明、用途、刷新频率；填写后将优先展示给成员"></textarea><small class="metadata-hint">这是 Topbase 内的备注，可替换前台显示的源表注释。</small></label>
             </div>
-            <h3>字段</h3>
+            <div class="field-heading"><h3>字段</h3><button id="toggle-field-fullscreen" class="field-fullscreen-button" type="button" aria-pressed="false" title="全屏编辑字段"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>全屏编辑</span><kbd>Esc</kbd></button></div>
             <div class="field-scroll">
               <table class="fields-table" id="field-table">
                 <thead>

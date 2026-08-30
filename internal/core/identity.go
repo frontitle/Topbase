@@ -33,6 +33,7 @@ type IdentityProvider struct {
 	Enabled          bool              `json:"enabled"`
 	ClientID         string            `json:"client_id"`
 	ClientSecret     string            `json:"client_secret,omitempty"`
+	Configured       bool              `json:"configured,omitempty"`
 	AuthorizationURL string            `json:"authorization_url"`
 	TokenURL         string            `json:"token_url"`
 	Scopes           []string          `json:"scopes,omitempty"`

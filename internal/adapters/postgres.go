@@ -19,9 +19,13 @@ import (
 )
 
 type SQLConnector struct {
-	mu        sync.RWMutex
-	databases map[string]databaseConnection
-	reconnect sync.Map
+	mu         sync.RWMutex
+	databases  map[string]databaseConnection
+	reconnect  sync.Map
+	querySlots chan struct{}
+	limits     queryLimits
+	maxOpen    int
+	maxIdle    int
 }
 
 type databaseConnection struct {
@@ -32,7 +36,14 @@ type databaseConnection struct {
 }
 
 func NewSQLConnector() *SQLConnector {
-	return &SQLConnector{databases: map[string]databaseConnection{}}
+	concurrency := boundedPositiveEnvInt("TOPBASE_MAX_CONCURRENT_QUERIES", 8, 128)
+	return &SQLConnector{
+		databases:  map[string]databaseConnection{},
+		querySlots: make(chan struct{}, concurrency),
+		limits:     queryLimitsFromEnv(),
+		maxOpen:    boundedPositiveEnvInt("TOPBASE_SOURCE_DB_MAX_OPEN_CONNS", 8, 128),
+		maxIdle:    boundedPositiveEnvInt("TOPBASE_SOURCE_DB_MAX_IDLE_CONNS", 4, 128),
+	}
 }
 
 // NewPostgresConnector remains for source compatibility with earlier Topbase
@@ -64,8 +75,8 @@ func (p *SQLConnector) connect(ctx context.Context, input core.ConnectionRequest
 		}
 		return core.Database{}, fmt.Errorf("open %s: %w", engineLabel(prepared.engine), err)
 	}
-	db.SetMaxOpenConns(8)
-	db.SetMaxIdleConns(4)
+	db.SetMaxOpenConns(p.maxOpen)
+	db.SetMaxIdleConns(min(p.maxIdle, p.maxOpen))
 	db.SetConnMaxLifetime(30 * time.Minute)
 	pingCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
@@ -165,11 +176,17 @@ func (p *SQLConnector) Connected(id string) bool {
 }
 
 func (p *SQLConnector) Execute(ctx context.Context, databaseID, statement string, args ...any) (core.QueryResult, error) {
+	select {
+	case p.querySlots <- struct{}{}:
+		defer func() { <-p.querySlots }()
+	case <-ctx.Done():
+		return core.QueryResult{}, fmt.Errorf("wait for query capacity: %w", ctx.Err())
+	}
 	connection, err := p.connection(databaseID)
 	if err != nil {
 		return core.QueryResult{}, err
 	}
-	result, err := executeForEngine(ctx, connection, statement, args...)
+	result, err := executeForEngine(ctx, connection, p.limits, statement, args...)
 	if err == nil || !recoverableConnectionError(err) {
 		return result, err
 	}
@@ -180,7 +197,7 @@ func (p *SQLConnector) Execute(ctx context.Context, databaseID, statement string
 	if err != nil {
 		return core.QueryResult{}, err
 	}
-	result, err = executeForEngine(ctx, connection, statement, args...)
+	result, err = executeForEngine(ctx, connection, p.limits, statement, args...)
 	if err == nil {
 		if result.Meta == nil {
 			result.Meta = map[string]any{}
@@ -190,7 +207,7 @@ func (p *SQLConnector) Execute(ctx context.Context, databaseID, statement string
 	return result, err
 }
 
-func executePostgres(ctx context.Context, connectionDB *sql.DB, statement string, args ...any) (core.QueryResult, error) {
+func executePostgres(ctx context.Context, connectionDB *sql.DB, limits queryLimits, statement string, args ...any) (core.QueryResult, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	tx, err := connectionDB.BeginTx(queryCtx, &sql.TxOptions{ReadOnly: true})
@@ -207,27 +224,8 @@ func executePostgres(ctx context.Context, connectionDB *sql.DB, statement string
 	if err != nil {
 		return core.QueryResult{}, err
 	}
-	result := core.QueryResult{Columns: columns, Rows: make([][]any, 0), Meta: map[string]any{"row_limit": 1000}}
-	for rows.Next() {
-		if len(result.Rows) == 1000 {
-			break
-		}
-		values := make([]any, len(columns))
-		pointers := make([]any, len(columns))
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-		if err := rows.Scan(pointers...); err != nil {
-			return core.QueryResult{}, err
-		}
-		for i, value := range values {
-			if bytes, ok := value.([]byte); ok {
-				values[i] = string(bytes)
-			}
-		}
-		result.Rows = append(result.Rows, values)
-	}
-	if err := rows.Err(); err != nil {
+	result, err := scanQueryRows(rows, columns, limits, "postgres")
+	if err != nil {
 		return core.QueryResult{}, err
 	}
 	if err := tx.Commit(); err != nil {

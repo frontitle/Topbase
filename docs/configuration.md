@@ -7,6 +7,14 @@ Topbase 使用环境变量配置进程。生产环境不要把真实值写入镜
 | `TOPBASE_ADDR` | `:80` | 源码或二进制监听地址；填写后优先于 `TOPBASE_PORT` |
 | `TOPBASE_PORT` | `80` | 未设置 `TOPBASE_ADDR` 时使用的监听端口，范围 1–65535 |
 | `TOPBASE_HTTP_PORT` | `8101` | Docker Compose 发布到宿主机的端口；容器内部固定使用 8080 |
+| `TOPBASE_CONTAINER_MEMORY_LIMIT` | `512m` | Docker 中 Topbase 容器的内存硬上限 |
+| `TOPBASE_GOMEMLIMIT` | `384MiB` | Docker 中 Go 托管内存软上限，为非堆内存保留空间 |
+| `GOMEMLIMIT` | `512MiB` | 直接运行时的 Go 托管内存软上限；显式设置可覆盖默认值 |
+| `TOPBASE_MAX_CONCURRENT_QUERIES` | `8` | 单节点同时执行的交互查询上限，超出后等待可用名额 |
+| `TOPBASE_QUERY_RESULT_MAX_BYTES` | `16777216` | 单次查询在进程中保留的结果数据上限，默认 16 MiB |
+| `TOPBASE_QUERY_CELL_MAX_BYTES` | `1048576` | 单个文本或二进制字段保留上限，默认 1 MiB |
+| `TOPBASE_SOURCE_DB_MAX_OPEN_CONNS` | `8` | 每个远程数据源在单节点上的最大连接数 |
+| `TOPBASE_SOURCE_DB_MAX_IDLE_CONNS` | `4` | 每个远程数据源在单节点上的空闲连接数 |
 | `TOPBASE_TLS_CERT_FILE` | 空 | 直接 TLS 的 PEM 证书链文件；必须与私钥同时配置 |
 | `TOPBASE_TLS_KEY_FILE` | 空 | 直接 TLS 的 PEM 私钥文件；必须与证书同时配置 |
 | `TOPBASE_DATA_DIR` | `./data` | 应用库、目录与开发密钥存储目录 |
@@ -33,6 +41,8 @@ Topbase 使用环境变量配置进程。生产环境不要把真实值写入镜
 | `FEISHU_APP_ID` | 空 | 飞书应用 ID |
 | `FEISHU_APP_SECRET` | 空 | 飞书应用密钥 |
 | `FEISHU_WEBHOOK_URL` | 空 | 飞书通知 Webhook |
+
+内存限制是保护线，不是容量承诺。生产环境应结合仪表盘数量、并发用户数和字段体积做压测；当容器内存调整时，建议让 `TOPBASE_GOMEMLIMIT` 保持在容器硬上限的 70%–80%，为数据库驱动、线程栈和系统调用保留空间。
 
 ## 应用数据库初始化
 

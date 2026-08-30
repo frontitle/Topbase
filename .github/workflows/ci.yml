@@ -83,7 +83,7 @@ jobs:
           }
 
           start_topbase
-          python3 -c 'import json; p=json.load(open("ready.json")); assert p["status"] == "ready" and p["schema_version"] == 14 and p["application_database"] == "sqlite", p'
+          python3 -c 'import json; p=json.load(open("ready.json")); assert p["status"] == "ready" and p["schema_version"] == 15 and p["application_database"] == "sqlite", p'
           curl --fail --silent \
             --header 'Content-Type: application/json' \
             --data '{"language":"zh-CN","admin_name":"CI Admin","admin_email":"ci@example.com","admin_password":"topbase-ci-password","site_name":"Topbase CI"}' \
@@ -94,4 +94,4 @@ jobs:
           curl --fail --silent http://127.0.0.1:18080/api/setup/status >setup-status.json
           curl --fail --silent http://127.0.0.1:18080/api/version >version.json
           python3 -c 'import json; p=json.load(open("setup-status.json")); assert p["completed"] is True, p'
-          python3 -c 'import json; p=json.load(open("version.json")); expected=open("VERSION").read().strip(); assert p["version"] == expected and p["schema_version"] == 14, (p, expected)'
+          python3 -c 'import json; p=json.load(open("version.json")); expected=open("VERSION").read().strip(); assert p["version"] == expected and p["schema_version"] == 15, (p, expected)'

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/topbase/topbase/internal/buildinfo"
 	"github.com/topbase/topbase/internal/core"
 	appmigrations "github.com/topbase/topbase/migrations"
+	"github.com/xuri/excelize/v2"
 )
 
 func testServer(t *testing.T) http.Handler {
@@ -56,6 +58,72 @@ func cookieNamed(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie
 	}
 	t.Fatalf("cookie %q not found", name)
 	return nil
+}
+
+func TestAdminCanUploadListAndDeleteWorkbook(t *testing.T) {
+	handler := testServer(t)
+	session := adminSession(t, handler)
+
+	book := excelize.NewFile()
+	t.Cleanup(func() { _ = book.Close() })
+	if err := book.SetSheetRow("Sheet1", "A1", &[]any{"日期", "销售额"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := book.SetSheetRow("Sheet1", "A2", &[]any{"2026-08-30", 12800}); err != nil {
+		t.Fatal(err)
+	}
+	var workbook bytes.Buffer
+	if err := book.Write(&workbook); err != nil {
+		t.Fatal(err)
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "release-data.xlsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(workbook.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteField("name", "发布验收数据"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	uploadReq := httptest.NewRequest(http.MethodPost, "/api/warehouse/uploads", &body)
+	uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
+	uploadReq.AddCookie(session)
+	uploadRec := httptest.NewRecorder()
+	handler.ServeHTTP(uploadRec, uploadReq)
+	if uploadRec.Code != http.StatusCreated {
+		t.Fatalf("upload workbook = %d: %s", uploadRec.Code, uploadRec.Body.String())
+	}
+	var uploaded core.UploadedTable
+	if err := json.Unmarshal(uploadRec.Body.Bytes(), &uploaded); err != nil {
+		t.Fatal(err)
+	}
+	if uploaded.Name != "发布验收数据" || uploaded.RowCount != 1 || len(uploaded.Columns) != 2 {
+		t.Fatalf("unexpected uploaded table: %+v", uploaded)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/warehouse/uploads", nil)
+	listReq.AddCookie(session)
+	listRec := httptest.NewRecorder()
+	handler.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK || !bytes.Contains(listRec.Body.Bytes(), []byte(uploaded.ID)) {
+		t.Fatalf("list uploads = %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/warehouse/uploads/"+uploaded.ID, nil)
+	deleteReq.AddCookie(session)
+	deleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("delete upload = %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
 }
 
 func TestQueryRejectsMutation(t *testing.T) {
@@ -259,6 +327,9 @@ func TestDashboardQuickCreateAssignsName(t *testing.T) {
 	}
 	if dashboard["id"] == "" || !strings.HasPrefix(dashboard["name"].(string), "新建仪表盘 ") {
 		t.Fatalf("dashboard did not receive generated identity: %+v", dashboard)
+	}
+	if dashboard["public_uuid"] != nil && dashboard["public_uuid"] != "" {
+		t.Fatalf("new dashboard must keep public sharing disabled: %+v", dashboard)
 	}
 }
 
@@ -480,6 +551,16 @@ func TestPersonalProfilePasswordAndBindingLifecycle(t *testing.T) {
 	if providersRec.Code != http.StatusOK {
 		t.Fatalf("save providers %d: %s", providersRec.Code, providersRec.Body.String())
 	}
+	if bytes.Contains(providersRec.Body.Bytes(), []byte(`"client_secret":"secret"`)) || !bytes.Contains(providersRec.Body.Bytes(), []byte(`"configured":true`)) {
+		t.Fatalf("provider response must expose readiness without returning its secret: %s", providersRec.Body.String())
+	}
+	syncLoginProvider := httptest.NewRequest(http.MethodPost, "/api/identity/providers/google-main/sync", nil)
+	syncLoginProvider.AddCookie(session)
+	syncLoginProviderRec := httptest.NewRecorder()
+	handler.ServeHTTP(syncLoginProviderRec, syncLoginProvider)
+	if syncLoginProviderRec.Code != http.StatusBadRequest {
+		t.Fatalf("login-only provider sync %d: %s", syncLoginProviderRec.Code, syncLoginProviderRec.Body.String())
+	}
 	bindReq := httptest.NewRequest(http.MethodPost, "/api/users/"+initial.User.ID+"/external-identities", bytes.NewBufferString(`{"provider_id":"google-main","subject":"google-user-1"}`))
 	bindReq.AddCookie(session)
 	bindRec := httptest.NewRecorder()
@@ -649,6 +730,70 @@ func TestPersonalAnalysisAndDashboardAreIsolatedByDataGroup(t *testing.T) {
 	handler.ServeHTTP(listDashboardsRec, listDashboards)
 	if bytes.Contains(listDashboardsRec.Body.Bytes(), []byte(adminDashboard.ID)) {
 		t.Fatalf("private dashboard leaked in list: %s", listDashboardsRec.Body.String())
+	}
+}
+
+func TestDashboardCreationEditingAndCopyStayPrivateByDefault(t *testing.T) {
+	handler := testServer(t)
+	adminCookie := adminSession(t, handler)
+
+	create := httptest.NewRequest(http.MethodPost, "/api/dashboards", bytes.NewBufferString(`{"name":"私有仪表盘","public_uuid":"pub_injected","public_embed_enabled":true}`))
+	create.AddCookie(adminCookie)
+	createRec := httptest.NewRecorder()
+	handler.ServeHTTP(createRec, create)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create dashboard %d: %s", createRec.Code, createRec.Body.String())
+	}
+	var dashboard core.Dashboard
+	if err := json.Unmarshal(createRec.Body.Bytes(), &dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.PublicUUID != "" || dashboard.PublicEmbedEnabled {
+		t.Fatalf("new dashboard must be private: %#v", dashboard)
+	}
+
+	update := httptest.NewRequest(http.MethodPut, "/api/dashboards/"+dashboard.ID, bytes.NewBufferString(`{"name":"仍然私有","public_uuid":"pub_injected","public_embed_enabled":true}`))
+	update.AddCookie(adminCookie)
+	updateRec := httptest.NewRecorder()
+	handler.ServeHTTP(updateRec, update)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update dashboard %d: %s", updateRec.Code, updateRec.Body.String())
+	}
+	if err := json.Unmarshal(updateRec.Body.Bytes(), &dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.PublicUUID != "" || dashboard.PublicEmbedEnabled {
+		t.Fatalf("ordinary dashboard update changed sharing: %#v", dashboard)
+	}
+
+	settings := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewBufferString(`{"site_name":"Topbase","timezone":"Asia/Shanghai","public_sharing_enabled":true}`))
+	settings.AddCookie(adminCookie)
+	settingsRec := httptest.NewRecorder()
+	handler.ServeHTTP(settingsRec, settings)
+	if settingsRec.Code != http.StatusOK {
+		t.Fatalf("enable instance sharing %d: %s", settingsRec.Code, settingsRec.Body.String())
+	}
+	publish := httptest.NewRequest(http.MethodPost, "/api/dashboards/"+dashboard.ID+"/public-link", bytes.NewBufferString(`{}`))
+	publish.AddCookie(adminCookie)
+	publishRec := httptest.NewRecorder()
+	handler.ServeHTTP(publishRec, publish)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("publish dashboard %d: %s", publishRec.Code, publishRec.Body.String())
+	}
+
+	copyRequest := httptest.NewRequest(http.MethodPost, "/api/dashboards/"+dashboard.ID+"/copy", bytes.NewBufferString(`{}`))
+	copyRequest.AddCookie(adminCookie)
+	copyRec := httptest.NewRecorder()
+	handler.ServeHTTP(copyRec, copyRequest)
+	if copyRec.Code != http.StatusCreated {
+		t.Fatalf("copy dashboard %d: %s", copyRec.Code, copyRec.Body.String())
+	}
+	var copied core.Dashboard
+	if err := json.Unmarshal(copyRec.Body.Bytes(), &copied); err != nil {
+		t.Fatal(err)
+	}
+	if copied.PublicUUID != "" || copied.PublicEmbedEnabled {
+		t.Fatalf("copied dashboard must return to private: %#v", copied)
 	}
 }
 

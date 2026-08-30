@@ -17,15 +17,22 @@
         <div><h1>工作区设置</h1><p>维护实例级偏好与对外访问策略。成员、分组权限和订阅在对应管理页面维护。</p></div>
         <div class="settings-head-actions"><span class="save-state" id="save-state" aria-live="polite">已同步</span><button class="primary" id="save" type="submit" form="form">保存更改</button></div>
       </div>
+      <nav class="tb-tabs settings-tabs" aria-label="设置分类">
+        <button class="active" type="button" data-settings-tab="workspace">工作区</button>
+        <button type="button" data-settings-tab="access">访问与安全</button>
+        <button type="button" data-settings-tab="storage">应用数据</button>
+        <button type="button" data-settings-tab="developer">开发者</button>
+        <button type="button" data-settings-tab="management">其他管理</button>
+      </nav>
       <form id="form" class="settings-layout">
-        <section class="settings-section" aria-labelledby="general-title">
+        <section class="settings-section" data-settings-panel="workspace" aria-labelledby="general-title">
           <div class="settings-section-head"><div><h2 id="general-title">基础信息</h2><p>用于浏览器标题、通知内容和系统默认时间。</p></div></div>
           <div class="settings-card settings-fields">
             <label class="settings-field"><span>工作区名称</span><input id="site_name" maxlength="80" required placeholder="例如：增长分析中心"><small>显示在工作台、登录页和系统通知中。</small></label>
             <label class="settings-field"><span>默认时区</span><select id="timezone"><option value="Asia/Shanghai">中国标准时间 · UTC+8</option><option value="Asia/Singapore">新加坡时间 · UTC+8</option><option value="UTC">协调世界时 · UTC</option></select><small>新建订阅与定时任务默认采用此时区，已有任务不受影响。</small></label>
           </div>
         </section>
-        <section class="settings-section" aria-labelledby="address-title">
+        <section class="settings-section" data-settings-panel="access" aria-labelledby="address-title" hidden>
           <div class="settings-section-head"><div><h2 id="address-title">域名与 SSL</h2><p>设置用户访问 Topbase 时使用的固定地址，并用于分享、嵌入和 OAuth 回调链接。</p></div></div>
           <div class="settings-card public-address-card">
             <div class="public-address-fields">
@@ -37,7 +44,7 @@
             <p class="access-note">保存后无需重启。DNS 解析、证书签发和进程监听端口仍在服务器、云负载均衡或部署环境中配置；证书文件模式使用 <code>TOPBASE_TLS_CERT_FILE</code> 与 <code>TOPBASE_TLS_KEY_FILE</code>。</p>
           </div>
         </section>
-        <section class="settings-section" aria-labelledby="sharing-title">
+        <section class="settings-section" data-settings-panel="access" aria-labelledby="sharing-title" hidden>
           <div class="settings-section-head"><div><h2 id="sharing-title">对外访问</h2><p>控制仪表盘公开链接与嵌入访问的全局上限。</p></div><a href="/admin/embedding/" class="text-link">查看公开内容 →</a></div>
           <div class="settings-card access-card">
             <label class="setting-toggle" for="public_sharing_enabled"><span><b>允许公开链接</b><small>已发布的仪表盘可生成无需登录的访问地址。</small></span><input id="public_sharing_enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
@@ -47,7 +54,7 @@
           </div>
         </section>
       </form>
-      <section class="settings-section" aria-labelledby="storage-title">
+      <section class="settings-section" data-settings-panel="storage" aria-labelledby="storage-title" hidden>
         <div class="settings-section-head"><div><h2 id="storage-title">应用数据库与备份</h2><p>这里保存 Topbase 的用户、连接、分析、仪表盘和计划任务，不是被分析的业务数据源。</p></div></div>
         <div class="settings-card appdb-card">
           <div class="appdb-status"><span class="settings-link-icon">库</span><div><b id="appdb-engine">正在读取…</b><small id="appdb-description">正在确认项目数据的持久化方式。</small></div><span class="account-state" id="appdb-mode">—</span></div>
@@ -56,7 +63,7 @@
           <footer class="appdb-actions"><span>逻辑备份包含密码哈希和加密后的连接信息，请按敏感数据保存。</span><a class="secondary" href="/api/admin/application-database/backup" download>导出备份</a><button class="primary" id="migrate-appdb" type="button" hidden>迁移到生产环境</button></footer>
         </div>
       </section>
-      <section class="settings-section" aria-labelledby="developer-title">
+      <section class="settings-section" data-settings-panel="developer" aria-labelledby="developer-title" hidden>
         <div class="settings-section-head"><div><h2 id="developer-title">开发者模式</h2><p>统一管理 MCP、CLI 与 API Key。关闭后所有密钥立即停止访问，但不会被删除。</p></div><span class="account-state" id="developer-state">正在读取…</span></div>
         <div class="settings-card developer-card">
           <label class="setting-toggle" for="developer-enabled"><span><b>启用开发者模式</b><small>允许受控的 API Key 通过 MCP、CLI 或自动化程序访问 Topbase。</small></span><input id="developer-enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
@@ -74,10 +81,10 @@
           <div id="developer-key-list" class="developer-key-list"><div class="developer-empty">正在读取密钥…</div></div>
         </div>
       </section>
-      <section class="settings-section" aria-labelledby="admin-title">
+      <section class="settings-section" data-settings-panel="management" aria-labelledby="admin-title" hidden>
         <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2><p>按职责分开维护，减少同一页面内的高风险误操作。</p></div></div>
         <div class="settings-links">
-          <a href="/admin/people/"><span class="settings-link-icon">人</span><span><b>人员与组</b><small>成员、权限分组与组织绑定</small></span><em>›</em></a>
+          <a href="/admin/people/"><span class="settings-link-icon">人</span><span><b>人员与组</b><small>成员、权限分组与企业账号接入</small></span><em>›</em></a>
           <a href="/admin/integrations/"><span class="settings-link-icon">通</span><span><b>通知与订阅</b><small>Webhook、推送通道与订阅消息</small></span><em>›</em></a>
         </div>
       </section>

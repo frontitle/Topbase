@@ -17,6 +17,10 @@ const warehouseJS = read('internal/platform/httpapi/web/warehouse/warehouse.js')
 const queryEditor = read('internal/platform/httpapi/web/components/query-editor/query-editor.js');
 const code = read('internal/platform/httpapi/web/components/code/code.js');
 const docs = read('docs/frontend-components.md');
+const peopleHTML = read('internal/platform/httpapi/web/admin/people/index.html');
+const dataModelHTML = read('internal/platform/httpapi/web/admin/datamodel/index.html');
+const dataModelJS = read('internal/platform/httpapi/web/admin/datamodel/datamodel.js');
+const dataModelCSS = read('internal/platform/httpapi/web/admin/datamodel/datamodel.css');
 
 test('query editor is reusable and keeps visual and SQL execution separate', () => {
   assert.match(queryEditor, /global\.TopbaseQueryEditor = \{ mount \}/);
@@ -70,6 +74,13 @@ test('saving an analysis selects its destination group and follows metadata edit
   assert.match(dataJS, /collection_id:values\.collection_id==='__personal__'\?'':values\.collection_id/);
 });
 
+test('field picker closes when clicking outside or pressing Escape', () => {
+  assert.match(dataHTML, /<details class="field-details">/);
+  assert.match(dataJS, /details\.open&&!details\.contains\(event\.target\)\)details\.open=false/);
+  assert.match(dataJS, /event\.key!==['"]Escape['"]/);
+  assert.match(dataJS, /details\.querySelector\(['"]summary['"]\)\?\.focus\(\)/);
+});
+
 test('developer documentation registers every shared functional component', () => {
   for (const name of ['应用外壳', 'UI 基础设施', '查询编辑器', '代码展示与编辑', '筛选构建器', '数据表格', '可视化渲染器']) {
     assert.match(docs, new RegExp(name));
@@ -88,4 +99,22 @@ test('application shell uses the vendored icon system instead of text glyphs', (
     assert.match(icons, new RegExp(`symbol id="${name}"`), `missing icon ${name}`);
   }
   assert.doesNotMatch(shell, /icon:\s*'[▦◇☷▣▤⌫☺⚿◴⚙]'/);
+});
+
+test('enterprise account onboarding stays in one layer and is provider neutral', () => {
+  assert.match(peopleHTML, /企业账号接入/);
+  assert.match(peopleHTML, /id="provider-create"/);
+  assert.match(peopleHTML, /\/api\/identity\/providers\/'\+encodeURIComponent\(id\)\+'\/sync/);
+  assert.doesNotMatch(peopleHTML, /id="sync-feishu"|>组织绑定</);
+  const addHandler = peopleHTML.match(/\$\('#add-provider'\)\.onclick=([^;]+);/);
+  assert.ok(addHandler);
+  assert.doesNotMatch(addHandler[0], /formDialog|showModal/);
+});
+
+test('data model field editor supports an in-page fullscreen workspace', () => {
+  assert.match(dataModelHTML, /id="toggle-field-fullscreen"/);
+  assert.match(dataModelJS, /function setFieldFullscreen\(enabled\)/);
+  assert.match(dataModelJS, /event\.key==='Escape'/);
+  assert.match(dataModelCSS, /\.schema-fields\.is-fullscreen\{position:fixed;inset:0/);
+  assert.match(dataModelCSS, /\.schema-fields\.is-fullscreen \.field-scroll/);
 });

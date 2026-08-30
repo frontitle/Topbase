@@ -338,10 +338,10 @@ func splitAddress(address string, fallbackPort int) (string, int, error) {
 	return host, port, nil
 }
 
-func executeForEngine(ctx context.Context, connection databaseConnection, statement string, args ...any) (core.QueryResult, error) {
+func executeForEngine(ctx context.Context, connection databaseConnection, limits queryLimits, statement string, args ...any) (core.QueryResult, error) {
 	statement = rebindSQL(statement, connection.engine)
 	if connection.engine == "postgres" {
-		return executePostgres(ctx, connection.db, statement, args...)
+		return executePostgres(ctx, connection.db, limits, statement, args...)
 	}
 	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -354,33 +354,7 @@ func executeForEngine(ctx context.Context, connection databaseConnection, statem
 	if err != nil {
 		return core.QueryResult{}, err
 	}
-	result := core.QueryResult{Columns: columns, Rows: make([][]any, 0), Meta: map[string]any{"row_limit": 1000, "engine": connection.engine}}
-	for rows.Next() {
-		if len(result.Rows) == 1000 {
-			break
-		}
-		values := make([]any, len(columns))
-		pointers := make([]any, len(columns))
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-		if err := rows.Scan(pointers...); err != nil {
-			return core.QueryResult{}, err
-		}
-		for i, value := range values {
-			switch item := value.(type) {
-			case []byte:
-				values[i] = string(item)
-			case time.Time:
-				values[i] = item.Format(time.RFC3339Nano)
-			}
-		}
-		result.Rows = append(result.Rows, values)
-	}
-	if err := rows.Err(); err != nil {
-		return core.QueryResult{}, err
-	}
-	return result, nil
+	return scanQueryRows(rows, columns, limits, connection.engine)
 }
 
 var postgresParameter = regexp.MustCompile(`\$([0-9]+)`)

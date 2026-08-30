@@ -18,6 +18,10 @@ func (s Service) CreateDashboard(d core.Dashboard, userID string) (core.Dashboar
 	}
 	d.CreatedBy = userID
 	d.CreatedAt = time.Now().UTC()
+	// Dashboards are private by default. Publishing and embedding are only
+	// enabled through their dedicated, permission-checked service methods.
+	d.PublicUUID = ""
+	d.PublicEmbedEnabled = false
 	normalizeDashboard(&d)
 	if err := s.Dashboards.Create(d); err != nil {
 		return core.Dashboard{}, err

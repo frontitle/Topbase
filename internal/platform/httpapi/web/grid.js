@@ -44,6 +44,33 @@
     out.sort();
     return out;
   }
+  var SENSITIVE_SEMANTICS = {
+    Birthday: true, PersonName: true, MobilePhone: true, NationalID: true,
+    BankCard: true, Email: true, Address: true, IPAddress: true
+  };
+  function maskMiddle(raw, head, tail) {
+    var value = String(raw ?? '');
+    if (value.length <= head + tail) return value.length <= 2 ? '*'.repeat(value.length) : value.slice(0, 1) + '*'.repeat(value.length - 2) + value.slice(-1);
+    return value.slice(0, head) + '*'.repeat(Math.max(value.length - head - tail, 4)) + value.slice(-tail);
+  }
+  function maskSensitive(raw, semantic) {
+    var value = String(raw ?? ''), type = String(semantic || '');
+    if (!value) return value;
+    if (type === 'MobilePhone') return maskMiddle(value, 3, 4);
+    if (type === 'NationalID') return maskMiddle(value, 6, 4);
+    if (type === 'BankCard') return maskMiddle(value, 4, 4);
+    if (type === 'Email') {
+      var at = value.indexOf('@');
+      if (at < 0) return maskMiddle(value, 1, 1);
+      var local = value.slice(0, at);
+      return maskMiddle(local, 1, local.length > 2 ? 1 : 0) + value.slice(at);
+    }
+    if (type === 'PersonName') return value.slice(0, 1) + '*'.repeat(Math.max(value.length - 1, 1));
+    if (type === 'Birthday') return value.replace(/(\d{4})[-/.年]?\d{1,2}[-/.月]?\d{1,2}.*/, '$1-**-**');
+    if (type === 'IPAddress') return value.replace(/^([\da-f]+)[.:].*$/i, '$1.*.*.*');
+    if (type === 'Address') return maskMiddle(value, Math.min(6, Math.max(2, Math.floor(value.length / 3))), 0);
+    return maskMiddle(value, 2, 2);
+  }
 
   global.TopbaseGrid = function (host, opts) {
     opts = opts || {};
@@ -54,6 +81,7 @@
       rows: opts.rows || [],
       aliases: opts.aliases || {},
       types: opts.types || {},
+      semanticTypes: opts.semanticTypes || {},
       descriptions: opts.descriptions || {},
       search: opts.search || '',
       filters: opts.filtersEnabled === false ? {} : Object.assign({}, opts.filters || {}),
@@ -63,11 +91,14 @@
       rowHeight: opts.rowHeight || 'normal',
       order: (opts.order || opts.columns || []).slice(),
       hidden: Object.assign({}, opts.hidden || {}),
-      showFilters: false
+      showFilters: false,
+      revealSensitive: false
     };
 
     function colIndex(name) { return state.columns.indexOf(name); }
     function visible() { return state.order.filter(function (c) { return !state.hidden[c]; }); }
+    function sensitive(name) { return !!SENSITIVE_SEMANTICS[state.semanticTypes[name]]; }
+    function displayValue(name, value) { return sensitive(name) && !state.revealSensitive ? maskSensitive(value, state.semanticTypes[name]) : value; }
     function moveColumn(name, direction) {
       var index = state.order.indexOf(name);
       var target = index + direction;
@@ -135,6 +166,8 @@
       var cols = visible();
       var rows = filteredRows();
       var compact = !!opts.compact, dashboardOnly = !!opts.dashboardOnly, hideToolbar = !!opts.hideToolbar;
+      var hasSensitive = cols.some(sensitive);
+      var privacyButton = hasSensitive ? '<button class="tb-tool tb-sensitive-toggle' + (state.revealSensitive ? ' active' : '') + '" type="button" data-toggle-sensitive aria-pressed="' + (state.revealSensitive ? 'true' : 'false') + '">' + (state.revealSensitive ? '隐藏敏感数据' : '显示敏感数据') + '</button>' : '';
       var active = host.contains(document.activeElement) ? document.activeElement : null;
       var restore = null;
       if (active && active.classList && active.classList.contains('tb-search')) {
@@ -143,7 +176,7 @@
         restore = { filter: active.dataset.filter, start: active.selectionStart, end: active.selectionEnd };
       }
       host.innerHTML = '<div class="tb-grid tb-row-' + state.rowHeight + (compact ? ' compact' : '') + (dashboardOnly ? ' dashboard-only' : '') + '">' +
-        (hideToolbar ? '' : '<div class="tb-grid-bar">' +
+		(hideToolbar ? (privacyButton ? '<div class="tb-grid-bar tb-privacy-bar"><span class="tb-privacy-hint">敏感字段已默认脱敏，搜索仍使用原始数据</span>' + privacyButton + '</div>' : '') : '<div class="tb-grid-bar">' +
 	        '<span class="tb-view-name"><span class="tb-view-dot">▦</span> 表格视图</span>' +
 	        '<span class="tb-toolbar-divider"></span>' +
           (compact ? '' : '<details class="tb-group"><summary>分组' + (state.group ? ' · ' + esc(state.aliases[state.group] || state.group) : '') + '</summary><label>按字段分组<select data-group><option value="">不分组</option>' + state.columns.map(function (c) { return '<option value="' + esc(c) + '"' + (state.group === c ? ' selected' : '') + '>' + esc(state.aliases[c] || c) + '</option>'; }).join('') + '</select></label></details>') +
@@ -152,6 +185,7 @@
           '<button class="tb-tool" type="button" data-clear-sort' + (state.sort ? '' : ' disabled') + '>排序</button>' +
           '<input class="tb-search" placeholder="搜索记录">' +
           '<span class="tb-count">显示 ' + rows.length + ' / ' + state.rows.length + ' 行</span>' +
+          privacyButton +
           (compact ? '' : '<details class="tb-cols"><summary>字段</summary><div class="tb-field-list">' +
             state.order.map(function (c, index) {
               var visibleLabel = state.hidden[c] ? '显示' : '隐藏';
@@ -173,7 +207,7 @@
               return '<th><select data-filter="' + esc(c) + '"><option value="">全部</option>' +
                 uniques.map(function (u) {
                   var stored = '=' + u;
-                  return '<option value="' + esc(stored) + '"' + (state.filters[c] === stored ? ' selected' : '') + '>' + (u === '' ? '（空）' : esc(u)) + '</option>';
+                  return '<option value="' + esc(stored) + '"' + (state.filters[c] === stored ? ' selected' : '') + '>' + (u === '' ? '（空）' : esc(displayValue(c, u))) + '</option>';
                 }).join('') + '</select></th>';
             }
             return '<th><input data-filter="' + esc(c) + '" value="' + val + '" placeholder="包含 / > = <"></th>';
@@ -182,12 +216,13 @@
             var groupCell = state.group ? row[colIndex(state.group)] : null;
             var previous = rowIndex > 0 ? rows[rowIndex - 1][colIndex(state.group)] : undefined;
             var columnCount = Math.max(cols.length + (dashboardOnly ? 0 : 1), 1);
-            var groupHeader = state.group && groupCell !== previous ? '<tr class="tb-group-row"><td colspan="' + columnCount + '"><span>⌄</span>' + esc(state.aliases[state.group] || state.group) + '：<b>' + esc(groupCell == null || groupCell === '' ? '（空）' : groupCell) + '</b></td></tr>' : '';
+            var groupHeader = state.group && groupCell !== previous ? '<tr class="tb-group-row"><td colspan="' + columnCount + '"><span>⌄</span>' + esc(state.aliases[state.group] || state.group) + '：<b>' + esc(groupCell == null || groupCell === '' ? '（空）' : displayValue(state.group, groupCell)) + '</b></td></tr>' : '';
             return groupHeader + '<tr>' + (dashboardOnly ? '' : '<td class="tb-row-number">' + (state.rows.indexOf(row)+1) + '</td>') + cols.map(function (c) {
               var v = row[colIndex(c)];
               if (v === null || v === undefined || v === '') return '<td class="null">—</td>';
               var cls = isFiniteNumber(v) ? ' num' : '';
-              return '<td class="' + cls + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+              var shown = displayValue(c, v);
+              return '<td class="' + cls + (sensitive(c) ? ' sensitive' : '') + '" title="' + esc(shown) + '">' + esc(shown) + '</td>';
             }).join('') + '</tr>';
           }).join('') : '<tr><td class="empty" colspan="' + Math.max(cols.length + (dashboardOnly ? 0 : 1), 1) + '">没有匹配的行。试试清空筛选，或用 >100、=已完成 这样的条件。</td></tr>') +
         '</tbody></table></div></div>';
@@ -199,6 +234,8 @@
       }
 	  var filterButton = host.querySelector('[data-toggle-filters]');
 	  if (filterButton) filterButton.onclick = function () { state.showFilters = !state.showFilters; render(); };
+      var sensitiveButton = host.querySelector('[data-toggle-sensitive]');
+      if (sensitiveButton) sensitiveButton.onclick = function () { state.revealSensitive = !state.revealSensitive; render(); };
       var clearSort = host.querySelector('[data-clear-sort]');
       if (clearSort) clearSort.onclick = function () { state.sort = ''; state.dir = 'asc'; render(); notify(); };
       var groupSelect = host.querySelector('[data-group]');
@@ -273,6 +310,7 @@
         state.rows = next.rows || [];
         state.aliases = next.aliases || {};
         state.types = next.types || state.types;
+        state.semanticTypes = next.semanticTypes || state.semanticTypes;
         state.descriptions = next.descriptions || state.descriptions;
         render();
       },
