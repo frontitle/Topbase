@@ -2,6 +2,21 @@
 
 Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明和可复现构建元数据。
 
+## [0.2.3] - 2026-08-30
+
+### 调整
+
+- 重构 README 安装说明，分别给出服务器直接运行与 Docker Compose 两条完整路径，并明确直接运行、Docker 默认端口和自定义端口方式。
+- 将 GHCR 容器包设为公开，正式镜像支持无需登录直接拉取 `0.2.3` 与 `latest`。
+
+### 修复
+
+- 容器持久化回归测试不再写死旧版本号，改为读取仓库 `VERSION`，避免版本升级后产生错误的 CI 失败。
+
+### 升级
+
+本版本不改变应用数据库 Schema。完整步骤和验收清单见 [0.2.3 升级说明](docs/releases/0.2.3.md)。
+
 ## [0.2.2] - 2026-08-30
 
 ### 新增
@@ -42,3 +57,4 @@ Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明�
 
 [0.2.1]: https://github.com/frontitle/Topbase/releases/tag/v0.2.1
 [0.2.2]: https://github.com/frontitle/Topbase/releases/tag/v0.2.2
+[0.2.3]: https://github.com/frontitle/Topbase/releases/tag/v0.2.3

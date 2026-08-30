@@ -6,6 +6,7 @@
 - [配置参考](configuration.md)：环境变量、数据目录和秘密配置
 - [部署](deployment.md)：Docker Compose 与二进制部署
 - [升级与备份](upgrading.md)：版本策略、migration、备份和回滚
+- [0.2.3 升级说明](releases/0.2.3.md)：公开镜像、安装指引与发布可靠性修复
 - [0.2.2 升级说明](releases/0.2.2.md)：网络、公开地址与工作台体验更新
 - [数据库驱动](database-drivers.md)：支持矩阵与能力边界
 - [AI、MCP 与 CLI](ai-integrations.md)：让 AI 理解数据、问答并创建分析

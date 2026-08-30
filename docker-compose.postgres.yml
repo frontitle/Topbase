@@ -18,7 +18,7 @@ services:
     build:
       context: .
       args:
-        VERSION: "${TOPBASE_VERSION:-0.2.2}"
+        VERSION: "${TOPBASE_VERSION:-0.2.3}"
         COMMIT: "${TOPBASE_COMMIT:-unknown}"
         BUILD_TIME: "${TOPBASE_BUILD_TIME:-unknown}"
     image: topbase/topbase:local
