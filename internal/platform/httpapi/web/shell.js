@@ -24,7 +24,7 @@ window.topbaseRememberDatabase = function (id) {
   ];
   const adminItems = [
     { id: 'back', href: '/', icon: 'arrow-left', label: '返回工作台' },
-    { id: 'databases', href: '/admin/', icon: 'database', label: '数据源' },
+    { id: 'databases', href: '/admin/', icon: 'database', label: '数据' },
     { id: 'datamodel', href: '/admin/datamodel/', icon: 'network', label: '数据模型' },
     { id: 'people', href: '/admin/people/', icon: 'users', label: '人员与组' },
     { id: 'integrations', href: '/admin/integrations/', icon: 'webhook', label: '通知与订阅' },

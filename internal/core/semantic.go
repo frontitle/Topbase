@@ -6,14 +6,62 @@ import (
 	"github.com/topbase/topbase/internal/core/queryir"
 )
 
+type SemanticTypeOption struct {
+	Value     string `json:"value"`
+	Label     string `json:"label"`
+	Sensitive bool   `json:"sensitive,omitempty"`
+}
+
+var SemanticTypeOptions = []SemanticTypeOption{
+	{Value: "EntityKey", Label: "主键（实体标识）"},
+	{Value: "ForeignKey", Label: "外键"},
+	{Value: "Quantity", Label: "数量"},
+	{Value: "Score", Label: "评分"},
+	{Value: "Percentage", Label: "百分比"},
+	{Value: "Currency", Label: "金额（货币）"},
+	{Value: "Discount", Label: "折扣"},
+	{Value: "Income", Label: "收入"},
+	{Value: "Latitude", Label: "纬度"},
+	{Value: "Longitude", Label: "经度"},
+	{Value: "CreationDate", Label: "创建日期"},
+	{Value: "CreationTime", Label: "创建时间"},
+	{Value: "CreationTimestamp", Label: "创建日期时间"},
+	{Value: "JoinedDate", Label: "加入日期"},
+	{Value: "JoinedTime", Label: "加入时间"},
+	{Value: "JoinedTimestamp", Label: "加入日期时间"},
+	{Value: "Birthday", Label: "生日", Sensitive: true},
+	{Value: "EntityName", Label: "实体名称"},
+	{Value: "PersonName", Label: "姓名", Sensitive: true},
+	{Value: "MobilePhone", Label: "手机号", Sensitive: true},
+	{Value: "NationalID", Label: "身份证号", Sensitive: true},
+	{Value: "BankCard", Label: "银行卡号", Sensitive: true},
+	{Value: "Email", Label: "电子邮箱", Sensitive: true},
+	{Value: "Address", Label: "详细地址", Sensitive: true},
+	{Value: "URL", Label: "网页地址"},
+	{Value: "ImageURL", Label: "图片地址"},
+	{Value: "AvatarURL", Label: "头像地址"},
+	{Value: "Category", Label: "分类"},
+	{Value: "Name", Label: "名称"},
+	{Value: "Title", Label: "标题"},
+	{Value: "Description", Label: "说明"},
+	{Value: "Product", Label: "产品"},
+	{Value: "Source", Label: "来源"},
+	{Value: "City", Label: "城市"},
+	{Value: "State", Label: "省／州"},
+	{Value: "Country", Label: "国家／地区"},
+	{Value: "ZipCode", Label: "邮政编码"},
+	{Value: "IPAddress", Label: "IP 地址", Sensitive: true},
+	{Value: "FieldContainingJSON", Label: "JSON 数据"},
+}
+
 var SemanticTypes = []string{
 	"EntityKey", "ForeignKey",
 	"Quantity", "Score", "Percentage", "Currency", "Discount", "Income", "Latitude", "Longitude",
 	"CreationDate", "CreationTime", "CreationTimestamp",
 	"JoinedDate", "JoinedTime", "JoinedTimestamp", "Birthday",
-	"EntityName", "Email", "URL", "ImageURL", "AvatarURL", "Category", "Name", "Title",
+	"EntityName", "PersonName", "MobilePhone", "NationalID", "BankCard", "Email", "Address", "URL", "ImageURL", "AvatarURL", "Category", "Name", "Title",
 	"Description", "Product", "Source", "City", "State", "Country", "ZipCode",
-	"FieldContainingJSON",
+	"IPAddress", "FieldContainingJSON",
 }
 
 func ValidSemanticType(value string) bool {

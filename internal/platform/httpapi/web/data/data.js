@@ -332,15 +332,16 @@ function renderGrid(d, mode){
   const rows=d.rows||[];
   queryEditor.setGeneratedSQL(d.sql||'');
   const n=mode==='visual'?(lastQueryIR&&lastQueryIR.filters||[]).length:0;
-  $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(mode==='sql'?'（SQL 实时查询）':(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。'));
+  const limited=queryLimitMessage(d.meta);
+  $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(mode==='sql'?'（SQL 实时查询）':(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。'))+(limited?` · ${limited}`:'');
   if(!cols.length){$('#grid-wrap').innerHTML='<p>这张表没有返回列。</p>';return}
-  const types={},descriptions={};
+  const types={},semanticTypes=Object.assign({},d.meta&&d.meta.semantic_types||{}),descriptions={};
   tables.forEach(table=>(table.columns||[]).forEach(column=>{
     if(types[column.name]===undefined)types[column.name]=column.data_type;
     if(descriptions[column.name]===undefined)descriptions[column.name]=column.description||'';
   }));
-  fieldMeta.forEach(field=>{if(field.description)descriptions[field.name]=field.description});
-  TopbaseGrid('#grid-wrap',{columns:cols, rows, aliases, types, descriptions, filtersEnabled:false, hideToolbar:true, hidden:gridState.hidden, onChange:state=>{gridState.hidden=state.hidden}});
+  fieldMeta.forEach(field=>{if(field.description)descriptions[field.name]=field.description;if(field.semantic_type)semanticTypes[field.name]=field.semantic_type});
+  TopbaseGrid('#grid-wrap',{columns:cols, rows, aliases, types, semanticTypes, descriptions, filtersEnabled:false, hideToolbar:true, hidden:gridState.hidden, onChange:state=>{gridState.hidden=state.hidden}});
 }
 queryEditor=TopbaseQueryEditor.mount('#ask-panel',{
   onSQLChange:()=>{lastChart=null},
@@ -365,6 +366,17 @@ $('#toggle-ask').onclick=()=>{
 };
 $('#join-table').onchange=updateJoinTarget;
 $('#fields').onchange=()=>{updateSelectedFieldCount();updateBuilderSummary()};
+document.addEventListener('click',event=>{
+  const details=$('.field-details');
+  if(details&&details.open&&!details.contains(event.target))details.open=false;
+});
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape')return;
+  const details=$('.field-details');
+  if(!details||!details.open)return;
+  details.open=false;
+  details.querySelector('summary')?.focus();
+});
 $('#aggregation').onchange=updateAggregationControls;
 $('#aggregation-field').onchange=updateBuilderSummary;
 $('#group-by-field').onchange=updateGroupControls;

@@ -42,7 +42,7 @@ func (s *server) listSemanticTypes(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, core.SemanticTypes)
+	writeJSON(w, http.StatusOK, core.SemanticTypeOptions)
 }
 
 func (s *server) listModels(w http.ResponseWriter, r *http.Request) {

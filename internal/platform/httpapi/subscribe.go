@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"runtime"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/topbase/topbase/internal/adapters/feishu"
 	"github.com/topbase/topbase/internal/core"
@@ -69,6 +72,49 @@ func (s *server) syncFeishuDepartments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, groups)
 }
 
+func (s *server) syncIdentityProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	providers, err := s.identity.IdentityProviders()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	var provider *core.IdentityProvider
+	for i := range providers {
+		if providers[i].ID == r.PathValue("id") {
+			provider = &providers[i]
+			break
+		}
+	}
+	if provider == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "enterprise account provider not found"})
+		return
+	}
+	if !provider.Enabled || strings.TrimSpace(provider.ClientID) == "" || strings.TrimSpace(provider.ClientSecret) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请先填写应用凭据、启用接入并保存配置"})
+		return
+	}
+	var directory core.OrgDirectory
+	switch provider.Type {
+	case "feishu":
+		directory = feishu.APIDirectory{AppID: provider.ClientID, AppSecret: provider.ClientSecret, HTTP: &http.Client{Timeout: 15 * time.Second}}
+	case "dingtalk", "wecom":
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "当前部署尚未安装该平台的组织同步适配器"})
+		return
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "该账号平台不提供组织同步"})
+		return
+	}
+	groups, err := s.identity.SyncDirectory(r.Context(), directory)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, groups)
+}
+
 func (s *server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view"); !ok {
 		return
@@ -117,7 +163,20 @@ func (s *server) adminMonitor(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"alerts": alerts, "schedules": schedules, "runs": runs, "subscriptions": subs})
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"alerts": alerts, "schedules": schedules, "runs": runs, "subscriptions": subs,
+		"runtime": map[string]any{
+			"heap_alloc_bytes":   memory.HeapAlloc,
+			"heap_inuse_bytes":   memory.HeapInuse,
+			"heap_objects":       memory.HeapObjects,
+			"sys_bytes":          memory.Sys,
+			"gc_cycles":          memory.NumGC,
+			"goroutines":         runtime.NumGoroutine(),
+			"memory_limit_bytes": debug.SetMemoryLimit(-1),
+		},
+	})
 }
 
 func (s *server) listAdminNotifications(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +201,7 @@ func (s *server) listIdentityProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range items {
+		items[i].Configured = strings.TrimSpace(items[i].ClientID) != "" && strings.TrimSpace(items[i].ClientSecret) != ""
 		items[i].ClientSecret = ""
 	}
 	writeJSON(w, 200, items)
@@ -161,10 +221,15 @@ func (s *server) saveIdentityProviders(w http.ResponseWriter, r *http.Request) {
 				items[i].ClientSecret = old.ClientSecret
 			}
 		}
+		items[i].Configured = false
 	}
 	if err := s.identity.SaveIdentityProviders(items); err != nil {
 		writeJSON(w, 400, map[string]string{"error": err.Error()})
 		return
+	}
+	for i := range items {
+		items[i].Configured = strings.TrimSpace(items[i].ClientID) != "" && strings.TrimSpace(items[i].ClientSecret) != ""
+		items[i].ClientSecret = ""
 	}
 	writeJSON(w, 200, items)
 }

@@ -15,9 +15,11 @@ const publicFiles = [
   'docs/frontend-components.md',
   'docs/getting-started.md',
   'docs/information-architecture.md',
+  'docs/performance.md',
   'docs/releases/0.2.1.md',
   'docs/releases/0.2.2.md',
   'docs/releases/0.2.3.md',
+  'docs/releases/0.2.4.md',
   'docs/upgrading.md',
 ];
 

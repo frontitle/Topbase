@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   topbase:
-    image: "ghcr.io/frontitle/topbase:${TOPBASE_VERSION:-0.2.3}"
+    image: "ghcr.io/frontitle/topbase:${TOPBASE_VERSION:-0.2.4}"
     pull_policy: always
     ports:
       - "${TOPBASE_HTTP_PORT:-8101}:8080"
@@ -34,6 +34,12 @@ services:
       TOPBASE_INSTANCE_ID: "${TOPBASE_INSTANCE_ID:-topbase-compose-1}"
       TOPBASE_CRON: "on"
       TOPBASE_SECURE_COOKIES: "${TOPBASE_SECURE_COOKIES:-false}"
+      GOMEMLIMIT: "${TOPBASE_GOMEMLIMIT:-384MiB}"
+      TOPBASE_MAX_CONCURRENT_QUERIES: "${TOPBASE_MAX_CONCURRENT_QUERIES:-8}"
+      TOPBASE_QUERY_RESULT_MAX_BYTES: "${TOPBASE_QUERY_RESULT_MAX_BYTES:-16777216}"
+      TOPBASE_QUERY_CELL_MAX_BYTES: "${TOPBASE_QUERY_CELL_MAX_BYTES:-1048576}"
+      TOPBASE_SOURCE_DB_MAX_OPEN_CONNS: "${TOPBASE_SOURCE_DB_MAX_OPEN_CONNS:-8}"
+      TOPBASE_SOURCE_DB_MAX_IDLE_CONNS: "${TOPBASE_SOURCE_DB_MAX_IDLE_CONNS:-4}"
       FEISHU_APP_ID: "${FEISHU_APP_ID:-}"
       FEISHU_APP_SECRET: "${FEISHU_APP_SECRET:-}"
       FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:-}"
@@ -41,6 +47,7 @@ services:
       - topbase_data:/data
       - topbase_backups:/backups
     read_only: true
+    mem_limit: "${TOPBASE_CONTAINER_MEMORY_LIMIT:-512m}"
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     cap_drop:

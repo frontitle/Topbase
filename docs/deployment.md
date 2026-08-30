@@ -7,7 +7,7 @@
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.3
+git checkout v0.2.4
 cp .env.example .env
 # 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
@@ -83,7 +83,7 @@ curl --fail http://localhost:8101/api/ready
 
 ```bash
 git fetch --tags
-git checkout v0.2.3
+git checkout v0.2.4
 make check
 make build
 TOPBASE_ADDR=:80 \

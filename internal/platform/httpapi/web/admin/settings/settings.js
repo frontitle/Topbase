@@ -1,6 +1,8 @@
 (function(){
   var form=$('#form'),save=$('#save'),state=$('#save-state'),publicLink=$('#public_sharing_enabled'),embedding=$('#embedding_enabled'),embeddingRow=$('#embedding-row'),impact=$('#public-impact');
   var original={},publicBoards=0,saving=false,developerOriginal={},developerSaving=false;
+  var settingsTabs=TopbaseTabs.mount('.settings-tabs',{tabSelector:'[data-settings-tab]',panelSelector:'[data-settings-panel]',tabValue:function(tab){return tab.dataset.settingsTab;},panelValue:function(panel){return panel.dataset.settingsPanel;},initial:location.hash.slice(1)||'workspace',onChange:function(tab){$('.settings-head-actions').hidden=tab!=='workspace'&&tab!=='access';history.replaceState(null,'','#'+tab);}});
+  $('.settings-head-actions').hidden=settingsTabs.value()!=='workspace'&&settingsTabs.value()!=='access';
   function values(){return {site_name:$('#site_name').value.trim(),timezone:$('#timezone').value,public_scheme:$('#public_scheme').value,custom_domain:$('#custom_domain').value.trim().toLowerCase(),public_port:Number($('#public_port').value)||0,public_sharing_enabled:publicLink.checked,embedding_enabled:embedding.checked};}
   function changed(){var current=values();return Object.keys(current).some(function(key){return current[key]!==original[key];});}
   function syncAccess(){var enabled=publicLink.checked;embedding.disabled=!enabled;embeddingRow.classList.toggle('is-disabled',!enabled);if(!enabled)embedding.checked=false;impact.hidden=enabled||!publicBoards;impact.textContent=publicBoards?'关闭后，'+publicBoards+' 个已发布仪表盘的公开链接将立即不可访问。':'';}

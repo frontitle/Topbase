@@ -1,4 +1,5 @@
 let testPassed=false, databases=[], current=null, tables=[], activeTable=null, editingId=null, wizardTabs=null;
+let uploadedTables=[];
 const engineProfiles={
   postgres:{label:'PostgreSQL',port:5432,network:true,username:true,ssh:true,dsn:'postgres://user:password@host:5432/database?sslmode=require',hint:'标准 PostgreSQL 协议。'},
   mysql:{label:'MySQL / MariaDB',port:3306,network:true,username:true,ssh:true,dsn:'user:password@tcp(host:3306)/database?parseTime=true',hint:'同时兼容 MariaDB、TiDB、OceanBase MySQL 模式、Doris 和 StarRocks。'},
@@ -160,7 +161,18 @@ async function load(){
     if(id && databases.some(d=>d.id===id)) await openDatabase(id);
   }catch(e){toast(e.message)}
 }
+async function loadUploads(){
+  const result=await Promise.all([api('/api/warehouse/uploads'),api('/api/warehouse/tables')]);
+  uploadedTables=result[0]; const materialized=result[1];
+  const uploadCards=uploadedTables.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">X</span><div><b>${esc(item.name)}</b><small>${esc(item.file_name)} · ${esc(item.sheet_name)} · ${item.row_count} 行 · ${(item.columns||[]).length} 个字段</small></div></div><button class="remove" data-delete-upload="${esc(item.id)}" type="button">删除</button></article>`).join('');
+  const materializedCards=materialized.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">◫</span><div><b>${esc(item.name)}</b><small>${esc(item.schema)} · ${item.row_count||0} 行 · ${item.last_status==='succeeded'?'更新成功':'等待更新'}</small></div></div><a class="secondary" href="/warehouse/">管理</a></article>`).join('');
+  $('#upload-list').innerHTML=uploadCards+materializedCards||emptyHTML({title:'还没有本地数据',body:'上传 Excel，或在工作台把分析配置为按计划沉淀。'});
+  $$('[data-delete-upload]').forEach(button=>button.onclick=async()=>{if(!await confirmDialog({kicker:'本地数仓',title:'删除这个上传数据集？',description:'只会删除 Topbase 保存的 Excel 数据，不会影响原始文件。',confirmText:'删除数据集',tone:'danger'}))return;await api('/api/warehouse/uploads/'+encodeURIComponent(button.dataset.deleteUpload),'DELETE');toast('本地数据集已删除');loadUploads().catch(e=>toast(e.message))});
+}
 $('#show-form').onclick=showWizard;$('#empty-add').onclick=showWizard;
+TopbaseTabs.mount('.data-admin-tabs',{tabSelector:'[data-data-tab]',tabValue:tab=>tab.dataset.dataTab,panelSelector:'#list-view,#local-warehouse',panels:document, panelValue:panel=>panel.id==='local-warehouse'?'local':'remote',onChange:tab=>{if(tab==='local')loadUploads().catch(e=>toast(e.message))}});
+$('#upload-excel').onclick=()=>$('#excel-file').click();
+$('#excel-file').onchange=async event=>{const file=event.target.files&&event.target.files[0];if(!file)return;const form=new FormData();form.append('file',file);try{$('#upload-excel').disabled=true;$('#upload-excel').textContent='正在导入…';const response=await fetch('/api/warehouse/uploads',{method:'POST',body:form,credentials:'same-origin',headers:{'X-Topbase-CSRF':(document.cookie.match(/(?:^|; )topbase_csrf=([^;]+)/)||[])[1]||''}});const payload=await response.json().catch(()=>({}));if(!response.ok)throw Error(payload.error||'上传失败');toast('已导入 '+payload.row_count+' 行到本地数仓');await loadUploads()}catch(error){toast(error.message)}finally{$('#upload-excel').disabled=false;$('#upload-excel').textContent='上传 Excel';event.target.value=''}};
 $('#search').oninput=load;
 $('#back-list').onclick=()=>{showList();load()};
 $('#edit-connection').onclick=()=>showEditWizard().catch(e=>toast(e.message));

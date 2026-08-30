@@ -7,9 +7,35 @@
     { id: 'bar', label: '柱状图' },
     { id: 'row', label: '条形图' },
     { id: 'scatter', label: '散点图' },
-    { id: 'pie', label: '饼图' }
+    { id: 'pie', label: '饼图' },
+    { id: 'map', label: '地图' }
   ];
-  var COLORS = ['#509EE3', '#88BF4D', '#A989C5', '#EF8C8C', '#F9D45C', '#F2A86F', '#98D9D9', '#7172AD', '#ED8535', '#00A989', '#C5A3E6', '#FF8A80'];
+  // Brand-derived palette: structural ocean blue, luminous data teal, then
+  // balanced categorical accents. Keep the first two series closest to the logo.
+  var COLORS = ['#0B66C3', '#12C9AA', '#2F8FEA', '#58D6C2', '#6258E8', '#F0B44D', '#EB6F6A', '#35A66F', '#31569F', '#8A6ED1', '#39B6DA', '#F29B68'];
+  var DEFAULT_MAP_PACKAGE = 'china-provinces';
+  var CHINA_PROVINCES = {
+    '110000':'北京市','120000':'天津市','130000':'河北省','140000':'山西省','150000':'内蒙古自治区',
+    '210000':'辽宁省','220000':'吉林省','230000':'黑龙江省','310000':'上海市','320000':'江苏省',
+    '330000':'浙江省','340000':'安徽省','350000':'福建省','360000':'江西省','370000':'山东省',
+    '410000':'河南省','420000':'湖北省','430000':'湖南省','440000':'广东省','450000':'广西壮族自治区',
+    '460000':'海南省','500000':'重庆市','510000':'四川省','520000':'贵州省','530000':'云南省',
+    '540000':'西藏自治区','610000':'陕西省','620000':'甘肃省','630000':'青海省','640000':'宁夏回族自治区',
+    '650000':'新疆维吾尔自治区','710000':'台湾省','810000':'香港特别行政区','820000':'澳门特别行政区'
+  };
+  var MAP_PACKAGES = {};
+  var mapPromises = {};
+
+  registerMapPackage({
+    id: DEFAULT_MAP_PACKAGE,
+    label: '中国 · 省级行政区',
+    mapName: 'topbase-china-provinces',
+    url: '/assets/maps/china-provinces.json',
+    aliases: CHINA_PROVINCES,
+    codeProperty: 'adcode',
+    nameProperty: 'name',
+    labelSuffixes: ['特别行政区','维吾尔自治区','壮族自治区','回族自治区','自治区','省','市']
+  });
 
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, function (c) {
@@ -166,14 +192,14 @@
       var ys = (queryir.aggregations || []).map(function (a) { return a.alias || String(a.fn || '').toLowerCase(); }).filter(Boolean);
       var gb = (queryir.group_by || [])[0];
       if (!gb && ys.length === 1) inferred = { type: 'scalar', y: ys };
-      else if (gb && gb.temporal) inferred = { type: 'line', x: (gb.field || '') + '_' + String(gb.temporal).toLowerCase(), y: ys };
+      else if (gb && gb.temporal) inferred = { type: 'line', x: (gb.field || '') + '_' + String(gb.temporal).toLowerCase(), y: ys.slice(0, 1) };
       else if (gb && ys.length) inferred = { type: 'bar', x: gb.field, y: ys };
     } else if (kind.dims.length && kind.metrics.length) {
       var dateDim = kind.dims.find(function (name) {
         var i = colIndex(columns, name);
         return (rows || []).some(function (r) { return looksDate(r[i]); });
       });
-      inferred = { type: dateDim ? 'line' : 'bar', x: dateDim || kind.dims[0], y: kind.metrics.slice(0, 4) };
+      inferred = { type: dateDim ? 'line' : 'bar', x: dateDim || kind.dims[0], y: dateDim ? kind.metrics.slice(0, 1) : kind.metrics.slice(0, 4) };
     } else if (kind.metrics.length === 1 && (rows || []).length <= 1) {
       inferred = { type: 'scalar', y: kind.metrics.slice() };
     }
@@ -189,6 +215,14 @@
     out.y = (out.y || []).filter(function (name) { return (columns || []).indexOf(name) >= 0; });
     if (out.x && (columns || []).indexOf(out.x) < 0) out.x = inferred.x || kind.dims[0] || '';
     if (out.breakout && (columns || []).indexOf(out.breakout) < 0) out.breakout = '';
+    if (out.type === 'map') {
+      if (!out.x) out.x = kind.dims[0] || (columns || [])[0] || '';
+      out.y = out.y.filter(function (name) { return name !== out.x; }).slice(0, 1);
+      if (!out.y.length) {
+        var mapValue = kind.metrics.find(function (name) { return name !== out.x; }) || (columns || []).find(function (name) { return name !== out.x; });
+        out.y = mapValue ? [mapValue] : [];
+      }
+    }
     return out;
   }
   function stackingOf(spec) {
@@ -201,6 +235,110 @@
     if (st.color) return st.color;
     if (name === '其他' && spec.other_color) return spec.other_color;
     return COLORS[index % COLORS.length];
+  }
+  function registerMapPackage(input) {
+    input = input || {};
+    var id = String(input.id || '').trim();
+    if (!id || !/^[a-z0-9][a-z0-9_-]*$/i.test(id)) throw new Error('地图包 id 只能包含字母、数字、下划线和连字符');
+    if (!input.label) throw new Error('地图包必须提供 label');
+    if (!input.url && !input.geoJSON) throw new Error('地图包必须提供 url 或 geoJSON');
+    var pkg = Object.assign({}, input, {
+      id: id,
+      label: String(input.label),
+      mapName: String(input.mapName || ('topbase-map-' + id)),
+      aliases: Object.assign({}, input.aliases || {}),
+      labelSuffixes: (input.labelSuffixes || []).slice()
+    });
+    MAP_PACKAGES[id] = pkg;
+    delete mapPromises[id];
+    return pkg;
+  }
+  function mapPackageList() {
+    return Object.keys(MAP_PACKAGES).map(function (id) { return MAP_PACKAGES[id]; });
+  }
+  function mapPackageOf(spec) {
+    return MAP_PACKAGES[(spec && spec.map_package) || DEFAULT_MAP_PACKAGE] || MAP_PACKAGES[DEFAULT_MAP_PACKAGE] || mapPackageList()[0];
+  }
+  function normalizeMapRegion(value, pkg) {
+    var raw = String(value == null ? '' : value).trim();
+    if (!raw) return '';
+    var compact = raw.replace(/\s+/g, '');
+    var aliases = (pkg && pkg.aliases) || {};
+    if (aliases[raw] != null) return String(aliases[raw]);
+    if (aliases[compact] != null) return String(aliases[compact]);
+    var keys = Object.keys(aliases);
+    for (var i = 0; i < keys.length; i++) {
+      var full = String(aliases[keys[i]]);
+      var short = shortMapLabel(full, pkg);
+      if (compact === full || compact === short) return full;
+    }
+    return compact;
+  }
+  function shortMapLabel(name, pkg) {
+    var text = String(name || '');
+    var suffixes = (pkg && pkg.labelSuffixes) || [];
+    for (var i = 0; i < suffixes.length; i++) {
+      var suffix = String(suffixes[i]);
+      if (suffix && text.endsWith(suffix)) return text.slice(0, -suffix.length);
+    }
+    return text;
+  }
+  function prepareMapGeoJSON(pkg, geoJSON) {
+    var features = (geoJSON && geoJSON.features) || [];
+    features.forEach(function (feature) {
+      var properties = (feature && feature.properties) || {};
+      var name = properties[pkg.nameProperty || 'name'];
+      if (name != null && properties.name == null) properties.name = String(name);
+      if (name != null) {
+        pkg.aliases[String(name)] = String(name);
+        pkg.aliases[shortMapLabel(String(name), pkg)] = String(name);
+      }
+      var code = pkg.codeProperty && properties[pkg.codeProperty];
+      if (code != null && name != null) pkg.aliases[String(code)] = String(name);
+    });
+    return geoJSON;
+  }
+  function ensureMapPackage(pkg) {
+    if (!global.echarts) return Promise.reject(new Error('图表组件没有加载成功'));
+    if (!pkg) return Promise.reject(new Error('没有可用的地图包'));
+    if (global.echarts.getMap && global.echarts.getMap(pkg.mapName)) return Promise.resolve(pkg);
+    if (mapPromises[pkg.id]) return mapPromises[pkg.id];
+    var source;
+    if (pkg.geoJSON) source = Promise.resolve(pkg.geoJSON);
+    else if (!global.fetch) source = Promise.reject(new Error('当前浏览器无法加载地图边界'));
+    else source = global.fetch(pkg.url, { credentials: 'same-origin' }).then(function (response) {
+      if (!response.ok) throw new Error('地图包加载失败（' + response.status + '）');
+      return response.json();
+    }).then(function (geoJSON) {
+      return geoJSON;
+    });
+    mapPromises[pkg.id] = source.then(function (geoJSON) {
+      global.echarts.registerMap(pkg.mapName, prepareMapGeoJSON(pkg, geoJSON));
+      return pkg;
+    }).catch(function (error) {
+      delete mapPromises[pkg.id];
+      throw error;
+    });
+    return mapPromises[pkg.id];
+  }
+  function isDark(spec) { return !!(spec && spec.dashboard_theme && spec.dashboard_theme !== 'light'); }
+  function chartTone(spec) {
+    return isDark(spec) ? {
+      text: '#b8cddd', muted: '#88a7ba', line: '#28485c', grid: 'rgba(128,190,207,.13)',
+      tooltipBg: 'rgba(5,24,40,.94)', tooltipBorder: '#2c6972', tooltipText: '#eefbff'
+    } : {
+      text: '#415764', muted: '#718792', line: '#d9e5e9', grid: 'rgba(29,91,116,.09)',
+      tooltipBg: 'rgba(255,255,255,.97)', tooltipBorder: '#cce0e4', tooltipText: '#183444'
+    };
+  }
+  function chartGradient(color, horizontal, strong) {
+    return {
+      type: 'linear', x: 0, y: 0, x2: horizontal ? 1 : 0, y2: horizontal ? 0 : 1,
+      colorStops: [
+        { offset: 0, color: color + (strong ? 'FF' : 'E8') },
+        { offset: 1, color: color + (strong ? 'B8' : '42') }
+      ]
+    };
   }
   function titleOf(spec, name) { return seriesStyle(spec, name).title || name; }
   function visibleOf(spec, name) { return seriesStyle(spec, name).visible !== false; }
@@ -390,16 +528,17 @@
     var scale = ya.scale || 'linear';
     var hidden = ya.enabled === 'hide' || ya.enabled === false || ya.enabled === 'false';
     var auto = ya.auto_range !== false;
+    var tone = chartTone(spec);
     var axis = {
       type: scale === 'log' ? 'log' : 'value',
       name: ya.labels === false ? '' : (ya.title || spec.y_title || ''),
-      nameTextStyle: { color: '#888', fontSize: 11 },
-      splitLine: hidden ? { show: false } : { lineStyle: { color: '#f0f0f0' } },
+      nameTextStyle: { color: tone.muted, fontSize: 11, fontWeight: 500 },
+      splitLine: hidden ? { show: false } : { lineStyle: { color: tone.grid, type: 'dashed' } },
       axisTick: { show: !hidden },
-      axisLine: { show: !hidden, lineStyle: { color: '#e6e6e6' } },
+      axisLine: { show: !hidden, lineStyle: { color: tone.line } },
       axisLabel: {
         show: !hidden,
-        color: '#888',
+        color: tone.muted,
         fontSize: compact ? 10 : 11,
         formatter: function (v) {
           if (stacking === 'percent') return formatNumber(v, spec, { percent: true, alreadyPercent: true });
@@ -423,14 +562,15 @@
     var rotate = enabled === 'rotate-45' ? 45 : enabled === 'rotate-90' ? 90 : 0;
     var scale = xScaleOf(spec, labels);
     var title = xa.labels === false ? '' : (xa.title || spec.x_title || '');
+    var tone = chartTone(spec);
     if (scale === 'timeseries') {
       return {
         type: 'time',
         name: isRow ? (axisSpec(spec, 'y_axis').title || spec.y_title || '') : title,
-        nameTextStyle: { color: '#888', fontSize: 11 },
-        axisLabel: { show: !hidden, color: '#666', fontSize: compact ? 10 : 11, hideOverlap: true, rotate: rotate },
+        nameTextStyle: { color: tone.muted, fontSize: 11, fontWeight: 500 },
+        axisLabel: { show: !hidden, color: tone.text, fontSize: compact ? 10 : 11, hideOverlap: true, rotate: rotate },
         axisTick: { show: !hidden && enabled !== 'compact' },
-        axisLine: { show: !hidden, lineStyle: { color: '#e6e6e6' } },
+        axisLine: { show: !hidden, lineStyle: { color: tone.line } },
         splitLine: { show: false }
       };
     }
@@ -438,35 +578,35 @@
       return {
         type: 'value',
         name: title,
-        nameTextStyle: { color: '#888', fontSize: 11 },
-        axisLabel: { show: !hidden, color: '#666', fontSize: compact ? 10 : 11, rotate: rotate },
+        nameTextStyle: { color: tone.muted, fontSize: 11, fontWeight: 500 },
+        axisLabel: { show: !hidden, color: tone.text, fontSize: compact ? 10 : 11, rotate: rotate },
         axisTick: { show: !hidden },
-        axisLine: { show: !hidden, lineStyle: { color: '#e6e6e6' } },
-        splitLine: { lineStyle: { color: '#f6f6f6' } }
+        axisLine: { show: !hidden, lineStyle: { color: tone.line } },
+        splitLine: { lineStyle: { color: tone.grid, type: 'dashed' } }
       };
     }
     return {
       type: 'category',
       data: labels.map(function (v) { return v == null ? '' : String(v); }),
       name: isRow ? (axisSpec(spec, 'y_axis').title || spec.y_title || '') : title,
-      nameTextStyle: { color: '#888', fontSize: 11 },
+      nameTextStyle: { color: tone.muted, fontSize: 11, fontWeight: 500 },
       axisLabel: {
         show: !hidden,
-        color: '#666',
+        color: tone.text,
         fontSize: compact ? 10 : 11,
         hideOverlap: enabled === 'compact' || enabled === 'show',
         rotate: rotate,
         interval: enabled === 'compact' ? 'auto' : 0
       },
       axisTick: { show: !hidden && enabled !== 'compact' },
-      axisLine: { show: !hidden, lineStyle: { color: '#e6e6e6' } },
+      axisLine: { show: !hidden, lineStyle: { color: tone.line } },
       boundaryGap: spec.type === 'bar' || spec.type === 'row' || scale === 'histogram'
     };
   }
   function legendOption(spec, n, compact, pie) {
     if (!legendOn(spec, n)) return { show: false };
     var pos = spec.legend || (pie ? 'right' : 'top');
-    var opt = { type: 'scroll', textStyle: { fontSize: compact ? 11 : 12 } };
+    var opt = { type: 'scroll', itemWidth: 12, itemHeight: 7, icon: 'roundRect', textStyle: { color: chartTone(spec).text, fontSize: compact ? 11 : 12, fontWeight: 500 } };
     if (pos === 'right') Object.assign(opt, { orient: 'vertical', right: 8, top: 16 });
     else if (pos === 'left') Object.assign(opt, { orient: 'vertical', left: 8, top: 16 });
     else if (pos === 'bottom') Object.assign(opt, { bottom: 4 });
@@ -474,7 +614,89 @@
     return opt;
   }
 
+  function mapChartOption(spec, packed, compact) {
+    var tone = chartTone(spec);
+    var pkg = mapPackageOf(spec);
+    var values = packed.series[0] ? packed.series[0].data : [];
+    var dataByName = {};
+    (packed.labels || []).forEach(function (label, index) {
+      var name = normalizeMapRegion(label, pkg);
+      var value = toNum(values[index]);
+      if (!name || !Number.isFinite(value)) return;
+      dataByName[name] = value;
+    });
+    var data = Object.keys(dataByName).map(function (name) { return { name: name, value: dataByName[name] }; });
+    var finite = data.map(function (item) { return item.value; }).filter(Number.isFinite);
+    var min = finite.length ? Math.min.apply(null, finite) : 0;
+    var max = finite.length ? Math.max.apply(null, finite) : 1;
+    if (min === max) min = Math.min(0, min);
+    if (min === max) max = min + 1;
+    var showLegend = spec.map_legend !== false && !compact;
+    return {
+      animationDuration: 850,
+      animationEasing: 'cubicOut',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: tone.tooltipBg,
+        borderColor: tone.tooltipBorder,
+        borderWidth: 1,
+        textStyle: { color: tone.tooltipText },
+        extraCssText: 'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',
+        formatter: function (params) {
+          var value = params.value;
+          return esc(params.name || '未知地区') + '<br/>' + (isNum(value) ? formatNumber(value, spec) : '暂无数据');
+        }
+      },
+      visualMap: {
+        show: showLegend,
+        type: 'continuous',
+        min: min,
+        max: max,
+        left: compact ? 4 : 18,
+        bottom: compact ? 2 : 14,
+        itemWidth: 10,
+        itemHeight: compact ? 70 : 110,
+        calculable: false,
+        text: ['高', '低'],
+        textStyle: { color: tone.muted, fontSize: 10 },
+        inRange: { color: [spec.map_color_min || '#E6F8F4', spec.map_color_mid || '#4CCFBA', spec.map_color_max || '#0B66C3'] },
+        outOfRange: { color: isDark(spec) ? '#173b50' : '#edf3f4' }
+      },
+      series: [{
+        name: titleOf(spec, (spec.y || [])[0] || '指标'),
+        type: 'map',
+        map: pkg ? pkg.mapName : '',
+        roam: spec.map_roam === true,
+        selectedMode: false,
+        scaleLimit: { min: 0.8, max: 6 },
+        layoutCenter: ['50%', '51%'],
+        layoutSize: compact ? '96%' : '92%',
+        label: {
+          show: spec.show_labels === true && !compact,
+          color: tone.text,
+          fontSize: 9,
+          formatter: function (params) {
+            return shortMapLabel(params.name, pkg);
+          }
+        },
+        itemStyle: {
+          areaColor: isDark(spec) ? '#173b50' : '#edf3f4',
+          borderColor: isDark(spec) ? '#70b9bd' : '#fff',
+          borderWidth: isDark(spec) ? 0.8 : 1.2,
+          shadowBlur: isDark(spec) ? 9 : 5,
+          shadowColor: isDark(spec) ? 'rgba(1,15,30,.32)' : 'rgba(8,73,103,.12)'
+        },
+        emphasis: {
+          label: { show: true, color: isDark(spec) ? '#fff' : '#06356F', fontWeight: 650 },
+          itemStyle: { areaColor: '#12C9AA', borderColor: '#dffff8', borderWidth: 1.5, shadowBlur: 18, shadowColor: 'rgba(16,201,170,.35)' }
+        },
+        data: data
+      }]
+    };
+  }
+
   function chartOption(spec, packed, compact) {
+    var tone = chartTone(spec);
     var xScale = xScaleOf(spec, packed.labels);
     if (spec.type !== 'pie' && spec.type !== 'row') packed = sortPackedByScale(packed, xScale);
     var stacking = stackingOf(spec);
@@ -508,6 +730,8 @@
       }
       return raw;
     }
+
+    if (spec.type === 'map') return mapChartOption(spec, packed, compact);
 
     if (spec.type === 'pie') {
       var pieData = packed.labels.map(function (label, i) {
@@ -550,13 +774,14 @@
         color: COLORS,
         animationDuration: 700,
         animationEasing: 'cubicOut',
-        tooltip: { trigger: 'item', formatter: function (p) { return esc(p.name) + '<br/>' + formatNumber(p.value, spec) + '（' + p.percent.toFixed(1) + '%）'; } },
+        tooltip: { trigger: 'item',backgroundColor:tone.tooltipBg,borderColor:tone.tooltipBorder,borderWidth:1,textStyle:{color:tone.tooltipText},extraCssText:'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',formatter: function (p) { return esc(p.name) + '<br/>' + formatNumber(p.value, spec) + '（' + p.percent.toFixed(1) + '%）'; } },
         legend: legend,
         series: [{
           type: 'pie',
           radius: donut ? (compact ? ['42%', '68%'] : ['46%', '72%']) : (compact ? '68%' : '72%'),
           center: center,
-          itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: donut ? 6 : 4 },
+          itemStyle: { borderColor:isDark(spec)?'#0b2032':'#fff',borderWidth:3,borderRadius:donut?7:5,shadowBlur:10,shadowColor:'rgba(6,67,96,.12)' },
+          emphasis:{scale:true,scaleSize:7,itemStyle:{shadowBlur:20,shadowColor:'rgba(6,67,96,.24)'}},
           label: { show: showLabels, formatter: labelFmt, fontSize: 11 },
           labelLine: { show: showLabels && !donut },
           data: pieData
@@ -572,7 +797,7 @@
             text: formatNumber(total, spec) + '\n总计',
             textAlign: 'center',
             textVerticalAlign: 'middle',
-            fill: '#222',
+            fill:tone.text,
             fontSize: compact ? 13 : 16,
             fontWeight: 650,
             lineHeight: compact ? 18 : 22
@@ -597,8 +822,9 @@
         step: interp === 'step' ? 'end' : false,
         connectNulls: missingOf(spec, st) === 'interpolate',
         symbolSize: 7,
-        emphasis: { focus: 'series' },
-        itemStyle: { color: colorOf(spec, s.name, si) },
+        animationDelay:function(idx){return Math.min(idx*16,240);},
+        emphasis:{focus:'series',scale:true,itemStyle:{shadowBlur:16,shadowColor:colorOf(spec,s.name,si)+'55'}},
+        itemStyle:{color:colorOf(spec,s.name,si),borderColor:isDark(spec)?'#0b2032':'#fff',borderWidth:kind==='bar'?0:2,shadowBlur:kind==='scatter'?10:0,shadowColor:colorOf(spec,s.name,si)+'45'},
         label: (spec.show_labels && st.show_values !== false) ? {
           show: spec.label_frequency !== 'fit',
           position: isRow ? 'right' : 'top',
@@ -617,13 +843,17 @@
       if (kind === 'bar') {
         item.barMaxWidth = compact ? 22 : 36;
         item.itemStyle.borderRadius = isRow ? [0, 6, 6, 0] : [6, 6, 0, 0];
+        item.itemStyle.color=chartGradient(colorOf(spec,s.name,si),isRow,true);
+        item.itemStyle.shadowBlur=8;
+        item.itemStyle.shadowOffsetY=isRow?0:3;
+        item.itemStyle.shadowColor=colorOf(spec,s.name,si)+'30';
       }
       if (kind === 'area' || spec.type === 'area' && kind !== 'bar') {
-        item.areaStyle = { opacity: stacking ? 0.85 : 0.18, color: colorOf(spec, s.name, si) };
-        item.lineStyle = { width: lineWidth(st), type: st.line_style || 'solid', color: colorOf(spec, s.name, si) };
+        item.areaStyle={opacity:stacking ? 0.72 : 1,color:chartGradient(colorOf(spec,s.name,si),false,false)};
+        item.lineStyle={width:lineWidth(st),type:st.line_style||'solid',color:colorOf(spec,s.name,si),shadowBlur:6,shadowColor:colorOf(spec,s.name,si)+'35'};
       }
       if (kind === 'line') {
-        item.lineStyle = { width: lineWidth(st), type: st.line_style || 'solid', color: colorOf(spec, s.name, si) };
+        item.lineStyle={width:lineWidth(st),type:st.line_style||'solid',color:colorOf(spec,s.name,si),shadowBlur:6,shadowColor:colorOf(spec,s.name,si)+'35'};
       }
       if (goalOn(spec) && si === 0 && stacking !== 'percent') {
         var g = Number(spec.goal);
@@ -672,11 +902,13 @@
     };
     return {
       color: visibleSeries.map(function (s, i) { return colorOf(spec, s.name, i); }),
-      animationDuration: 700,
-      animationEasing: 'cubicOut',
+      animationDuration:760,
+      animationEasing:'cubicOut',
+      animationDurationUpdate:420,
       tooltip: {
         trigger: 'axis',
-        axisPointer: { type: spec.type === 'bar' || spec.type === 'row' ? 'shadow' : 'line' },
+        backgroundColor:tone.tooltipBg,borderColor:tone.tooltipBorder,borderWidth:1,textStyle:{color:tone.tooltipText},extraCssText:'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',
+        axisPointer:{type:spec.type==='bar'||spec.type==='row'?'shadow':'line',lineStyle:{color:'#12c9aa',width:1,type:'dashed'},shadowStyle:{color:isDark(spec)?'rgba(18,201,170,.08)':'rgba(11,102,195,.06)'}},
         valueFormatter: function (v) {
           if (axisSpec(spec, 'y_axis').scale === 'pow' && stacking !== 'percent' && Number.isFinite(v)) v = Math.sign(v) * v * v;
           return stacking === 'percent' ? formatNumber(v, spec, { percent: true, alreadyPercent: true }) : formatNumber(v, spec);
@@ -690,7 +922,7 @@
     };
   }
 
-  function mountChart(host, option, spec) {
+  function mountChart(host, option, spec, optionFactory) {
     disposeHost(host);
     host.innerHTML = '<div class="viz-chart"></div>';
     var el = host.querySelector('.viz-chart');
@@ -699,10 +931,26 @@
       return;
     }
     var chart = global.echarts.init(el, spec.dashboard_theme && spec.dashboard_theme !== 'light' ? 'dark' : null, { renderer: 'canvas' });
-    chart.setOption(option, true);
     el._tbChart = chart;
     el._tbRo = new ResizeObserver(function () { chart.resize(); });
     el._tbRo.observe(el);
+    if (spec.type === 'map') {
+      var pkg = mapPackageOf(spec);
+      if (chart.showLoading) chart.showLoading('default', { text: '加载地图包…', color: '#12C9AA', textColor: chartTone(spec).muted, maskColor: 'transparent' });
+      ensureMapPackage(pkg).then(function () {
+        if (el._tbChart !== chart) return;
+        if (chart.hideLoading) chart.hideLoading();
+        chart.setOption(optionFactory ? optionFactory() : option, true);
+      }).catch(function (error) {
+        if (el._tbChart !== chart) return;
+        if (el._tbRo) el._tbRo.disconnect();
+        chart.dispose();
+        el._tbChart = null;
+        host.innerHTML = '<div class="viz-error"><b>地图包加载失败</b><p>' + esc(error && error.message ? error.message : '请刷新页面后重试。') + '</p></div>';
+      });
+      return;
+    }
+    chart.setOption(option, true);
   }
   function renderTypes(host, spec, onPick) {
     host.innerHTML = TYPES.map(function (t) {
@@ -764,6 +1012,7 @@
     if (spec.type === 'table') return [{ id: 'display', label: '显示' }];
     if (spec.type === 'scalar') return [{ id: 'data', label: '数据' }, { id: 'format', label: '格式' }, { id: 'color', label: '颜色' }];
     if (spec.type === 'pie') return [{ id: 'data', label: '数据' }, { id: 'display', label: '显示' }];
+    if (spec.type === 'map') return [{ id: 'data', label: '数据' }, { id: 'display', label: '显示' }];
     return [{ id: 'data', label: '数据' }, { id: 'display', label: '显示' }, { id: 'axes', label: '坐标轴' }];
   }
   function tabsHtml(spec, tab) {
@@ -829,6 +1078,9 @@
 
     if (tab === 'data' && spec.type === 'scalar') {
       html += field('要显示的字段', '<select data-k="scalar">' + optionList(metrics.length ? metrics : columns, (spec.y || [])[0]) + '</select>');
+      var scalarField = (spec.y || [])[0];
+      var comparisonOptions = (metrics.length ? metrics : columns).filter(function (name) { return name && name !== scalarField; });
+      html += field('数值对比', '<select data-k="comparison_field">' + optionList([{ value: '', label: '不比较' }].concat(comparisonOptions.map(function (name) { return { value: name, label: name }; })), spec.comparison_field || '') + '</select>');
     }
     if (tab === 'data' && spec.type === 'pie') {
       html += field('维度', '<select data-k="x">' + optionList(dims, spec.x) + '</select>');
@@ -836,6 +1088,15 @@
       html += '<h4>切片颜色</h4>';
       html += packed.labels.map(function (name, i) { return seriesCard(spec, name, i, false, openSeries.indexOf(name) >= 0 || (!openSeries.length && i === 0)); }).join('');
       html += field('「其他」颜色', '<input type="color" data-k="other_color" value="' + esc(spec.other_color || '#7172AD') + '">');
+    }
+    if (tab === 'data' && spec.type === 'map') {
+      var currentMapPackage = mapPackageOf(spec);
+      var mapMetrics = metrics.filter(function (name) { return name !== spec.x; });
+      if (!mapMetrics.length) mapMetrics = columns.filter(function (name) { return name !== spec.x; });
+      html += field('图资包', '<select data-k="map_package">' + optionList(mapPackageList().map(function (pkg) { return { value: pkg.id, label: pkg.label }; }), currentMapPackage && currentMapPackage.id) + '</select>');
+      html += field('区域字段', '<select data-k="x">' + optionList(columns, spec.x) + '</select>');
+      html += field('数值字段', '<select data-k="scalar">' + optionList(mapMetrics, (spec.y || [])[0]) + '</select>');
+      html += '<p class="viz-muted">区域值需要与所选图资包的名称或代码匹配。默认中国图资包支持“广东”“广东省”和 440000 等六位代码。请先在分析中按区域汇总数据。</p>';
     }
     if (tab === 'data' && cartesian) {
       var xVals = spec.breakout ? [spec.x, spec.breakout] : [spec.x || dims[0] || ''];
@@ -896,6 +1157,15 @@
       }
       html += field('最多分类', '<input data-k="max" type="number" min="2" max="40" value="' + (spec.max_categories || 8) + '">');
       html += field('最小切片占比 %', '<input data-k="slice_threshold" type="number" min="0" max="50" step="0.5" value="' + (spec.slice_threshold == null ? '' : spec.slice_threshold) + '" placeholder="0">');
+    }
+    if (tab === 'display' && spec.type === 'map') {
+      html += '<label class="viz-toggle"><input type="checkbox" data-k="map_legend"' + (spec.map_legend !== false ? ' checked' : '') + '> 显示色阶图例</label>';
+      html += '<label class="viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示区域名称</label>';
+      html += '<label class="viz-toggle"><input type="checkbox" data-k="map_roam"' + (spec.map_roam ? ' checked' : '') + '> 允许缩放和拖动</label>';
+      html += '<h4>区域色阶</h4><div class="viz-map-colors">' +
+        field('低值', '<input type="color" data-map-color="map_color_min" value="' + esc(spec.map_color_min || '#E6F8F4') + '">') +
+        field('中值', '<input type="color" data-map-color="map_color_mid" value="' + esc(spec.map_color_mid || '#4CCFBA') + '">') +
+        field('高值', '<input type="color" data-map-color="map_color_max" value="' + esc(spec.map_color_max || '#0B66C3') + '">') + '</div>';
     }
 
     if (tab === 'axes' && cartesian) {
@@ -983,9 +1253,21 @@
       };
     });
     var x = host.querySelector('[data-k="x"]');
-    if (x) x.onchange = function () { emit({ x: x.value }); };
+    if (x) x.onchange = function () {
+      if (spec.type === 'map') {
+        var current = (spec.y || []).find(function (name) { return name !== x.value; });
+        var fallback = metrics.find(function (name) { return name !== x.value; }) || columns.find(function (name) { return name !== x.value; });
+        emit({ x: x.value, y: current ? [current] : (fallback ? [fallback] : []) });
+        return;
+      }
+      emit({ x: x.value });
+    };
     var scalar = host.querySelector('[data-k="scalar"]');
     if (scalar) scalar.onchange = function () { emit({ y: [scalar.value] }); };
+    var comparisonField = host.querySelector('[data-k="comparison_field"]');
+    if (comparisonField) comparisonField.onchange = function () { emit({ comparison_field: comparisonField.value }); };
+    var mapPackage = host.querySelector('[data-k="map_package"]');
+    if (mapPackage) mapPackage.onchange = function () { emit({ map_package: mapPackage.value }); };
     host.querySelectorAll('select[data-pick]').forEach(function (el) {
       el.onchange = function () {
         var i = Number(el.dataset.i);
@@ -1046,6 +1328,10 @@
     if (legendOnEl) legendOnEl.onchange = function () { emit({ show_legend: legendOnEl.checked ? undefined : false, legend: legendOnEl.checked ? (spec.legend === 'off' ? 'top' : spec.legend) : 'off' }); };
     var labels = host.querySelector('[data-k="labels"]');
     if (labels) labels.onchange = function () { emit({ show_labels: labels.checked }); };
+    var mapLegend = host.querySelector('[data-k="map_legend"]');
+    if (mapLegend) mapLegend.onchange = function () { emit({ map_legend: mapLegend.checked ? undefined : false }); };
+    var mapRoam = host.querySelector('[data-k="map_roam"]');
+    if (mapRoam) mapRoam.onchange = function () { emit({ map_roam: mapRoam.checked }); };
     var trend = host.querySelector('[data-k="trendline"]');
     if (trend) trend.onchange = function () { emit({ trendline: trend.checked }); };
     var showGoal = host.querySelector('[data-k="show_goal"]');
@@ -1076,6 +1362,13 @@
     if (colorEl) colorEl.onchange = function () { emit({ color: colorEl.value }); };
     var other = host.querySelector('[data-k="other_color"]');
     if (other) other.onchange = function () { emit({ other_color: other.value }); };
+    host.querySelectorAll('[data-map-color]').forEach(function (el) {
+      el.onchange = function () {
+        var patch = {};
+        patch[el.dataset.mapColor] = el.value;
+        emit(patch);
+      };
+    });
     host.querySelectorAll('input[data-sk][data-series]').forEach(function (el) {
       el.onchange = function () {
         var patch = {};
@@ -1136,7 +1429,7 @@
   }
 
   function scalarColor(spec, value) {
-    var color = spec.color || '#111';
+    var color = spec.color || (isDark(spec) ? '#E9FFFB' : '#06356F');
     var n = Number(value);
     (spec.segments || []).forEach(function (s) {
       if (!isNum(value)) return;
@@ -1155,9 +1448,18 @@
     if (goalOn(spec) && isNum(value) && isNum(goal) && Number(goal) !== 0) {
       extra = '<em>' + esc(formatNumber((Number(value) / Number(goal)) * 100, { decimals: 1, suffix: '% 到达目标' })) + '</em>';
     }
-    host.innerHTML = '<div class="viz-scalar"><b style="color:' + esc(scalarColor(spec, value)) + '">' + esc(formatNumber(value, spec)) + '</b><small>' +
-      esc(titleOf(spec, name) || name || '结果') +
-      (goalOn(spec) ? ' · ' + esc(spec.goal_label || '目标') + ' ' + esc(formatNumber(goal, spec)) : '') + '</small>' + extra + '</div>';
+    var comparisonName = spec.comparison_field || '';
+    var comparisonIndex = colIndex(columns, comparisonName);
+    var comparisonValue = comparisonIndex >= 0 && rows && rows[0] ? rows[0][comparisonIndex] : null;
+    if (comparisonName && isNum(value) && isNum(comparisonValue)) {
+      var delta = Number(value) - Number(comparisonValue);
+      var rate = Number(comparisonValue) === 0 ? null : delta / Math.abs(Number(comparisonValue));
+      var direction = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat');
+      var sign = delta > 0 ? '+' : '';
+      var rateText = rate == null ? '—' : (rate > 0 ? '+' : '') + formatNumber(rate, Object.assign({}, spec, { number_style: 'percent', prefix: '', suffix: '' }));
+      extra += '<em class="viz-comparison ' + direction + '"><i>' + (direction === 'up' ? '↑' : direction === 'down' ? '↓' : '−') + '</i> ' + esc(sign + formatNumber(delta, spec)) + '<span>' + esc(rateText) + '</span></em>';
+    }
+    host.innerHTML = '<div class="viz-scalar"><b style="color:' + esc(scalarColor(spec, value)) + '">' + esc(formatNumber(value, spec)) + '</b>' + extra + '</div>';
   }
   function render(host, opts) {
     opts = opts || {};
@@ -1178,12 +1480,13 @@
       host.innerHTML = '<div class="tb-grid-host"></div>';
       if (!global.TopbaseGrid) return spec;
       if (opts.compact) {
-        global.TopbaseGrid(host.firstChild, { columns: view.columns, rows: view.rows, aliases: Object.assign({}, opts.aliases || {}, view.aliases), compact: true, dashboardOnly: !!opts.dashboardOnly, filtersEnabled: false });
+        global.TopbaseGrid(host.firstChild, { columns: view.columns, rows: view.rows, aliases: Object.assign({}, opts.aliases || {}, view.aliases), semanticTypes: opts.semanticTypes || {}, compact: true, dashboardOnly: !!opts.dashboardOnly, filtersEnabled: false });
       } else {
         global.TopbaseGrid(host.firstChild, {
           columns: columns,
           rows: rows,
           aliases: Object.assign({}, opts.aliases || {}, state.aliases),
+          semanticTypes: opts.semanticTypes || {},
           hidden: state.hidden,
           filters: state.filters,
           filtersEnabled: opts.tableFilters !== false,
@@ -1210,12 +1513,16 @@
     var packed = seriesValues(columns, rows, spec);
     if (spec.type === 'pie') packed = capSlices(packed, spec);
     else if (spec.max_categories) packed = capCategories(packed, spec);
-    mountChart(host, chartOption(spec, packed, !!opts.compact), spec);
+    var compact = !!opts.compact;
+    if (spec.type === 'map') mountChart(host, null, spec, function () { return chartOption(spec, packed, compact); });
+    else mountChart(host, chartOption(spec, packed, compact), spec);
     return spec;
   }
 
   global.TopbaseViz = {
     types: TYPES,
+    registerMapPackage: registerMapPackage,
+    mapPackages: mapPackageList,
     infer: infer,
     merge: merge,
     matchFilter: matchFilter,

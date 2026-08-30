@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	appquery "github.com/topbase/topbase/internal/app/query"
 	"github.com/topbase/topbase/internal/core/queryir"
@@ -37,6 +38,7 @@ func (s *server) visualQuery(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.attachDatasetSemantics(&result, q)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"sql": result.SQL, "columns": result.Columns, "rows": result.Rows, "meta": result.Meta, "chartspec": result.ChartSpec, "queryir": q,
 	})
@@ -71,5 +73,39 @@ func (s *server) runDataset(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.attachDatasetSemantics(&result, q)
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *server) attachDatasetSemantics(result *appquery.DatasetResult, q queryir.Query) {
+	if result == nil || q.Source.Table == nil || q.Source.DatabaseID == "" {
+		return
+	}
+	fields, err := s.content.ListFields(q.Source.DatabaseID, q.Source.Table.Schema, q.Source.Table.Name)
+	if err != nil {
+		return
+	}
+	byName := make(map[string]string, len(fields))
+	for _, field := range fields {
+		if field.SemanticType != "" {
+			byName[field.Name] = field.SemanticType
+		}
+	}
+	semanticTypes := map[string]string{}
+	for _, column := range result.Columns {
+		name := column
+		if dot := strings.LastIndex(name, "."); dot >= 0 {
+			name = name[dot+1:]
+		}
+		if semantic := byName[name]; semantic != "" {
+			semanticTypes[column] = semantic
+		}
+	}
+	if len(semanticTypes) == 0 {
+		return
+	}
+	if result.Meta == nil {
+		result.Meta = map[string]any{}
+	}
+	result.Meta["semantic_types"] = semanticTypes
 }

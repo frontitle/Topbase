@@ -5,7 +5,7 @@ const pathParts = location.pathname.split('/').filter(Boolean);
 const isPublicDashboard = ['public', 'embed'].includes(pathParts[0]) && pathParts[1] === 'dashboard';
 const boardId = isPublicDashboard ? '' : (pathParts[1] || new URLSearchParams(location.search).get('id'));
 const publicUUID = isPublicDashboard ? pathParts[2] : '';
-let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [], layoutFrame = 0, canvasResizeObserver = null, viewer = null;
+let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [], layoutFrame = 0, canvasResizeObserver = null, viewer = null, loadController = null, loadSequence = 0;
 const APPEARANCE_DEFAULTS = { theme: 'deep', background: '#07111f', grid: true, snap: true, glow: true };
 
 function newID(prefix) {
@@ -30,6 +30,7 @@ function rect(layout) {
 }
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 function minHeight(card) { return ['heading', 'text', 'divider'].includes(card.type) ? 1 : MIN_H; }
+function minWidth(card) { return card.type === 'question' && cardVizType(card) === 'scalar' ? 4 : MIN_W; }
 function overlaps(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
@@ -51,8 +52,9 @@ function resolveOverlap(moved) {
 function cellAt(clientX, clientY, w, h) {
   const box = $('#grid').getBoundingClientRect();
   const cw = cellW();
-  let x = Math.floor((clientX - box.left) / (cw + X_GAP));
-  let y = Math.floor((clientY - box.top) / (ROW + Y_GAP));
+  const precision = appearance().snap ? 1 : 4;
+  let x = Math.floor((clientX - box.left) / (cw + X_GAP) * precision) / precision;
+  let y = Math.floor((clientY - box.top) / (ROW + Y_GAP) * precision) / precision;
   x = clamp(x, 0, COLS - (w || 1));
   y = Math.max(0, y);
   return { x, y, w: w || 4, h: h || 4 };
@@ -105,6 +107,7 @@ function applyAppearance() {
   canvas.dataset.theme = a.theme;
   canvas.style.setProperty('--canvas-custom-bg', a.background);
   canvas.classList.toggle('canvas-grid-off', !a.grid);
+  canvas.classList.toggle('canvas-snap-off', !a.snap);
   canvas.classList.toggle('canvas-glow-off', !a.glow);
 }
 function renderPublicBadge() {
@@ -117,12 +120,13 @@ function renderCanvasControls() {
   host.hidden = !editing;
   if (!editing) return;
   const a = appearance();
-  host.innerHTML = `<span class="canvas-label">画布</span><div class="canvas-control-group"><button data-theme="deep" class="${a.theme==='deep'?'active':''}" type="button">深空</button><button data-theme="aurora" class="${a.theme==='aurora'?'active':''}" type="button">极光</button><button data-theme="light" class="${a.theme==='light'?'active':''}" type="button">明亮</button></div><label class="canvas-color">背景 <input id="canvas-background" type="color" value="${esc(a.background)}"></label><label class="canvas-switch"><input id="canvas-grid-toggle" type="checkbox" ${a.grid?'checked':''}> 网格</label><label class="canvas-switch"><input id="canvas-snap-toggle" type="checkbox" ${a.snap?'checked':''}> 吸附</label><label class="canvas-switch"><input id="canvas-glow-toggle" type="checkbox" ${a.glow?'checked':''}> 微光</label>`;
+  const toggle = (id, label, enabled, onText, offText) => `<label class="canvas-switch"><input id="${id}" type="checkbox" ${enabled?'checked':''}><span aria-hidden="true"></span><b>${label}</b><em>${enabled ? onText : offText}</em></label>`;
+  host.innerHTML = `<span class="canvas-label"><b>画布</b><small>外观与编排</small></span><div class="canvas-control-group"><button data-theme="deep" class="${a.theme==='deep'?'active':''}" type="button">深空</button><button data-theme="aurora" class="${a.theme==='aurora'?'active':''}" type="button">极光</button><button data-theme="light" class="${a.theme==='light'?'active':''}" type="button">明亮</button></div><label class="canvas-color"><span>背景</span><input id="canvas-background" type="color" value="${esc(a.background)}" title="画布背景色"></label>${toggle('canvas-grid-toggle', '网格', a.grid, '显示', '隐藏')}${toggle('canvas-snap-toggle', '吸附', a.snap, '整格', '自由')}${toggle('canvas-glow-toggle', '微光', a.glow, '开启', '关闭')}`;
   $$('[data-theme]', host).forEach(button => button.onclick = () => { appearance().theme = button.dataset.theme; applyAppearance(); renderCanvasControls(); scheduleSave(); });
   $('#canvas-background').oninput = event => { appearance().background = event.target.value; applyAppearance(); scheduleSave(); };
-  $('#canvas-grid-toggle').onchange = event => { appearance().grid = event.target.checked; applyAppearance(); scheduleSave(); };
-  $('#canvas-snap-toggle').onchange = event => { appearance().snap = event.target.checked; scheduleSave(); };
-  $('#canvas-glow-toggle').onchange = event => { appearance().glow = event.target.checked; applyAppearance(); scheduleSave(); };
+  $('#canvas-grid-toggle').onchange = event => { appearance().grid = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
+  $('#canvas-snap-toggle').onchange = event => { appearance().snap = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
+  $('#canvas-glow-toggle').onchange = event => { appearance().glow = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
 }
 async function saveBoard() {
   board = await api('/api/dashboards/' + board.id, 'PUT', payload());
@@ -319,10 +323,21 @@ function layoutEls() {
 }
 function applyCardContentScale(el, card, box) {
   if (card.type !== 'question') return;
+  const scalar = cardVizType(card) === 'scalar';
+  const compactHead = !editing && box.height < 104;
+  el.classList.toggle('card-content-scalar', scalar);
+  if (scalar) {
+    // A number is already the distilled result. Scaling the whole visualization
+    // makes that primary value unnecessarily tiny, so fit the type itself.
+    el.classList.remove('card-content-scaled');
+    el.classList.toggle('card-content-mini', compactHead);
+    el.style.setProperty('--card-content-scale', '1');
+    fitScalarContent(el);
+    return;
+  }
   // A chart has a comfortable design size, but on a data screen a deliberately
   // small tile should still behave like one visual, not like a scrollable app.
   // Render it at that size and scale the whole result into the assigned tile.
-  const compactHead = !editing && box.height < 104;
   const usableWidth = Math.max(1, box.width - (compactHead ? 0 : 24));
   const usableHeight = Math.max(1, box.height - (compactHead ? 0 : 42));
   const scale = Math.min(1, usableWidth / 280, usableHeight / 180);
@@ -330,6 +345,20 @@ function applyCardContentScale(el, card, box) {
   el.classList.toggle('card-content-scaled', scaled);
   el.classList.toggle('card-content-mini', compactHead && scaled);
   el.style.setProperty('--card-content-scale', String(Math.max(.18, scale)));
+}
+function fitScalarContent(el) {
+  const value = el && el.querySelector('.viz-scalar > b');
+  const body = el && el.querySelector('.card-body');
+  if (!value || !body) return;
+  const box = body.getBoundingClientRect();
+  const glyphs = Math.max(3, Array.from((value.textContent || '').trim()).length);
+  const hasDetail = !!el.querySelector('.viz-scalar em');
+  const widthSize = Math.max(1, box.width - 16) / (glyphs * .6);
+  const heightSize = Math.max(1, box.height - 8) * (hasDetail ? .48 : .68);
+  const size = clamp(Math.floor(Math.min(64, widthSize, heightSize)), 22, 64);
+  el.style.setProperty('--scalar-number-size', size + 'px');
+  el.style.setProperty('--scalar-detail-size', clamp(Math.round(size * .3), 10, 13) + 'px');
+  el.classList.toggle('scalar-detail-compact', hasDetail && (box.height < 92 || box.width < 150));
 }
 function scheduleCanvasLayout() {
   if (layoutFrame) cancelAnimationFrame(layoutFrame);
@@ -506,13 +535,14 @@ function startDrag(ev, cardId, mode) {
 function onDrag(ev) {
   if (!drag) return;
   const cw = cellW() + X_GAP;
-  const dx = Math.round((ev.clientX - drag.startX) / cw);
-  const dy = Math.round((ev.clientY - drag.startY) / (ROW + Y_GAP));
+  const precision = appearance().snap ? 1 : 4;
+  const dx = Math.round((ev.clientX - drag.startX) / cw * precision) / precision;
+  const dy = Math.round((ev.clientY - drag.startY) / (ROW + Y_GAP) * precision) / precision;
   if (drag.mode === 'move') {
     drag.card.layout.x = clamp(drag.layout.x + dx, 0, COLS - drag.card.layout.w);
     drag.card.layout.y = Math.max(0, drag.layout.y + dy);
   } else {
-    drag.card.layout.w = clamp(drag.layout.w + dx, MIN_W, COLS - drag.card.layout.x);
+    drag.card.layout.w = clamp(drag.layout.w + dx, minWidth(drag.card), COLS - drag.card.layout.x);
     drag.card.layout.h = clamp(drag.layout.h + dy, minHeight(drag.card), 48);
   }
   layoutEls();
@@ -533,13 +563,15 @@ function endDrag() {
 
 function render() {
   motionTimers.forEach(clearInterval); motionTimers = [];
+  disposeCardVisuals();
   applyAppearance();
   $('#layout')?.classList.toggle('viewing', !editing);
+  $('#board-canvas')?.classList.toggle('canvas-editing', editing);
   $('#grid').classList.toggle('editing', editing);
   if ($('#view-actions')) $('#view-actions').hidden = editing;
   if ($('#edit')) $('#edit').textContent = editing ? '完成编辑' : '编辑';
   const cards = tabCards();
-  $('#grid').innerHTML = cards.map(cardHTML).join('') + (!cards.length ? '<div class="board-empty"><b>从左侧开始搭建仪表盘</b><p>点击分析即可加入，也可以添加标题、文本、链接或网页。</p></div>' : '');
+  $('#grid').innerHTML = cards.map(cardHTML).join('') + (!cards.length ? '<div class="board-empty"><span class="board-empty-mark" aria-hidden="true"><i></i><i></i><i></i></span><b>开始搭建你的数据画布</b><p>从左侧添加分析或小组件，也可以直接拖到画布中的指定位置。</p><small>24 列精细网格 · 支持自由缩放与编排</small></div>' : '');
   layoutEls();
   bindCardChrome();
   bindGridDrop();
@@ -554,6 +586,13 @@ function render() {
     if (slides.length < 2) return;
     let current = 0;
     motionTimers.push(setInterval(() => { slides[current].classList.remove('active'); current = (current + 1) % slides.length; slides[current].classList.add('active'); }, Number(host.dataset.interval || 5) * 1000));
+  });
+}
+
+function disposeCardVisuals() {
+  document.querySelectorAll('#grid .viz-chart').forEach(element => {
+    if (element._tbRo) { element._tbRo.disconnect(); element._tbRo = null; }
+    if (element._tbChart) { element._tbChart.dispose(); element._tbChart = null; }
   });
 }
 
@@ -655,7 +694,10 @@ function paintCard(card, d) {
     d.rows || []
   );
   spec.dashboard_theme = appearance().theme;
-  TopbaseViz.render(host, { columns: d.columns || [], rows: d.rows || [], spec, queryir: q && q.queryir, compact: true, dashboardOnly: true });
+  TopbaseViz.render(host, { columns: d.columns || [], rows: d.rows || [], spec, queryir: q && q.queryir, semanticTypes: d.meta && d.meta.semantic_types || {}, compact: true, dashboardOnly: true });
+  if (spec.type === 'scalar') fitScalarContent(host.closest('[data-card]'));
+  const limited = queryLimitMessage(d.meta);
+  if (limited) host.insertAdjacentHTML('afterbegin', `<div class="dashboard-result-limit" title="${esc(limited)}">部分结果</div>`);
   if (card.config && card.config.table_motion && card.config.table_motion !== 'none') {
     const scroller = host.querySelector('.tb-grid-scroll');
     if (scroller) {
@@ -719,23 +761,36 @@ function paintCached() {
 }
 
 async function loadCards() {
+  if (loadController) loadController.abort();
+  const controller = new AbortController();
+  loadController = controller;
+  const sequence = ++loadSequence;
   const filters = filterValues();
-  for (const card of board.cards || []) {
-    if (card.type !== 'question') continue;
-    if (activeTab && card.tab_id && card.tab_id !== activeTab) continue;
-    const host = document.querySelector(`[data-vizhost="${card.id}"]`);
-    if (!host) continue;
-    try {
-      const path = isPublicDashboard
-        ? `/api/public/dashboard/${publicUUID}/cards/${card.id}/dataset`
-        : `/api/dashboards/${board.id}/cards/${card.id}/dataset`;
-      const d = await api(path, 'POST', { filters });
-      cardData[card.id] = d;
-      paintCard(card, d);
-    } catch (e) {
-      host.innerHTML = `<div class="viz-error"><b>卡片无法显示</b><p>${esc(e.message)}</p></div>`;
+  const cards = (board.cards || []).filter(card => card.type === 'question' && (!activeTab || !card.tab_id || card.tab_id === activeTab));
+  const visible = new Set(cards.map(card => card.id));
+  Object.keys(cardData).forEach(id => { if (!visible.has(id)) delete cardData[id]; });
+  let next = 0;
+  const worker = async () => {
+    while (next < cards.length && !controller.signal.aborted) {
+      const card = cards[next++];
+      const host = document.querySelector(`[data-vizhost="${card.id}"]`);
+      if (!host) continue;
+      try {
+        const path = isPublicDashboard
+          ? `/api/public/dashboard/${publicUUID}/cards/${card.id}/dataset`
+          : `/api/dashboards/${board.id}/cards/${card.id}/dataset`;
+        const d = await api(path, 'POST', { filters }, { signal: controller.signal });
+        if (controller.signal.aborted || sequence !== loadSequence) return;
+        cardData[card.id] = d;
+        paintCard(card, d);
+      } catch (e) {
+        if (controller.signal.aborted || e.name === 'AbortError') return;
+        host.innerHTML = `<div class="viz-error"><b>卡片无法显示</b><p>${esc(e.message)}</p></div>`;
+      }
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, cards.length) }, worker));
+  if (sequence === loadSequence) loadController = null;
 }
 
 async function boot() {
@@ -802,6 +857,12 @@ $$('[data-add]').forEach(button=>{
 });
 observeCanvasLayout();
 window.addEventListener('resize', scheduleCanvasLayout);
+window.addEventListener('pagehide', () => {
+  if (loadController) loadController.abort();
+  motionTimers.forEach(clearInterval); motionTimers = [];
+  disposeCardVisuals();
+  if (canvasResizeObserver) canvasResizeObserver.disconnect();
+});
 
 function closeActionModal(){ $('#modal').hidden=true;$('#modal').innerHTML=''; }
 function shareURL(kind) {

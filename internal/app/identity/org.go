@@ -39,7 +39,7 @@ func (s Service) SyncDirectory(ctx context.Context, directory core.OrgDirectory)
 		return nil, fmt.Errorf("group store is not configured")
 	}
 	if directory == nil {
-		return nil, fmt.Errorf("Feishu department sync requires FEISHU_APP_ID and FEISHU_APP_SECRET")
+		return nil, fmt.Errorf("organization directory credentials are required")
 	}
 	units, err := directory.ListUnits(ctx)
 	if err != nil {

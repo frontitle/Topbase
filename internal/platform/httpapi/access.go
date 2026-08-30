@@ -89,6 +89,9 @@ func isPublicRequest(r *http.Request) bool {
 	// Shared JS/CSS/images are needed by both the authenticated product and
 	// public dashboard embeds. They do not contain application data.
 	ext := strings.ToLower(path.Ext(p))
+	if strings.HasPrefix(p, "/assets/maps/") && ext == ".json" {
+		return true
+	}
 	switch ext {
 	case ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2":
 		return true
