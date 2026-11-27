@@ -1,6 +1,7 @@
 const languageLink = document.querySelector('.language-switch a');
 const alternateHome = new URL(languageLink.href);
 const sections = [...document.querySelectorAll('main > section[id]')];
+const footer = document.querySelector('.site-footer');
 const header = document.querySelector('.site-header');
 const menu = document.querySelector('.mobile-nav');
 
@@ -12,7 +13,12 @@ function updateLanguageLink() {
     current = section;
   }
   if (scrollY > 0 && Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight) {
-    current = sections.at(-1);
+    const install = sections.at(-1);
+    // Tall screens can show the whole install panel and footer at the same time.
+    current = location.hash !== '#footer' && install.getBoundingClientRect().top >= header.offsetHeight
+      ? install : footer;
+  } else if (footer.getBoundingClientRect().top <= marker) {
+    current = footer;
   }
   alternateHome.hash = current && current !== sections[0] ? current.id : '';
   languageLink.href = alternateHome.href;
