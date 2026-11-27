@@ -1,5 +1,88 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Topbase | Self-hosted analytics</title><meta name="description" content="Explore spreadsheets and databases, build dashboards and schedule warehouse tables with Topbase."><link rel="stylesheet" href="assets/styles.css"><link rel="icon" href="assets/topbase-logo.png"></head>
-<body><header class="site-header"><a class="brand" href="./"><img src="assets/topbase-logo.png" alt="">Topbase</a><nav><a href="docs/">Documentation</a><a href="https://github.com/frontitle/Topbase">GitHub</a></nav><a href="zh/" lang="zh-CN">简体中文</a></header>
-<main><section class="hero shell"><div class="hero-copy"><p class="eyebrow">Self-hosted analytics · v__VERSION__</p><h1>From spreadsheets<br>to <em>shared dashboards.</em></h1><p>Explore Excel sheets and business databases with visual queries or SQL. Share the results and schedule recurring analyses to populate your warehouse.</p><div class="hero-actions"><a class="button button-primary" href="docs/getting-started.html">Install Topbase</a><a class="button button-quiet" href="docs/">Read the docs</a></div></div><figure class="product-frame"><img src="assets/topbase-dashboard-demo.jpg" alt="Sales dashboard with revenue trends, order totals and a category breakdown"><figcaption>Sales dashboard in Topbase</figcaption></figure></section>
-<section class="shell docs-promo"><div><h2>Work with your own data</h2><p>Connect a read-only database account, filter and aggregate rows, then add the saved chart to a dashboard. Share the dashboard with a password and an expiry date.</p></div><div class="docs-links"><a href="docs/database-drivers.html">Supported databases</a><a href="docs/deployment.html">Deployment and backups</a><a href="docs/ai-integrations.html">MCP and CLI access</a></div></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore Excel and database tables, build dashboards and schedule warehouse updates with Topbase.">
+  <title>Topbase | Self-hosted business analytics</title>
+  <link rel="icon" href="assets/topbase-logo.png">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Topbase homepage"><img src="assets/topbase-logo.png" alt=""><span>Topbase</span></a>
+    <a href="zh/" lang="zh-CN">简体中文</a>
+    <nav aria-label="Main navigation">
+      <a href="#product">Product</a><a href="#workflow">Workflow</a><a href="docs/">Docs</a><a href="https://github.com/frontitle/Topbase">GitHub</a>
+    </nav>
+    <a class="button button-small button-dark" href="docs/getting-started.html">Get started</a>
+  </header>
+
+  <main>
+    <section class="hero shell">
+      <div class="hero-copy reveal">
+        <span class="eyebrow">OPEN SOURCE · SELF-HOSTED · v__VERSION__</span>
+        <h1>Your business data,<br><em>ready for analysis.</em></h1>
+        <p>Connect a spreadsheet or a business database, explore the numbers and share a dashboard. Schedule the analyses your team relies on to keep a warehouse table up to date.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="docs/getting-started.html">Quick start</a>
+          <a class="button button-quiet" href="https://github.com/frontitle/Topbase">View source</a>
+        </div>
+        <div class="hero-notes"><span>Apache 2.0</span><span>Docker deployment</span><span>Hosted on your server</span></div>
+      </div>
+      <div class="hero-visual reveal" aria-label="Topbase data workflow">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="data-stack"><i></i><i></i><i></i><b>TB</b></div>
+        <div class="signal signal-a">Excel</div><div class="signal signal-b">SQL</div><div class="signal signal-c">API</div>
+        <div class="metric-card"><small>Business metrics</small><strong>Ready to share</strong><span>Analysis → Dashboard → Warehouse</span></div>
+      </div>
+    </section>
+
+    <section class="product-proof shell reveal" id="product">
+      <div class="section-heading"><span class="eyebrow">REAL PRODUCT</span><h2>A sales dashboard,<br>from the running product.</h2><p>Track revenue, order volume and category mix together. Each chart draws on an analysis your team can open and edit.</p></div>
+      <div class="product-frame">
+        <div class="browser-bar"><span></span><span></span><span></span><b>Topbase / Dashboards</b></div>
+        <img src="assets/topbase-dashboard-demo.jpg" alt="Topbase sales dashboard showing revenue trends and sales by category">
+      </div>
+    </section>
+
+    <section class="capabilities shell" id="workflow">
+      <div class="section-heading compact reveal"><span class="eyebrow">ONE DATA FLOW</span><h2>From source data to a shared metric</h2></div>
+      <div class="capability-grid">
+        <article class="capability reveal"><span>01</span><h3>Connect</h3><p>Upload Excel or connect PostgreSQL, MySQL, ClickHouse, SQL Server, Oracle or SQLite.</p><b>Local warehouse · SSL · SSH</b></article>
+        <article class="capability reveal"><span>02</span><h3>Analyze</h3><p>Filter, summarize, sort and join tables in the visual editor, add calculated columns, or write your own SQL.</p><b>Visual queries · SQL</b></article>
+        <article class="capability reveal"><span>03</span><h3>Visualize</h3><p>Combine headline numbers, trends, comparisons and detailed tables on a dashboard.</p><b>Charts · Linked filters · Themes</b></article>
+        <article class="capability reveal"><span>04</span><h3>Materialize</h3><p>Write recurring query results to warehouse tables. Track their origins and manage access, alerts and subscriptions.</p><b>Schedules · Sharing and embedding</b></article>
+      </div>
+    </section>
+
+    <section class="principles">
+      <div class="shell principles-inner">
+        <div class="principles-copy reveal"><span class="eyebrow light">BUILT FOR OWNERSHIP</span><h2>Run Topbase on your infrastructure.</h2><p>Your team controls the application database, connection keys, saved analyses and dashboards.</p><a class="text-link" href="https://github.com/frontitle/Topbase/blob/main/docs/deployment.md">Read the deployment guide</a></div>
+        <div class="terminal reveal"><div><i></i><i></i><i></i><span>server</span></div><pre><code>$ git clone https://github.com/frontitle/Topbase.git
+$ cd Topbase
+$ docker compose -f docker-compose.release.yml up -d
+
+✓ Topbase ready on :8101
+✓ Application database connected
+✓ Your data stays on your server</code></pre></div>
+      </div>
+    </section>
+
+    <section class="docs-promo shell reveal">
+      <div><span class="eyebrow">DOCUMENTATION</span><h2>From first login to daily use</h2><p>Follow the guides to connect data, write queries, configure dashboards, manage a deployment and use AI tools.</p></div>
+      <div class="docs-links">
+        <a href="docs/getting-started.html"><span>Quick start</span><b>Connect your first data source</b></a>
+        <a href="https://github.com/frontitle/Topbase/blob/main/docs/deployment.md"><span>Deployment</span><b>Docker, backups and configuration</b></a>
+        <a href="docs/ai-integrations.html"><span>AI integrations</span><b>MCP, CLI and access permissions</b></a>
+        <a href="docs/"><span>All guides</span><b>Browse the documentation</b></a>
+      </div>
+    </section>
+
+    <section class="final-cta shell reveal"><span class="eyebrow">START WITH YOUR DATA</span><h2>Start with a spreadsheet<br>or a database.</h2><div><a class="button button-primary" href="https://github.com/frontitle/Topbase#install">Install Topbase</a><a class="button button-quiet" href="https://github.com/frontitle/Topbase">View on GitHub</a></div></section>
+  </main>
+
+  <footer><div class="shell"><a class="brand" href="./"><img src="assets/topbase-logo.png" alt=""><span>Topbase</span></a><p>Explore data, understand your business and track growth.</p><nav><a href="docs/">Docs</a><a href="https://github.com/frontitle/Topbase">GitHub</a><a href="https://github.com/frontitle/Topbase/blob/main/LICENSE">Apache 2.0</a></nav></div></footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

@@ -55,4 +55,4 @@ Open `http://YOUR_SERVER:8080`. This command selects port 8080 explicitly. The b
 
 ## Documentation and license
 
-Read the [deployment guide](https://frontitle.github.io/Topbase/docs/deployment.html), [upgrade guide](https://frontitle.github.io/Topbase/docs/upgrading.html) and [release notes](https://github.com/frontitle/Topbase/releases/latest). Topbase is distributed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for third-party notices, [CONTRIBUTING](CONTRIBUTING.md) for the development workflow and [SECURITY](SECURITY.md) to report a vulnerability.
+Read the [deployment guide](https://github.com/frontitle/Topbase/blob/main/docs/deployment.md), [upgrade guide](https://github.com/frontitle/Topbase/blob/main/docs/upgrading.md) and [release notes](https://github.com/frontitle/Topbase/releases/latest). Topbase is distributed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for third-party notices, [CONTRIBUTING](CONTRIBUTING.md) for the development workflow and [SECURITY](SECURITY.md) to report a vulnerability.
