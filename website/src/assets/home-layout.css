@@ -284,6 +284,28 @@ footer nav a {
   min-width: 0;
 }
 
+.terminal pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.terminal p {
+  margin: 0;
+  padding-inline: clamp(1.375rem, 3vw, 1.875rem);
+  color: #c4c7d1;
+  font-size: .9rem;
+  line-height: 1.6;
+}
+
+.terminal p:last-child {
+  padding-bottom: 1.5rem;
+}
+
+.terminal p code {
+  color: #f3f4f8;
+  overflow-wrap: anywhere;
+}
+
 .docs-links a {
   grid-template-columns: minmax(7rem, .48fr) minmax(0, 1fr);
   gap: 1rem;

@@ -53,13 +53,18 @@
     <section class="principles" id="deployment">
       <div class="shell principles-inner">
         <div class="principles-copy reveal"><span class="eyebrow light">BUILT FOR OWNERSHIP</span><h2>Run Topbase on your own servers</h2><p>Your team controls the application database, connection keys, saved analyses and dashboards.</p><a class="text-link" href="https://github.com/frontitle/Topbase#install">Read the installation guide</a></div>
-        <div class="terminal reveal"><div><i></i><i></i><i></i><span>server</span></div><pre><code>$ git clone https://github.com/frontitle/Topbase.git
-$ cd Topbase
-$ docker compose -f docker-compose.release.yml up -d
-
-✓ Topbase ready on :8101
-✓ Application database connected
-✓ Your data stays on your server</code></pre></div>
+        <div class="terminal reveal">
+          <div><i></i><i></i><i></i><span>Docker Compose</span></div>
+          <pre><code>git clone --branch v__VERSION__ \
+  https://github.com/frontitle/Topbase.git
+cd Topbase
+cp -n .env.example .env
+chmod 600 .env
+openssl rand -base64 32</code></pre>
+          <p>On first install, open <code>.env</code> in a text editor. Set <code>TOPBASE_APP_DB_PASSWORD</code> to a strong, unique password and paste the OpenSSL output into <code>TOPBASE_MASTER_KEY</code>. Save the file before starting Compose. Keep the same <code>.env</code> when restarting or upgrading.</p>
+          <pre><code>docker compose -f docker-compose.release.yml up -d</code></pre>
+          <p>Once the services are ready, open <code>http://YOUR_SERVER:8101</code> in your browser.</p>
+        </div>
       </div>
     </section>
 
