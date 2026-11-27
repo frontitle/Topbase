@@ -1,5 +1,5 @@
 import {cp, mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises';
-import {dirname, extname, join, relative} from 'node:path';
+import {dirname, extname, join, relative, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {marked} from 'marked';
 
@@ -19,7 +19,13 @@ for (const asset of ['topbase-logo.png', 'topbase-dashboard-demo.jpg']) {
   await cp(join(docsRoot, 'assets', asset), join(output, 'assets', asset));
 }
 const indexPath = join(output, 'index.html');
-await writeFile(indexPath, (await readFile(indexPath, 'utf8')).replaceAll('__VERSION__', version));
+const chinese = join(output, 'zh');
+await mkdir(chinese);
+await cp(join(output, 'assets'), join(chinese, 'assets'), {recursive: true});
+const zhHome = (await readFile(indexPath, 'utf8')).replaceAll('__VERSION__', version);
+await writeFile(join(chinese, 'index.html'), zhHome.replace('<nav aria-label', '<a href="../" lang="en">English</a><nav aria-label'));
+await writeFile(indexPath, (await readFile(join(source, 'home-en.html'), 'utf8')).replaceAll('__VERSION__', version));
+await rm(join(output, 'home-en.html'));
 
 const docFiles = [];
 async function collect(directory) {
@@ -63,17 +69,31 @@ for (const file of ordered) {
   const markdown = await readFile(file, 'utf8');
   let content = await marked.parse(markdown);
   content = content.replace(/href="([^"#]+)\.md(#[^"]*)?"/g, (_match, target, hash = '') => {
-    if (target.startsWith('../')) {
-      return `href="https://github.com/frontitle/Topbase/blob/main/${target.slice(3)}${hash}"`;
+    if (/^[a-z]+:/i.test(target)) return _match;
+    if (relative(docsRoot, resolve(dirname(file), target)).startsWith('..')) {
+      return `href="https://github.com/frontitle/Topbase/blob/main/${relative(repo, resolve(dirname(file), target))}.md${hash}"`;
     }
     const htmlTarget = target.endsWith('README') ? `${target.slice(0, -6)}index` : target;
     return `href="${htmlTarget}.html${hash}"`;
   });
   const title = (markdown.match(/^#\s+(.+)$/m)?.[1] || labels[relative(docsRoot, file)] || 'Topbase 文档').trim();
   const page = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Topbase 在线文档：${title}"><title>${title}｜Topbase 文档</title><link rel="icon" href="${root}../assets/topbase-logo.png"><link rel="stylesheet" href="${root}../assets/styles.css"><link rel="stylesheet" href="${root}../assets/docs.css"></head><body class="docs-body"><header class="docs-header"><a class="brand" href="${root}../"><img src="${root}../assets/topbase-logo.png" alt=""><span>Topbase</span><b>Docs</b></a><button type="button" aria-label="打开文档导航">目录</button><nav><a href="${root}../">官网</a><a href="https://github.com/frontitle/Topbase">GitHub</a></nav></header><div class="docs-layout"><aside>${nav.replaceAll('__ROOT__', root)}</aside><main class="docs-content">${content}</main><div class="docs-toc"><strong>本页目录</strong><nav id="toc"></nav></div></div><script src="${root}../assets/docs.js"></script></body></html>`;
-  const destination = join(output, 'docs', route);
+  const destination = join(chinese, 'docs', route);
   await mkdir(dirname(destination), {recursive: true});
-  await writeFile(destination, page);
+  await writeFile(destination, page.replace('<button type="button"', `<a lang="en" href="${root}../../docs/${route}">English</a><button type="button"`));
+  const english = await readFile(join(website, 'en', route.replace(/\.html$/, '.md')), 'utf8');
+  const heading = english.split('\n')[0].replace(/^# /, '');
+  const links = ordered.map(path => {
+    const href = routeFor(path);
+    const name = href.replace(/\.html$/, '').replaceAll('-', ' ').replace('index', 'Documentation').replace('releases/', 'Release ');
+    return `<a data-route="${href}" href="${root}${href}">${name}</a>`;
+  }).join('\n');
+  const englishPath = join(output, 'docs', route);
+  await mkdir(dirname(englishPath), {recursive: true});
+  await writeFile(englishPath, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} | Topbase Docs</title>
+<link rel="stylesheet" href="${root}../assets/styles.css"><link rel="stylesheet" href="${root}../assets/docs.css"></head>
+<body class="docs-body"><header class="docs-header"><a class="brand" href="${root}../"><img src="${root}../assets/topbase-logo.png" alt="">Topbase Docs</a><a lang="zh-CN" href="${root}../zh/docs/${route}">简体中文</a><button type="button">Contents</button></header>
+<div class="docs-layout"><aside>${links}</aside><main class="docs-content">${await marked.parse(english)}</main><div class="docs-toc">On this page<nav id="toc"></nav></div></div><script src="${root}../assets/docs.js"></script></body></html>`);
 }
 
 console.log(`Built Topbase website v${version}: ${ordered.length} documentation pages`);
