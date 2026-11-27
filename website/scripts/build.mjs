@@ -1,4 +1,5 @@
 import {access, cp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {basename, dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {marked} from 'marked';
@@ -25,9 +26,47 @@ await cp(join(output, 'assets'), join(chinese, 'assets'), {
   recursive: true,
   filter: path => !['guide-images', 'samples'].includes(basename(path)),
 });
-const zhHome = (await readFile(indexPath, 'utf8')).replaceAll('__VERSION__', version);
-await writeFile(join(chinese, 'index.html'), zhHome.replace('<nav aria-label', '<a href="../" lang="en">English</a><nav aria-label'));
-await writeFile(indexPath, (await readFile(join(source, 'home-en.html'), 'utf8')).replaceAll('__VERSION__', version));
+function homeNavigation(english) {
+  const navLabel = english ? 'Main navigation' : '主导航';
+  const start = english ? 'Get started' : '开始使用';
+  const links = [
+    ['#product', english ? 'Product' : '产品'],
+    ['#workflow', english ? 'Workflow' : '工作方式'],
+    ['docs/', english ? 'Docs' : '文档'],
+    ['https://github.com/frontitle/Topbase', 'GitHub'],
+  ].map(([href, label]) => `<a href="${href}">${label}</a>`).join('\n');
+  const languages = [
+    {lang: 'en', label: 'EN', name: 'English', href: '../', current: english},
+    {lang: 'zh-CN', label: '中文', name: '简体中文', href: 'zh/', current: !english},
+  ].map(({lang, label, name, href, current}) => current
+    ? `<span lang="${lang}" aria-current="page" title="${name}">${label}</span>`
+    : `<a href="${href}" lang="${lang}" hreflang="${lang}" aria-label="${name}" title="${name}">${label}</a>`
+  ).join('');
+  return `<header class="site-header">
+    <div class="header-inner shell">
+      <a class="brand" href="./" aria-label="${english ? 'Topbase homepage' : 'Topbase 首页'}"><img src="assets/topbase-logo.png" alt=""><span>Topbase</span></a>
+      <nav class="primary-nav" aria-label="${navLabel}">${links}</nav>
+      <nav class="language-switch" aria-label="${english ? 'Language' : '语言'}">${languages}</nav>
+      <a class="header-start button button-small button-dark" href="docs/getting-started.html">${start}</a>
+      <details class="mobile-nav">
+        <summary aria-label="${english ? 'Navigation menu' : '导航菜单'}"><span class="menu-bars" aria-hidden="true"></span></summary>
+        <nav aria-label="${navLabel}">${links}<a class="mobile-start" href="docs/getting-started.html">${start}</a></nav>
+      </details>
+    </div>
+  </header>`;
+}
+const homeAssets = ['styles.css', 'home-layout.css', 'site.js'];
+const homeAssetUrls = await Promise.all(homeAssets.map(async name => {
+  const bytes = await readFile(join(source, 'assets', name));
+  const revision = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+  return [`"assets/${name}"`, `"assets/${name}?v=${revision}"`];
+}));
+for (const english of [true, false]) {
+  const template = await readFile(join(source, english ? 'home-en.html' : 'index.html'), 'utf8');
+  let home = template.replace('<!-- homepage navigation -->', homeNavigation(english)).replaceAll('__VERSION__', version);
+  for (const [asset, url] of homeAssetUrls) home = home.replace(asset, url);
+  await writeFile(english ? indexPath : join(chinese, 'index.html'), home);
+}
 await rm(join(output, 'home-en.html'));
 
 // Only paired product guides are published in the online manual.
