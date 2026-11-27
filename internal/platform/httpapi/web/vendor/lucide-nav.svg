@@ -2,6 +2,16 @@
 <!-- @license lucide-static v1.34.0 - ISC; generated from the official sprite -->
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
   <defs>
+    <symbol id="x" viewBox="0 0 24 24">
+      <path d="m18 6-12 12M6 6l12 12" />
+    </symbol>
+    <symbol id="move" viewBox="0 0 24 24">
+      <path d="m5 9-3 3 3 3m4-10 3-3 3 3m0 14-3 3-3-3m10-10 3 3-3 3M2 12h20M12 2v20" />
+    </symbol>
+    <symbol id="grip-vertical" viewBox="0 0 24 24">
+      <circle cx="9" cy="5" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="5" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="19" r="1" />
+    </symbol>
 <symbol id="activity" viewBox="0 0 24 24">
       <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
     </symbol>

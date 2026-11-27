@@ -1,6 +1,7 @@
 package appdb
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -76,37 +77,52 @@ func (s *Store) DashboardByPublicUUID(uuid string) (core.Dashboard, error) {
 	if strings.TrimSpace(uuid) == "" {
 		return core.Dashboard{}, core.ErrNotFound
 	}
-	var id string
-	err := s.db.QueryRow(`SELECT id FROM dashboards WHERE public_uuid=? AND archived_at IS NULL`, uuid).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) || err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return core.Dashboard{}, core.ErrNotFound
-		}
-		return core.Dashboard{}, err
+	return s.readOneDashboard(" WHERE public_uuid=? AND archived_at IS NULL", uuid)
+}
+
+// PublicDashboardPageAvailable checks the page gate before the browser loads
+// the actual dashboard through the public dataset API.
+func (s *Store) PublicDashboardPageAvailable(ctx context.Context, uuid string, embed bool) (bool, error) {
+	var embedEnabled bool
+	err := s.db.QueryRowContext(ctx, `SELECT public_embed_enabled FROM dashboards
+		WHERE public_uuid=? AND public_uuid<>'' AND archived_at IS NULL`, uuid).Scan(&embedEnabled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
 	}
-	return s.DashboardByID(id)
+	return err == nil && (!embed || embedEnabled), err
 }
 
 func (s *Store) DashboardByID(id string) (core.Dashboard, error) {
-	items, err := s.ListDashboards(true)
+	return s.readOneDashboard(" WHERE id=?", id)
+}
+
+func (s *Store) readOneDashboard(predicate, value string) (core.Dashboard, error) {
+	items, err := s.readDashboards(predicate, value)
 	if err != nil {
 		return core.Dashboard{}, err
 	}
-	for _, item := range items {
-		if item.ID == id {
-			return item, nil
-		}
+	if len(items) == 0 {
+		return core.Dashboard{}, core.ErrNotFound
 	}
-	return core.Dashboard{}, core.ErrNotFound
+	return items[0], nil
 }
 
 func (s *Store) ListDashboards(includeArchived bool) ([]core.Dashboard, error) {
-	sqlText := `SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at FROM dashboards`
-	if !includeArchived {
-		sqlText += ` WHERE archived_at IS NULL`
+	if includeArchived {
+		return s.readDashboards(" ORDER BY created_at DESC")
 	}
-	sqlText += ` ORDER BY created_at DESC`
-	rows, err := s.db.Query(sqlText)
+	return s.readDashboards(" WHERE archived_at IS NULL ORDER BY created_at DESC")
+}
+
+func (s *Store) readDashboards(clause string, args ...any) ([]core.Dashboard, error) {
+	// Read the parent rows and their children from the same saved revision.
+	rawTx, err := s.db.DB.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return nil, err
+	}
+	defer rawTx.Rollback()
+	tx := &transaction{Tx: rawTx, db: s.db}
+	rows, err := tx.Query(`SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at FROM dashboards`+clause, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,66 +150,82 @@ func (s *Store) ListDashboards(includeArchived bool) ([]core.Dashboard, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for i := range items {
-		if err := s.loadDashboardChildren(&items[i]); err != nil {
+	// Bound the bind parameters per query across all supported SQL engines.
+	const batchSize = 256
+	for start := 0; start < len(items); start += batchSize {
+		if err := loadDashboardChildren(tx, items[start:min(start+batchSize, len(items))]); err != nil {
 			return nil, err
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
 
-func (s *Store) loadDashboardChildren(d *core.Dashboard) error {
-	tabRows, err := s.db.Query(`SELECT id, name, position FROM dashboard_tabs WHERE dashboard_id=? ORDER BY position`, d.ID)
+func loadDashboardChildren(tx *transaction, dashboards []core.Dashboard) error {
+	byID := make(map[string]*core.Dashboard, len(dashboards))
+	ids := make([]any, len(dashboards))
+	for i := range dashboards {
+		d := &dashboards[i]
+		ids[i], byID[d.ID] = d.ID, d
+		d.Tabs, d.Cards, d.Filters = []core.DashboardTab{}, []core.DashboardCard{}, []core.DashboardFilter{}
+	}
+	// Select the parent's canonical ID even on a case-insensitive database.
+	parents := " JOIN dashboards d ON d.id = c.dashboard_id WHERE d.id IN (" + strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",") + ")"
+	tabRows, err := tx.Query(`SELECT d.id, c.id, c.name, c.position FROM dashboard_tabs c`+parents+` ORDER BY c.dashboard_id, c.position`, ids...)
 	if err != nil {
 		return err
 	}
-	d.Tabs = []core.DashboardTab{}
 	for tabRows.Next() {
 		var tab core.DashboardTab
-		if err := tabRows.Scan(&tab.ID, &tab.Name, &tab.Position); err != nil {
+		if err := tabRows.Scan(&tab.DashboardID, &tab.ID, &tab.Name, &tab.Position); err != nil {
 			tabRows.Close()
 			return err
 		}
-		tab.DashboardID = d.ID
+		d := byID[tab.DashboardID]
 		d.Tabs = append(d.Tabs, tab)
 	}
-	tabRows.Close()
-	cardRows, err := s.db.Query(`SELECT id, tab_id, type, question_id, title, body, config, layout FROM dashboard_cards WHERE dashboard_id=?`, d.ID)
+	if err := tabRows.Err(); err != nil {
+		return err
+	}
+	cardRows, err := tx.Query(`SELECT d.id, c.id, c.tab_id, c.type, c.question_id, c.title, c.body, c.config, c.layout FROM dashboard_cards c`+parents, ids...)
 	if err != nil {
 		return err
 	}
-	d.Cards = []core.DashboardCard{}
 	for cardRows.Next() {
 		var card core.DashboardCard
 		var tabID, questionID, title, body, config, layout sql.NullString
-		if err := cardRows.Scan(&card.ID, &tabID, &card.Type, &questionID, &title, &body, &config, &layout); err != nil {
+		if err := cardRows.Scan(&card.DashboardID, &card.ID, &tabID, &card.Type, &questionID, &title, &body, &config, &layout); err != nil {
 			cardRows.Close()
 			return err
 		}
-		card.DashboardID, card.TabID, card.QuestionID, card.Title, card.Body = d.ID, tabID.String, questionID.String, title.String, body.String
+		card.TabID, card.QuestionID, card.Title, card.Body = tabID.String, questionID.String, title.String, body.String
 		decodeCard(config.String, layout.String, &card)
+		d := byID[card.DashboardID]
 		d.Cards = append(d.Cards, card)
 	}
-	cardRows.Close()
-	filterRows, err := s.db.Query(`SELECT id, name, type, config, mappings FROM dashboard_filters WHERE dashboard_id=?`, d.ID)
+	if err := cardRows.Err(); err != nil {
+		return err
+	}
+	filterRows, err := tx.Query(`SELECT d.id, c.id, c.name, c.type, c.config, c.mappings FROM dashboard_filters c`+parents, ids...)
 	if err != nil {
 		return err
 	}
 	defer filterRows.Close()
-	d.Filters = []core.DashboardFilter{}
 	for filterRows.Next() {
 		var filter core.DashboardFilter
 		var config, mappings sql.NullString
-		if err := filterRows.Scan(&filter.ID, &filter.Name, &filter.Type, &config, &mappings); err != nil {
+		if err := filterRows.Scan(&filter.DashboardID, &filter.ID, &filter.Name, &filter.Type, &config, &mappings); err != nil {
 			return err
 		}
-		filter.DashboardID = d.ID
 		if config.String != "" {
 			_ = json.Unmarshal([]byte(config.String), &filter.Config)
 		}
 		if mappings.String != "" {
 			_ = json.Unmarshal([]byte(mappings.String), &filter.Mappings)
 		}
+		d := byID[filter.DashboardID]
 		d.Filters = append(d.Filters, filter)
 	}
 	return filterRows.Err()

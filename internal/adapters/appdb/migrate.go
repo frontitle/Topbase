@@ -7,10 +7,13 @@ import (
 	"database/sql"
 	_ "embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
+
+	mysqlDriver "github.com/go-sql-driver/mysql"
 
 	appmigrations "github.com/topbase/topbase/migrations"
 )
@@ -79,7 +82,19 @@ func migrateIncrementally(ctx context.Context, db *database, appVersion string) 
 			return 0, fmt.Errorf("begin migration %03d: %w", file.Version, err)
 		}
 		for _, statement := range splitMigrationStatements(file.SQL) {
+			// MySQL upgrades must create tables with the same column types and
+			// collation as a fresh installation. Joins across tables fail if a
+			// new table inherits a different database default collation.
+			if db.engine == EngineMySQL {
+				statement = mysqlBootstrapStatement(statement)
+			}
 			if _, err := tx.ExecContext(ctx, db.rewrite(statement)); err != nil {
+				// MySQL commits CREATE INDEX immediately. Resume safely if an
+				// index was created before the migration ledger was committed.
+				var mysqlErr *mysqlDriver.MySQLError
+				if db.engine == EngineMySQL && strings.HasPrefix(statement, "CREATE INDEX ") && errors.As(err, &mysqlErr) && mysqlErr.Number == 1061 {
+					continue
+				}
 				// Databases created before the migration ledger used the current
 				// schema snapshot plus additive ALTER statements. A duplicate
 				// column therefore means this exact additive change already landed.

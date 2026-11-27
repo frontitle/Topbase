@@ -2,17 +2,6 @@ const form = document.querySelector('#form');
 const errorEl = document.querySelector('#error');
 let storageMode = 'development';
 
-async function api(path, method, body) {
-  const r = await fetch(path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw Error(d.error || '请求失败');
-  return d;
-}
-
 (async () => {
   try {
     const status = await api('/api/setup/status', 'GET');

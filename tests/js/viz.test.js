@@ -106,6 +106,31 @@ test('time-series lines are ordered chronologically and use linear interpolation
   assert.equal(option.color[0], '#0B66C3');
   assert.equal(option.series[0].lineStyle.shadowBlur, 6);
   assert.equal(option.tooltip.backgroundColor, 'rgba(255,255,255,.97)');
+  assert.equal(option.backgroundColor, undefined);
+});
+
+test('dashboard charts reveal the card surface unless a chart background was specified', (t) => {
+  const previousEcharts = global.echarts;
+  const previousObserver = global.ResizeObserver;
+  t.after(() => {
+    global.echarts = previousEcharts;
+    global.ResizeObserver = previousObserver;
+  });
+  const options = [];
+  global.echarts = {
+    init() { return { setOption(option) { options.push(option); } }; }
+  };
+  global.ResizeObserver = class { observe() {} };
+  for (const backgroundColor of [undefined, '#274039']) {
+    const element = host();
+    element.querySelector = () => element.innerHTML ? {} : null;
+    TopbaseViz.render(element, {
+      dashboardOnly: true,
+      columns: ['region', 'sales'], rows: [['南', 8]],
+      spec: { type: 'bar', dashboard_theme: 'deep', backgroundColor }
+    });
+  }
+  assert.deepEqual(options.map(option => option.backgroundColor), ['transparent', '#274039']);
 });
 
 test('China map loads bundled province boundaries and accepts names or adcodes', async () => {
@@ -146,9 +171,10 @@ test('China map loads bundled province boundaries and accepts names or adcodes',
 
   try {
     TopbaseViz.render(element, {
+      dashboardOnly: true,
       columns: ['province', 'sales'],
       rows: [['广东', 120], ['110000', 80]],
-      spec: { type: 'map', x: 'province', y: ['sales'], show_labels: true }
+      spec: { type: 'map', x: 'province', y: ['sales'], show_labels: true, dashboard_theme: 'deep' }
     });
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
@@ -160,6 +186,7 @@ test('China map loads bundled province boundaries and accepts names or adcodes',
   assert.equal(requestedURL, '/assets/maps/china-provinces.json');
   assert.equal(registered.name, 'topbase-china-provinces');
   assert.equal(option.series[0].type, 'map');
+  assert.equal(option.backgroundColor, 'transparent');
   assert.deepEqual(option.series[0].data, [
     { name: '广东省', value: 120 },
     { name: '北京市', value: 80 }

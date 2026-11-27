@@ -135,6 +135,10 @@ CREATE TABLE IF NOT EXISTS dashboard_filters (
   mappings TEXT
 );
 
+CREATE INDEX dashboard_tabs_by_board_position ON dashboard_tabs(dashboard_id, position);
+CREATE INDEX dashboard_cards_by_board ON dashboard_cards(dashboard_id);
+CREATE INDEX dashboard_filters_by_board ON dashboard_filters(dashboard_id);
+
 CREATE TABLE IF NOT EXISTS bookmarks (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -269,6 +273,13 @@ CREATE TABLE IF NOT EXISTS schedule_runs (
   error TEXT,
   started_at TEXT NOT NULL,
   finished_at TEXT
+);
+
+CREATE INDEX schedule_runs_latest ON schedule_runs(schedule_id, started_at, id);
+
+CREATE TABLE IF NOT EXISTS warehouse_target_claims (
+  target_key VARCHAR(64) PRIMARY KEY,
+  schedule_id VARCHAR(64) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS materialized_tables (

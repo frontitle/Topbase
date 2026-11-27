@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -10,8 +11,31 @@ import (
 	"github.com/topbase/topbase/internal/core"
 )
 
+func (s *server) serveWarehousePage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	user, ok := s.currentSessionUser(r)
+	if !ok {
+		http.Redirect(w, r, "/auth/login/", http.StatusFound)
+		return
+	}
+	if !s.identity.IsAdmin(user.ID) {
+		s.serveHTMLStatus(w, r, "warehouse/member.html", http.StatusForbidden)
+		return
+	}
+	s.serveHTML(w, r, "warehouse/index.html")
+}
+
 func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	if r.URL.Query().Get("include") == "last_run" {
+		items, err := s.store.ListScheduleSummaries()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 		return
 	}
 	items, err := s.warehouse.List()
@@ -52,6 +76,10 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 		MaterializeTo: input.MaterializeTo, Strategy: input.Strategy, DatabaseID: input.DatabaseID,
 		WatermarkField: input.WatermarkField, ConfirmSourceWrite: input.ConfirmSourceWrite,
 	}, user.ID)
+	if errors.Is(err, core.ErrWarehouseTargetInUse) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -64,23 +92,39 @@ func (s *server) runSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scheduleID := r.PathValue("id")
-	leaseName := "warehouse:schedule:" + scheduleID
-	acquired, err := s.store.AcquireLease(r.Context(), leaseName, s.instanceID, 6*time.Hour)
+	release, err := s.reserveWarehouseRun(r.Context(), scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "cannot reserve schedule execution"})
 		return
 	}
-	if !acquired {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "schedule is already running on another Topbase instance"})
+	if release == nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "此计划正在运行，请稍后查看结果"})
 		return
 	}
-	defer s.store.ReleaseLease(context.Background(), leaseName, s.instanceID)
+	defer release()
 	run, err := s.warehouse.Run(r.Context(), scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "run": run})
 		return
 	}
 	writeJSON(w, http.StatusOK, run)
+}
+
+func (s *server) reserveWarehouseRun(ctx context.Context, scheduleID string) (release func(), err error) {
+	// Scheduler leadership is renewable by the node. Each individual run needs
+	// a unique owner so that another request on that same node cannot renew or
+	// release the in-progress run's lease.
+	name := "warehouse:schedule:" + scheduleID
+	owner := core.NewID("wh_run")
+	acquired, err := s.store.AcquireLease(ctx, name, owner, 6*time.Hour)
+	if err != nil || !acquired {
+		return nil, err
+	}
+	return func() {
+		if err := s.store.ReleaseLease(context.Background(), name, owner); err != nil {
+			log.Printf("topbase: release schedule %s lease: %v", scheduleID, err)
+		}
+	}, nil
 }
 
 func (s *server) listRuns(w http.ResponseWriter, r *http.Request) {
@@ -168,21 +212,18 @@ func (s *server) tickWarehouse(ctx context.Context) {
 			if !appwarehouse.Due(item.Cron, item.Timezone, now, item.LastRunAt) {
 				continue
 			}
-			leaseName := "warehouse:schedule:" + item.ID
-			acquired, err := s.store.AcquireLease(ctx, leaseName, s.instanceID, 6*time.Hour)
+			release, err := s.reserveWarehouseRun(ctx, item.ID)
 			if err != nil {
 				log.Printf("topbase: acquire schedule %s lease: %v", item.ID, err)
 				continue
 			}
-			if !acquired {
+			if release == nil {
 				continue
 			}
 			if _, err := s.warehouse.Run(ctx, item.ID); err != nil {
 				log.Printf("topbase: schedule %s: %v", item.ID, err)
 			}
-			if err := s.store.ReleaseLease(context.Background(), leaseName, s.instanceID); err != nil {
-				log.Printf("topbase: release schedule %s lease: %v", item.ID, err)
-			}
+			release()
 		}
 		s.notify.RunDueSubscriptions(ctx, now)
 	}

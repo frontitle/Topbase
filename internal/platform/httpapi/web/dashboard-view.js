@@ -5,8 +5,12 @@ const pathParts = location.pathname.split('/').filter(Boolean);
 const isPublicDashboard = ['public', 'embed'].includes(pathParts[0]) && pathParts[1] === 'dashboard';
 const boardId = isPublicDashboard ? '' : (pathParts[1] || new URLSearchParams(location.search).get('id'));
 const publicUUID = isPublicDashboard ? pathParts[2] : '';
-let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', styleCard = '', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [], layoutFrame = 0, canvasResizeObserver = null, viewer = null, loadController = null, loadSequence = 0;
-const APPEARANCE_DEFAULTS = { theme: 'deep', background: '#07111f', grid: true, snap: true, glow: true };
+let board = null, questions = [], collections = [], questionMap = {}, activeTab = '', editing = false, saveTimer = 0, drag = null, cardData = {}, selectedCard = '', inspectorSection = 'appearance', paletteLimit = 60, paletteTab = 'analysis', motionTimers = [], layoutFrame = 0, canvasResizeObserver = null, loadController = null, loadSequence = 0;
+let saveQueue = Promise.resolve();
+let previewOrigin = null;
+let finishingEdit = false;
+const CANVAS_BACKGROUNDS = { light: '#ffffff', deep: '#07111f', aurora: '#08284a' };
+const APPEARANCE_DEFAULTS = { theme: 'light', background: CANVAS_BACKGROUNDS.light, grid: true, snap: true };
 
 function newID(prefix) {
   return prefix + '_' + Math.random().toString(16).slice(2) + Date.now().toString(16).slice(-4);
@@ -16,7 +20,7 @@ function tabCards() {
 }
 function cellW() {
   const grid = $('#grid');
-  const width = grid.getBoundingClientRect().width || grid.clientWidth;
+  const width = grid.clientWidth || grid.getBoundingClientRect().width;
   return (width - X_GAP * (COLS - 1)) / COLS;
 }
 function rect(layout) {
@@ -31,9 +35,6 @@ function rect(layout) {
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 function minHeight(card) { return ['heading', 'text', 'divider'].includes(card.type) ? 1 : MIN_H; }
 function minWidth(card) { return card.type === 'question' && cardVizType(card) === 'scalar' ? 4 : MIN_W; }
-function overlaps(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
 function nextY(w) {
   w = w || 4;
   const cards = tabCards();
@@ -41,13 +42,7 @@ function nextY(w) {
   return Math.max(...cards.map(c => (c.layout.y || 0) + (c.layout.h || 1)));
 }
 function resolveOverlap(moved) {
-  const others = tabCards().filter(c => c.id !== moved.id);
-  let guard = 0;
-  while (guard++ < 80) {
-    const hit = others.find(c => overlaps(moved.layout, c.layout));
-    if (!hit) break;
-    hit.layout.y = moved.layout.y + moved.layout.h;
-  }
+  TopbaseDashboardLayout.resolveOverlap(moved, tabCards());
 }
 function cellAt(clientX, clientY, w, h) {
   const box = $('#grid').getBoundingClientRect();
@@ -85,8 +80,27 @@ function payload() {
   };
 }
 function appearance() {
-  board.appearance = Object.assign({}, APPEARANCE_DEFAULTS, board.appearance || {});
-  return board.appearance;
+  const saved = board.appearance || {};
+  const a = { ...APPEARANCE_DEFAULTS, ...saved };
+  if (!Object.hasOwn(CANVAS_BACKGROUNDS, a.theme)) a.theme = APPEARANCE_DEFAULTS.theme;
+  const preset = CANVAS_BACKGROUNDS[a.theme];
+  const color = String(saved.background || '').toLowerCase();
+  const legacyDefault = !saved.background_custom && color === CANVAS_BACKGROUNDS.deep && a.theme !== 'deep';
+  a.background = color && !legacyDefault ? color : preset;
+  // Older light dashboards used a tinted paper. Preserve their stored color
+  // while still allowing the next preset selection to change it.
+  if (a.background_custom == null) {
+    const oldLight = a.theme === 'light' && color === '#f5fbfb';
+    a.background_custom = a.background !== preset && !oldLight;
+  }
+  delete a.glow;
+  return board.appearance = a;
+}
+function useCanvasTheme(theme) {
+  if (!Object.hasOwn(CANVAS_BACKGROUNDS, theme)) return;
+  const a = appearance();
+  a.theme = theme;
+  if (!a.background_custom) a.background = CANVAS_BACKGROUNDS[theme];
 }
 function upgradeCanvasGrid() {
   const a = appearance();
@@ -108,29 +122,47 @@ function applyAppearance() {
   canvas.style.setProperty('--canvas-custom-bg', a.background);
   canvas.classList.toggle('canvas-grid-off', !a.grid);
   canvas.classList.toggle('canvas-snap-off', !a.snap);
-  canvas.classList.toggle('canvas-glow-off', !a.glow);
 }
 function renderPublicBadge() {
   const badge = $('#public-badge');
   if (badge) badge.hidden = !board?.public_uuid;
 }
-function renderCanvasControls() {
-  const host = $('#canvas-controls');
-  if (!host) return;
-  host.hidden = !editing;
-  if (!editing) return;
+function canvasPropertyFields() {
   const a = appearance();
-  const toggle = (id, label, enabled, onText, offText) => `<label class="canvas-switch"><input id="${id}" type="checkbox" ${enabled?'checked':''}><span aria-hidden="true"></span><b>${label}</b><em>${enabled ? onText : offText}</em></label>`;
-  host.innerHTML = `<span class="canvas-label"><b>画布</b><small>外观与编排</small></span><div class="canvas-control-group"><button data-theme="deep" class="${a.theme==='deep'?'active':''}" type="button">深空</button><button data-theme="aurora" class="${a.theme==='aurora'?'active':''}" type="button">极光</button><button data-theme="light" class="${a.theme==='light'?'active':''}" type="button">明亮</button></div><label class="canvas-color"><span>背景</span><input id="canvas-background" type="color" value="${esc(a.background)}" title="画布背景色"></label>${toggle('canvas-grid-toggle', '网格', a.grid, '显示', '隐藏')}${toggle('canvas-snap-toggle', '吸附', a.snap, '整格', '自由')}${toggle('canvas-glow-toggle', '微光', a.glow, '开启', '关闭')}`;
-  $$('[data-theme]', host).forEach(button => button.onclick = () => { appearance().theme = button.dataset.theme; applyAppearance(); renderCanvasControls(); scheduleSave(); });
-  $('#canvas-background').oninput = event => { appearance().background = event.target.value; applyAppearance(); scheduleSave(); };
-  $('#canvas-grid-toggle').onchange = event => { appearance().grid = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
-  $('#canvas-snap-toggle').onchange = event => { appearance().snap = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
-  $('#canvas-glow-toggle').onchange = event => { appearance().glow = event.target.checked; applyAppearance(); renderCanvasControls(); scheduleSave(); };
+  return `<div class="inspector-fields canvas-property-fields">
+    <section><h3>外观</h3>
+      ${inspectorSelect('配色', { id: 'canvas-theme' }, a.theme, [['light','浅色'],['deep','深色'],['aurora','藏蓝']])}
+      <label class="background-field">背景颜色<span class="color-input">
+        <input id="canvas-background" type="color" value="${esc(a.background)}" aria-label="背景颜色">
+        <output for="canvas-background">${esc(a.background.toUpperCase())}</output>
+      </span></label>
+      <button data-reset-background type="button" ${a.background_custom ? '' : 'hidden'}>恢复配色默认背景</button>
+    </section>
+    <section><h3>编辑辅助</h3>
+      ${TopbaseUI.checkbox({ label: '显示网格', attrs: { 'id': 'canvas-grid-toggle' }, checked: a.grid })}
+      ${TopbaseUI.checkbox({ label: '吸附到网格', attrs: { 'id': 'canvas-snap-toggle' }, checked: a.snap })}
+    </section>
+  </div>`;
+}
+
+function updateCanvasBackground(value) {
+  const a = appearance();
+  a.background = value;
+  a.background_custom = value !== CANVAS_BACKGROUNDS[a.theme];
+  applyAppearance();
+  const host = $('#card-inspector');
+  $('#canvas-background', host).value = value;
+  $('output', host).textContent = value.toUpperCase();
+  $('[data-reset-background]', host).hidden = !a.background_custom;
+  scheduleSave();
 }
 async function saveBoard() {
-  board = await api('/api/dashboards/' + board.id, 'PUT', payload());
-  if (activeTab && !(board.tabs || []).some(t => t.id === activeTab)) activeTab = board.tabs?.[0]?.id || '';
+  clearTimeout(saveTimer);
+  const snapshot = structuredClone(payload());
+  const path = '/api/dashboards/' + board.id;
+  const write = saveQueue.then(() => api(path, 'PUT', snapshot));
+  saveQueue = write.catch(() => {});
+  await write;
 }
 
 function scheduleSave() {
@@ -147,7 +179,12 @@ function renderTabs() {
   $('#tabs').className = 'tb-tabs tabs';
   $('#tabs').innerHTML = tabs.length <= 1 ? '' : tabs.map(t => `<button data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
   $('.board-toolbar').hidden = tabs.length <= 1 && !(board.filters || []).length;
-  $$('#tabs button').forEach(b => b.onclick = () => { activeTab = b.dataset.tab; render(); loadCards(); });
+  $$('#tabs button').forEach(b => b.onclick = () => {
+    activeTab = b.dataset.tab;
+    $$('#tabs button').forEach(button => button.classList.toggle('active', button === b));
+    render();
+    loadCards();
+  });
 }
 function renderFilters() {
   $('#filters').innerHTML = (board.filters || []).map(f => {
@@ -166,24 +203,42 @@ function renderPalette() {
     const added=used.has(item.id);
     const group = collections.find(collection => collection.id === item.collection_id);
     return `<button class="palette-item ${added?'added':''}" draggable="${added?'false':'true'}" data-qid="${item.id}" type="button" ${added?'disabled':''}><b>${esc(item.name)}</b><small>${group ? esc(group.name) + ' · ' : ''}${item.query_type === 'native' ? 'SQL 分析' : '可视化分析'} · ${added?'已添加':'点击添加'}</small></button>`;
-  }).join('') || '<div class="palette-empty"><b>还没有分析</b><p>选择起始数据，通过可视化构建器保存第一条分析。</p><a href="/questions/new/">创建分析</a></div>';
+  }).join('') || (questions.length
+    ? '<div class="palette-empty" role="status">没有匹配的分析，请调整搜索词或分组。</div>'
+    : '<div class="palette-empty"><b>还没有分析</b><p>保存分析后，即可在这里添加。</p><a href="/questions/new/">创建分析</a></div>');
   $('#palette-more').hidden = items.length <= shown.length;
   $('#palette-more').textContent = `加载更多（还有 ${items.length - shown.length} 条）`;
   $$('#palette-questions .palette-item:not([disabled])').forEach(btn => {
-    btn.ondragstart = ev => {
-      ev.dataTransfer.setData('text/plain', btn.dataset.qid);
-      ev.dataTransfer.effectAllowed = 'copy';
-    };
+    btn.ondragstart = ev => beginPaletteDrag(ev, { questionId: btn.dataset.qid });
+    btn.ondragend = clearPaletteDrag;
     btn.onclick = () => addQuestion(btn.dataset.qid);
   });
 }
-function renderPaletteTabs() {
-  $$('[data-palette-tab]').forEach(button => {
-    const active = button.dataset.paletteTab === paletteTab;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', String(active));
-  });
-  $$('[data-palette-panel]').forEach(panel => { panel.hidden = panel.dataset.palettePanel !== paletteTab; });
+function renderWidgetLibrary() {
+  const host = $('#widget-library');
+  if (!host) return;
+  const groups = new Map();
+  for (const item of TopbaseUI.components.dashboardWidgets.list($('#widget-search').value)) {
+    if (!groups.has(item.group)) groups.set(item.group, []);
+    groups.get(item.group).push(item);
+  }
+  host.innerHTML = [...groups].map(([group, items]) => `<section class="widget-group"><h3>${esc(group)}</h3><div class="widget-tiles">${items.map(item =>
+    `<button type="button" class="widget-tile" data-add="${esc(item.id)}" draggable="${item.id !== 'image'}"><span class="widget-symbol" aria-hidden="true">${esc(item.symbol)}</span><span>${esc(item.label)}</span></button>`
+  ).join('')}</div></section>`).join('') || '<p class="widget-no-match" role="status">没有匹配的小组件</p>';
+}
+let insertPopover;
+function closeInsertPalette(restoreFocus = false) {
+  insertPopover?.close(restoreFocus);
+}
+
+function syncEditorTools(isEditing) {
+  const tools = $('#editor-tools');
+  if (!tools) return;
+  if (!isEditing) {
+    closeInsertPalette();
+    clearPaletteDrag();
+  }
+  tools.hidden = !isEditing;
 }
 function renderCollectionFilter() {
   const select = $('#qcollection');
@@ -207,11 +262,13 @@ function cardTitle(card) {
   return '分析卡';
 }
 function richText(card) {
-  const raw = card.config && card.config.rich_text;
-  if (!raw) return esc(card.body || '');
+  const heading = card.type === 'heading';
+  const raw = heading ? card.config?.rich_title : card.config?.rich_text;
+  if (!raw) return esc(heading ? (card.title || '标题') : (card.body || ''));
+  const allowed = heading ? ['B','STRONG','I','EM','U'] : ['B','STRONG','I','EM','U','UL','OL','LI','BR','A','P','DIV'];
   const doc = new DOMParser().parseFromString(raw, 'text/html');
   doc.body.querySelectorAll('*').forEach(node => {
-    if (!['B','STRONG','I','EM','U','UL','OL','LI','BR','A','P','DIV'].includes(node.tagName)) node.replaceWith(...node.childNodes);
+    if (!allowed.includes(node.tagName)) node.replaceWith(...node.childNodes);
     else [...node.attributes].forEach(attr => { if (!(node.tagName === 'A' && attr.name === 'href')) node.removeAttribute(attr.name); });
   });
   doc.body.querySelectorAll('a').forEach(link => { link.target = '_blank'; link.rel = 'noopener'; });
@@ -224,14 +281,29 @@ function typography(card) {
 function typographyStyle(card) {
   const style = typography(card);
   const font = { system: 'var(--tb-font)', serif: 'Georgia, "Noto Serif SC", serif', mono: 'ui-monospace, SFMono-Regular, Menlo, monospace' }[style.font];
-  return `font-family:${font};font-size:${style.size}px`;
+  return `font-family:${font};font-size:${style.size}px${card.type === 'heading' ? ';font-weight:500' : ''}`;
 }
 function typographyTools(card) {
-  const style = typography(card);
-  return `<div class="rich-text-tools typography-tools"><button data-format="bold" type="button"><b>B</b></button><button data-format="italic" type="button"><i>I</i></button><button data-format="underline" type="button"><u>U</u></button>${card.type === 'text' ? '<button data-format="insertUnorderedList" type="button">• 列表</button>' : ''}<select data-typography="font" data-card-id="${card.id}"><option value="system" ${style.font==='system'?'selected':''}>无衬线</option><option value="serif" ${style.font==='serif'?'selected':''}>衬线</option><option value="mono" ${style.font==='mono'?'selected':''}>等宽</option></select><select data-typography="size" data-card-id="${card.id}">${[12,14,16,18,22,28].map(size => `<option value="${size}" ${style.size===size?'selected':''}>${size}px</option>`).join('')}</select></div>`;
+  return `<div class="tb-segmented inspector-format-tools" role="group" aria-label="文字强调">
+    <button data-format="bold" type="button" aria-label="加粗" title="加粗"><b>B</b></button>
+    <button data-format="italic" type="button" aria-label="倾斜" title="倾斜"><i>I</i></button>
+    <button data-format="underline" type="button" aria-label="下划线" title="下划线"><u>U</u></button>
+    ${card.type === 'text' ? '<button data-format="insertUnorderedList" type="button" title="项目列表">列表</button>' : ''}
+  </div>`;
 }
 function presentation(card) {
-  return Object.assign({ border: 'default', surface: 'solid', padding: 'normal', radius: 'round', shadow: 'default', align: 'left', show_header: true }, (card.config && card.config.presentation) || {});
+  const align = cardVizType(card) === 'scalar' ? 'center' : 'left';
+  const saved = card.config?.presentation || {};
+  const border = saved.border === 'none' ? 'none' : 'default';
+  const surface = saved.surface === 'transparent' ? 'transparent' : 'solid';
+  return {
+    border, surface,
+    padding: ['compact','none'].includes(saved.padding) ? saved.padding : 'normal',
+    radius: border === 'none' || saved.radius === 'square' ? 'square' : 'round',
+    shadow: border === 'none' || surface === 'transparent' || saved.shadow === 'none' ? 'none' : 'default',
+    align: ['left','center','right'].includes(saved.align) ? saved.align : align,
+    show_header: saved.show_header !== false
+  };
 }
 function cardVizType(card) {
   if (card.type !== 'question') return '';
@@ -240,54 +312,294 @@ function cardVizType(card) {
   // 表格是未指定图形时的默认呈现；因此没有明确图形类型的分析卡同样按表格处理。
   return own || (source && source.type) || 'table';
 }
+function inspectorSelect(label, attrs, value, choices) {
+  return TopbaseUI.select({ label, attrs, value, options: choices.map(([value, label]) => ({ value, label })) });
+}
+
 function presentationPanel(card) {
   const p = presentation(card);
-  const select = (key, values) => `<label>${key === 'border' ? '边框' : key === 'surface' ? '底色' : key === 'padding' ? '留白' : key === 'radius' ? '圆角' : '对齐'}<select data-presentation="${key}" data-card-id="${card.id}">${values.map(([value, label]) => `<option value="${value}" ${p[key] === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
-  const hasBorder = p.border !== 'none';
-  const canShadow = hasBorder && p.surface !== 'transparent';
-  let componentOptions = '';
-  if (card.type === 'text') componentOptions = `<section class="card-style-section"><b>内容效果</b><label class="card-style-switch"><span>文字效果</span><select data-effect="text" data-card-id="${card.id}"><option value="none">静态</option><option value="marquee-left">横向走马灯</option><option value="marquee-up">纵向走马灯</option></select></label></section>`;
-  else if (card.type === 'image') componentOptions = `<section class="card-style-section"><b>播放效果</b><label class="card-style-switch"><input data-carousel="enabled" data-card-id="${card.id}" type="checkbox" ${card.config && card.config.carousel ? 'checked' : ''}> 自动轮播</label><label class="card-style-switch"><span>间隔</span><select data-carousel="interval" data-card-id="${card.id}">${[3,5,8,12].map(value => `<option value="${value}" ${card.config && Number(card.config.carousel_interval) === value ? 'selected' : ''}>${value} 秒</option>`).join('')}</select></label></section>`;
-  else if (card.type === 'time') componentOptions = `<section class="card-style-section"><b>时间内容</b><label class="card-style-switch"><span>显示内容</span><select data-time-mode data-card-id="${card.id}"><option value="datetime">日期和时间</option><option value="date">仅日期</option><option value="time">仅时间</option><option value="weekday">星期和日期</option></select></label></section>`;
-  else if (cardVizType(card) === 'table') componentOptions = `<section class="card-style-section"><b>表格呈现</b><label class="card-style-switch"><span>数据动效</span><select data-table-motion data-card-id="${card.id}"><option value="none">静态</option><option value="scroll">数据滚动</option><option value="page">自动翻页</option></select></label></section>`;
-  return `<div class="card-style-panel"><header><b>组件样式</b><button data-close-style type="button" aria-label="关闭">×</button></header><section class="card-style-section"><b>布局</b><div class="card-style-grid">${select('border', [['default','默认边框'],['none','无边框'],['glow','发光边框']])}${select('surface', [['solid','实色底'],['transparent','透明'],['glass','玻璃']])}${select('padding', [['normal','标准'],['compact','紧凑'],['none','无内边距']])}${hasBorder ? select('radius', [['round','圆角'],['square','直角']]) : ''}${select('align', [['left','居左'],['center','居中'],['right','居右']])}</div>${canShadow ? `<label class="card-style-switch"><input data-presentation="shadow" data-card-id="${card.id}" type="checkbox" ${p.shadow !== 'none' ? 'checked' : ''}> 显示阴影</label>` : ''}<label class="card-style-switch"><input data-presentation="show_header" data-card-id="${card.id}" type="checkbox" ${p.show_header !== false ? 'checked' : ''}> 展示标题栏</label></section>${componentOptions}</div>`;
+  const config = card.config || {};
+  const field = (label, key, options) => inspectorSelect(label, { 'data-presentation': key }, p[key], options);
+  const section = (title, body) => `<section class="card-style-section"><b>${title}</b>${body}</section>`;
+  const grid = fields => `<div class="card-style-grid">${fields.join('')}</div>`;
+  const groups = [];
+  const viz = cardVizType(card);
+  const textCard = card.type === 'text' || card.type === 'heading';
+
+  const content = [];
+  if (textCard) {
+    const style = typography(card);
+    content.push(inspectorSelect('字体', { 'data-typography': 'font' }, style.font, [['system','无衬线'],['serif','衬线'],['mono','等宽']]));
+    content.push(inspectorSelect('字号', { 'data-typography': 'size' }, style.size, [12,14,16,18,22,28].map(size => [size, size + ' px'])));
+  }
+  if (textCard || ['time','link'].includes(card.type) || viz === 'scalar') {
+    content.push(field('对齐方式', 'align', [['left','靠左'],['center','居中'],['right','靠右']]));
+  }
+  if (card.type === 'text') {
+    content.push(inspectorSelect('文字效果', { 'data-effect': 'text' }, config.text_effect || 'none',
+      [['none','静止'],['marquee-left','向左滚动'],['marquee-up','向上滚动']]));
+  }
+  if (card.type === 'time') {
+    content.push(inspectorSelect('显示内容', { 'data-time-mode': '' }, config.time_mode || 'datetime',
+      [['datetime','日期和时间'],['date','仅日期'],['time','仅时间'],['weekday','星期和日期']]));
+  }
+  if (viz === 'table') {
+    content.push(inspectorSelect('数据播放', { 'data-table-motion': '' }, config.table_motion || 'none',
+      [['none','静止'],['scroll','连续滚动'],['page','自动翻页']]));
+  }
+  if (content.length) groups.push(section(textCard ? '文字排版' : '内容显示', grid(content) + (textCard ? typographyTools(card) : '')));
+
+  if (card.type === 'image' && config.images?.length > 1) {
+    const interval = inspectorSelect('切换间隔', { 'data-carousel': 'interval' }, Number(config.carousel_interval) || 5,
+      [3,5,8,12].map(value => [value, value + ' 秒']));
+    groups.push(section('图片播放', TopbaseUI.checkbox({ label: '自动轮播', attrs: { 'data-carousel': 'enabled' }, checked: config.carousel }) +
+      (config.carousel ? grid([interval]) : '')));
+  }
+
+  const appearanceFields = [];
+  if (card.type !== 'divider') {
+    appearanceFields.push(field('背景', 'surface', [['solid','实色'],['transparent','透明']]));
+    appearanceFields.push(field('边框', 'border', [['default','显示'],['none','隐藏']]));
+    if (p.border !== 'none') appearanceFields.push(field('边角', 'radius', [['round','圆角'],['square','直角']]));
+  }
+  appearanceFields.push(field('内边距', 'padding', [['normal','标准'],['compact','紧凑'],['none','无']]));
+  let appearance = grid(appearanceFields);
+  if (card.type !== 'divider' && p.border !== 'none' && p.surface !== 'transparent') {
+    appearance += TopbaseUI.checkbox({ label: '显示阴影', attrs: { 'data-presentation': 'shadow' }, checked: p.shadow !== 'none' });
+  }
+  if (card.type === 'question' || card.type === 'divider') {
+    appearance += TopbaseUI.checkbox({ label: '显示标题', attrs: { 'data-presentation': 'show_header' }, checked: p.show_header });
+  }
+  groups.push(section('卡片样式', appearance));
+  return groups.join('');
+}
+
+function inspectorType(card) {
+  if (card.type === 'question') return TopbaseViz.types.find(type => type.id === cardVizType(card))?.label || '分析';
+  if (card.type === 'plugin' && card.title) return card.title;
+  return TopbaseUI.components.dashboardWidgets.list().find(widget => widget.id === card.type)?.label || '小组件';
+}
+
+function inspectorContent(card) {
+  const field = (label, key, value) => TopbaseUI.input({ label, value, attrs: { 'data-config-field': key } });
+  if (card.type === 'question') {
+    return field('卡片标题', 'title', cardTitle(card)) +
+      inspectorSelect('显示形式', { 'data-inspector-viz': '' }, cardVizType(card), TopbaseViz.types.map(({ id, label }) => [id, label]));
+  }
+  if (card.type === 'divider') return field('分隔线标题', 'title', card.title || '');
+  if (!['link', 'iframe', 'plugin'].includes(card.type)) return '';
+  const url = card.type === 'link' ? card.body : card.config?.url;
+  const validation = card.type === 'link' ? '' : `<p class="embed-validation" data-embed-validation="${esc(card.id)}" role="status"></p>`;
+  return field('名称', 'title', card.title || '') + field(card.type === 'plugin' ? '组件地址' : '网址', 'url', url || '') + validation;
+}
+
+function layoutLimits(card) {
+  return { columns: COLS, minW: minWidth(card), minH: minHeight(card), maxH: 48, snap: appearance().snap };
+}
+
+function renderInspector() {
+  const host = $('#card-inspector');
+  if (!host) return;
+  host.hidden = !editing;
+  if (!editing) { host.replaceChildren(); return; }
+  const card = tabCards().find(item => item.id === selectedCard);
+  if (!card) selectedCard = '';
+  const heading = card ? componentName(card) : '画布设置';
+  const icon = card ? 'settings-2' : 'layout-dashboard';
+  const header = `<header><div class="inspector-heading"><svg aria-hidden="true"><use href="/vendor/lucide-nav.svg#${icon}"></use></svg>
+    <div>${card ? `<button data-close-inspector type="button" title="返回画布设置">画布</button><span class="inspector-type"> / ${esc(inspectorType(card))}</span>` : ''}
+    <h2 tabindex="-1" title="${esc(heading)}">${esc(heading)}</h2></div></div>
+    <button type="button" data-inspector-dismiss aria-label="收起属性">×</button></header>`;
+  syncInspectorToggle();
+  if (!card) { host.innerHTML = header + canvasPropertyFields(); return; }
+  const content = inspectorContent(card);
+  const layout = inspectorSection === 'layout';
+  host.innerHTML = `${header}
+    <div class="inspector-tabs" role="group" aria-label="配置分类">
+      <button type="button" data-section="appearance" aria-pressed="${!layout}">外观</button>
+      <button type="button" data-section="layout" aria-pressed="${layout}">位置与尺寸</button>
+    </div><div class="inspector-fields">${layout ? TopbaseDashboardLayout.section(card.layout, layoutLimits(card)) :
+      (content ? `<section class="inspector-content">${content}</section>` : '') + presentationPanel(card)}</div>`;
+  if (layout) TopbaseDashboardLayout.bind(host, () => tabCards().find(item => item.id === selectedCard), layoutLimits, (item, next) => {
+    item.layout = next;
+    resolveOverlap(item);
+    scheduleCanvasLayout();
+    scheduleSave();
+  });
+}
+
+function compactInspector() {
+  return getComputedStyle($('#layout')).getPropertyValue('--compact-inspector').trim() === '1';
+}
+
+function syncInspectorToggle() {
+  const toggle = $('#canvas-settings');
+  if (!toggle || !editing) return;
+  if (compactInspector()) toggle.setAttribute('aria-expanded', String($('#layout').classList.contains('inspector-open')));
+  else toggle.removeAttribute('aria-expanded');
+}
+
+function openCardInspector() {
+  if (!editing) return;
+  if (compactInspector()) $('#layout').classList.add('inspector-open');
+  syncInspectorToggle();
+  $('#card-inspector h2')?.focus({ preventScroll: true });
+}
+
+function dismissInspector() {
+  $('#layout').classList.remove('inspector-open');
+  syncInspectorToggle();
+  $('#canvas-settings').focus({ preventScroll: true });
+}
+
+function selectCard(id) {
+  if (!editing || id === selectedCard) return;
+  selectedCard = id;
+  $$('#grid [data-card]').forEach(el => el.classList.toggle('selected', el.dataset.card === id));
+  renderInspector();
+  renderOutline();
+}
+
+function syncComponentName(card) {
+  if (selectedCard !== card.id) return;
+  const title = $('#card-inspector h2');
+  if (title) title.textContent = title.title = componentName(card);
+  renderOutline();
+}
+
+function bindInspector() {
+  const host = $('#card-inspector');
+  if (!host) return;
+  $('#canvas-settings').onclick = () => {
+    if (compactInspector() && $('#layout').classList.contains('inspector-open')) return dismissInspector();
+    if (!compactInspector()) selectCard('');
+    openCardInspector();
+  };
+  host.onkeydown = event => {
+    if (event.key === 'Escape' && compactInspector()) {
+      event.preventDefault();
+      dismissInspector();
+    }
+  };
+  host.oninput = event => {
+    if (event.target.id === 'canvas-background') updateCanvasBackground(event.target.value);
+  };
+  host.onclick = event => {
+    if (event.target.closest('[data-inspector-dismiss]')) return dismissInspector();
+    if (event.target.closest('[data-close-inspector]')) {
+      selectCard('');
+      return openCardInspector();
+    }
+    if (event.target.closest('[data-reset-background]')) {
+      updateCanvasBackground(CANVAS_BACKGROUNDS[appearance().theme]);
+      $('#canvas-background').focus();
+      return;
+    }
+    const tab = event.target.closest('[data-section]');
+    if (tab) {
+      inspectorSection = tab.dataset.section;
+      renderInspector();
+      $(`[data-section="${inspectorSection}"]`, host)?.focus();
+    }
+  };
+  host.onchange = event => {
+    const input = event.target;
+    if (!editing) return;
+    if (input.id === 'canvas-theme') {
+      useCanvasTheme(input.value);
+      render();
+      $('#canvas-theme').focus({ preventScroll: true });
+      scheduleSave();
+      return;
+    }
+    if (input.id === 'canvas-grid-toggle' || input.id === 'canvas-snap-toggle') {
+      appearance()[input.id === 'canvas-grid-toggle' ? 'grid' : 'snap'] = input.checked;
+      applyAppearance();
+      scheduleSave();
+      return;
+    }
+    const card = editing && tabCards().find(item => item.id === selectedCard);
+    if (!card || inspectorSection === 'layout') return;
+    const config = card.config ||= {};
+    const key = input.dataset.presentation;
+    let checkURL;
+    if (key) {
+      const next = presentation(card);
+      next[key] = input.type === 'checkbox' ? input.checked : input.value;
+      if (key === 'shadow') next.shadow = input.checked ? 'default' : 'none';
+      config.presentation = next;
+    } else if (input.dataset.typography) {
+      const style = typography(card);
+      style[input.dataset.typography] = input.dataset.typography === 'size' ? Number(input.value) : input.value;
+      config.typography = style;
+    } else if (input.hasAttribute('data-inspector-viz')) {
+      config.chartspec = { ...config.chartspec, type: input.value };
+    } else if (input.dataset.configField === 'title') {
+      card.title = input.value.trim();
+    } else if (input.dataset.configField === 'url') {
+      if (card.type === 'link') card.body = input.value.trim();
+      else checkURL = config.url = input.value.trim();
+    } else if (input.hasAttribute('data-time-mode')) config.time_mode = input.value;
+    else if (input.hasAttribute('data-table-motion')) config.table_motion = input.value;
+    else if (input.dataset.effect === 'text') config.text_effect = input.value;
+    else if (input.dataset.carousel === 'enabled') config.carousel = input.checked;
+    else if (input.dataset.carousel === 'interval') config.carousel_interval = Number(input.value);
+    else return;
+    const field = [...input.attributes].find(attribute => attribute.name.startsWith('data-'));
+    render({ keepInspector: !!input.dataset.configField });
+    if (input.dataset.configField === 'title') syncComponentName(card);
+    if (!input.isConnected && field) {
+      host.querySelector(`[${field.name}="${CSS.escape(field.value)}"]`)?.focus({ preventScroll: true });
+    }
+    if (checkURL) validateEmbed(checkURL, card.id);
+    scheduleSave();
+  };
 }
 
 function cardHTML(card) {
   const p = presentation(card);
-  const tools = editing ? `<div class="card-tools">
-      ${card.type === 'question' ? `<select data-viz="${card.id}">${TopbaseViz.types.map(t => `<option value="${t.id}">${t.label}</option>`).join('')}</select>` : ''}
-      <button type="button" data-card-style="${card.id}" title="组件样式" aria-label="组件样式">◈</button><button class="card-delete" type="button" data-del="${card.id}" title="删除组件" aria-label="删除组件">×</button>
-    </div>` : '';
+  const frameURL = card.type === 'iframe' ? frameAddress(card.config?.url) : '';
+  const tools = editing ? `<div class="card-tools" role="group" aria-label="组件工具">
+    ${TopbaseUI.iconButton({ icon: 'grip-vertical', label: '拖动组件，或按回车设置位置', attrs: { 'data-drag': card.id } })}
+    ${TopbaseUI.iconButton({ icon: 'settings-2', label: '组件设置', attrs: { 'data-card-style': card.id } })}
+    ${TopbaseUI.iconButton({ icon: 'move', label: '位置与尺寸', attrs: { 'data-card-layout': card.id } })}
+    ${TopbaseUI.iconButton({ icon: 'trash-2', label: '删除组件', attrs: { 'data-del': card.id }, tone: 'danger' })}
+  </div>` : '';
   const body = card.type === 'heading'
-    ? `<div class="heading-wrap">${editing ? typographyTools(card) : ''}<h2 style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${esc(card.title || '标题')}</h2></div>`
+    ? `<div class="heading-wrap"><h2 style="${typographyStyle(card)}"><span ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${richText(card)}</span></h2></div>`
       : card.type === 'text'
-      ? `<div class="rich-text-wrap">${editing ? typographyTools(card) : ''}<div class="rich-text text-effect-${editing ? 'none' : (card.config && card.config.text_effect || 'none')}" style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${richText(card)}</div></div>`
+      ? `<div class="rich-text-wrap"><div class="rich-text text-effect-${editing ? 'none' : (card.config && card.config.text_effect || 'none')}" style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${richText(card)}</div></div>`
       : card.type === 'link'
-        ? (editing ? `<div class="card-config"><label>链接名称<input data-card-field="title" value="${esc(card.title||'链接')}"></label><label>跳转地址<input data-card-field="body" value="${esc(card.body||'https://')}"></label></div>` : `<a class="dashboard-link" href="${esc(card.body||'#')}" target="_blank" rel="noopener">${esc(card.title||card.body||'打开链接')}</a>`)
-      : card.type === 'plugin'
-        ? (editing ? `<div class="plugin-editor"><div class="card-config"><label>组件名称<input data-card-field="title" value="${esc(card.title||'自定义组件')}"></label><label>组件运行地址<input data-card-field="plugin_url" value="${esc(card.config&&card.config.url||'https://')}"></label><p class="embed-validation" data-embed-validation="${card.id}">组件运行在隔离 iframe 中；配置变化会实时传递给预览。</p></div>${pluginHTML(card)}</div>` : pluginHTML(card))
-      : card.type === 'iframe'
-          ? (editing ? `<div class="card-config"><label>网页标题<input data-card-field="title" value="${esc(card.title||'嵌入网页')}"></label><label>网页地址<input data-card-field="iframe_url" value="${esc(card.config&&card.config.url||'https://')}"></label><p class="embed-validation" data-embed-validation="${card.id}">输入地址后会自动检查是否允许嵌入。</p></div>` : `<div class="dashboard-frame-wrap"><iframe class="dashboard-frame" src="${esc(card.config&&card.config.url||'about:blank')}" title="${esc(card.title||'嵌入网页')}" loading="lazy"></iframe><a class="iframe-open" href="${esc(card.config&&card.config.url||'#')}" target="_blank" rel="noopener">无法显示？新窗口打开 ↗</a></div>`)
+        ? (editing ? `<span class="dashboard-link">${esc(card.title || '链接')}</span>` : `<a class="dashboard-link" href="${esc(card.body || '#')}" target="_blank" rel="noopener">${esc(card.title || card.body || '链接')}</a>`)
+      : card.type === 'plugin' ? pluginHTML(card)
+      : card.type === 'iframe' ? (!frameURL
+        ? '<div class="image-placeholder">等待配置网页地址</div>'
+        : `<div class="dashboard-frame-wrap"><iframe class="dashboard-frame" title="${esc(card.title || '网页')}" src="${esc(frameURL)}"></iframe>${editing ? '' : `<a class="iframe-open" href="${esc(frameURL)}" target="_blank" rel="noopener">无法显示？新窗口打开 ↗</a>`}</div>`)
           : card.type === 'image'
             ? imageHTML(card)
           : card.type === 'time'
-            ? `<div class="dashboard-time" data-clock="${card.id}"></div>`
+            ? `<div class="dashboard-time" data-clock="${card.id}"><span></span></div>`
           : card.type === 'divider'
               ? `<div class="dashboard-divider"></div>`
           : `<div class="viz-stage" data-vizhost="${card.id}"><div class="viz-empty"><b>加载中</b><p>正在运行分析。</p></div></div>`;
   const hasTitle = card.question_id || card.type === 'divider';
-  const title = !hasTitle || (!editing && p.show_header === false) ? '' : `<div class="card-head" data-drag="${card.id}"><h3 ${card.type === 'divider' && editing ? 'contenteditable="true" data-edit="title"' : ''}>${card.question_id ? `<a href="/questions/${card.question_id}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3>${tools}</div>`;
-  return `<article class="board-card ${editing ? 'editing' : ''} ${styleCard===card.id ? 'style-open' : ''} ${selectedCard===card.id ? 'selected' : ''} ${card.type === 'divider' ? 'board-divider-card' : ''} card-border-${p.border} card-surface-${p.surface} card-padding-${p.padding} card-radius-${p.radius} card-shadow-${p.shadow} card-align-${p.align}" data-card="${card.id}">
-    ${title || (editing ? `<div class="card-head card-head-tools-only" data-drag="${card.id}">${tools}</div>` : '')}
+  const title = !hasTitle || p.show_header === false ? '' : `<div class="card-head" ${editing ? `data-drag="${esc(card.id)}"` : ''}><h3 ${card.type === 'divider' && editing ? 'contenteditable="true" data-edit="title"' : ''}>${card.question_id && !editing && !isPublicDashboard ? `<a href="/questions/${esc(card.question_id)}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3></div>`;
+  return `<article class="board-card ${editing ? 'editing' : ''} ${editing && selectedCard===card.id ? 'selected' : ''} ${card.type === 'divider' ? 'board-divider-card' : ''} card-border-${p.border} card-surface-${p.surface} card-padding-${p.padding} card-radius-${p.radius} card-shadow-${p.shadow} card-align-${p.align}" data-card="${esc(card.id)}" ${editing ? `tabindex="0" aria-label="${esc(componentName(card))}"` : ''}>
+    ${tools}${title}
     <div class="card-body">${body}</div>
-    <div class="resize-handle" data-resize="${card.id}"></div>
-    ${editing && styleCard === card.id ? presentationPanel(card) : ''}
+    ${editing ? `<span class="resize-handle" data-resize="${esc(card.id)}" aria-hidden="true"></span><span class="card-drag-hint" aria-hidden="true" hidden></span>` : ''}
   </article>`;
 }
+function frameAddress(value) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(value, location.href);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch { return ''; }
+}
 function pluginHTML(card) {
-  const url = card.config && card.config.url;
-  if (!url || url === 'https://') return '<div class="plugin-placeholder"><b>尚未配置自定义组件</b><span>在编辑状态输入组件运行地址。</span></div>';
+  const url = frameAddress(card.config?.url);
+  if (!url) return '<div class="plugin-placeholder"><b>尚未配置自定义组件</b><span>在编辑状态输入组件运行地址。</span></div>';
   return `<div class="dashboard-plugin-wrap"><iframe class="dashboard-plugin-frame" data-plugin-card="${card.id}" src="${esc(url)}" title="${esc(card.title || '自定义组件')}" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer" loading="lazy"></iframe></div>`;
 }
 function imageHTML(card) {
@@ -299,27 +611,52 @@ function renderClock(card) {
   const target = document.querySelector(`[data-clock="${card.id}"]`);
   if (!target) return;
   const mode = card.config && card.config.time_mode || 'datetime';
-  const draw = () => { const now = new Date(); target.textContent = mode === 'date' ? now.toLocaleDateString('zh-CN') : mode === 'time' ? now.toLocaleTimeString('zh-CN', { hour12:false }) : mode === 'weekday' ? now.toLocaleDateString('zh-CN', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) : now.toLocaleString('zh-CN', { hour12:false }); };
+  const options = {
+    date: { dateStyle: 'short' },
+    time: { timeStyle: 'medium', hour12: false },
+    weekday: { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+    datetime: { dateStyle: 'short', timeStyle: 'medium', hour12: false }
+  };
+  const format = new Intl.DateTimeFormat('zh-CN', options[mode] || options.datetime);
+  const draw = () => {
+    const text = format.format(new Date());
+    if (target.firstElementChild.textContent === text) return;
+    target.firstElementChild.textContent = text;
+    fitClock(target);
+  };
   draw(); motionTimers.push(setInterval(draw, 1000));
+}
+
+function fitClock(host) {
+  const label = host?.firstElementChild;
+  if (!label?.textContent || !host.clientWidth) return;
+  const textWidth = label.getBoundingClientRect().width;
+  if (!textWidth) return;
+  const fontSize = parseFloat(getComputedStyle(label).fontSize);
+  const fit = Math.min(34, fontSize * (host.clientWidth - 1) / textWidth, host.clientHeight / 1.2);
+  label.style.fontSize = Math.max(1, Math.floor(fit)) + 'px';
 }
 
 function layoutEls() {
   const grid = $('#grid');
-  if (!grid || !grid.getBoundingClientRect().width) return;
+  if (!board || !grid || !grid.getBoundingClientRect().width) return;
   const cards = tabCards();
   let maxY = 4;
   cards.forEach(card => {
     const el = document.querySelector(`[data-card="${card.id}"]`);
     if (!el) return;
-    const r = rect(card.layout || { x: 0, y: 0, w: 4, h: 4 });
+    const layout = drag?.card === card ? drag.draft : card.layout;
+    const r = rect(layout || { x: 0, y: 0, w: 4, h: 4 });
+    if (editing) el.style.setProperty('--card-offset-x', r.left + 'px');
     el.style.left = r.left + 'px';
     el.style.top = r.top + 'px';
     el.style.width = r.width + 'px';
     el.style.height = r.height + 'px';
     applyCardContentScale(el, card, r);
-    maxY = Math.max(maxY, (card.layout.y || 0) + (card.layout.h || 1));
+    if (card.type === 'time') fitClock(el.querySelector('[data-clock]'));
+    maxY = Math.max(maxY, (layout?.y || 0) + (layout?.h || 1));
   });
-  grid.style.minHeight = Math.max(420, maxY * (ROW + Y_GAP) + 40) + 'px';
+  grid.style.setProperty('--board-content-height', (maxY * (ROW + Y_GAP) + 40) + 'px');
 }
 function applyCardContentScale(el, card, box) {
   if (card.type !== 'question') return;
@@ -365,7 +702,7 @@ function scheduleCanvasLayout() {
   layoutFrame = requestAnimationFrame(() => {
     layoutFrame = 0;
     layoutEls();
-    paintCached();
+    syncInspectorToggle();
   });
 }
 function observeCanvasLayout() {
@@ -375,91 +712,86 @@ function observeCanvasLayout() {
   canvasResizeObserver.observe(canvas);
 }
 
+function keepFormatSelection(event) {
+  if (event.target.closest('[data-format]')) event.preventDefault();
+}
+function formatSelectedText(event) {
+  const button = event.target.closest('[data-format]');
+  if (!button || !editing) return;
+  const cardEl = $$('#grid [data-card]').find(el => el.dataset.card === selectedCard);
+  const editor = cardEl?.querySelector('.rich-text[contenteditable], .heading-wrap [contenteditable]');
+  if (!editor) return;
+  const selection = window.getSelection();
+  const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+  const selected = range && !range.collapsed && editor.contains(range.commonAncestorContainer) ? range.cloneRange() : null;
+  editor.focus({ preventScroll: true });
+  const target = selected || document.createRange();
+  if (!selected) target.selectNodeContents(editor);
+  selection.removeAllRanges();
+  selection.addRange(target);
+  document.execCommand(button.dataset.format, false, null);
+}
 function bindCardChrome() {
-  $$('[data-card-style]').forEach(button => button.onclick = event => { event.stopPropagation(); styleCard = styleCard === button.dataset.cardStyle ? '' : button.dataset.cardStyle; render(); });
-  $$('[data-close-style]').forEach(button => button.onclick = event => { event.stopPropagation(); styleCard = ''; render(); });
-  $$('[data-presentation]').forEach(input => input.onchange = () => {
-    const card = board.cards.find(item => item.id === input.dataset.cardId);
-    if (!card) return;
-    const value = input.type === 'checkbox' ? (input.checked ? (input.dataset.presentation === 'shadow' ? 'default' : true) : (input.dataset.presentation === 'shadow' ? 'none' : false)) : input.value;
-    const next = Object.assign({}, presentation(card), { [input.dataset.presentation]: value });
-    if (input.dataset.presentation === 'border' && value === 'none') next.shadow = 'none';
-    if (input.dataset.presentation === 'border' && value !== 'none' && next.shadow === 'none') next.shadow = 'default';
-    card.config = Object.assign({}, card.config || {}, { presentation: next });
-    render(); scheduleSave();
-  });
-  $$('[data-effect]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.text_effect || 'none'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { text_effect: input.value }); render(); scheduleSave(); }; });
-  $$('[data-carousel]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; if (input.dataset.carousel === 'interval') input.value = String(Number(card.config && card.config.carousel_interval) || 5); input.onchange = () => { card.config = Object.assign({}, card.config || {}, input.dataset.carousel === 'enabled' ? { carousel: input.checked } : { carousel_interval: Number(input.value) }); render(); scheduleSave(); }; });
-  $$('[data-time-mode]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.time_mode || 'datetime'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { time_mode: input.value }); render(); scheduleSave(); }; });
-  $$('[data-table-motion]').forEach(input => { const card = board.cards.find(item => item.id === input.dataset.cardId); if (!card) return; input.value = card.config && card.config.table_motion || 'none'; input.onchange = () => { card.config = Object.assign({}, card.config || {}, { table_motion: input.value }); render(); paintCached(); scheduleSave(); }; });
-  $$('[data-copy]').forEach(btn => btn.onclick = async ev => {
-    ev.stopPropagation();
-    const original = board.cards.find(c => c.id === btn.dataset.copy);
-    if (!original) return;
-    const copy = JSON.parse(JSON.stringify(original));
-    copy.id = newID('crd'); copy.layout.y += 1;
-    board.cards.push(copy); selectedCard = copy.id; render();
-    try { await saveBoard(); } catch (e) { toast(e.message); }
+  const showProperties = (id, section) => {
+    const alreadySelected = selectedCard === id;
+    inspectorSection = section;
+    selectCard(id);
+    if (alreadySelected) renderInspector();
+    openCardInspector();
+  };
+  $$('[data-card-style], [data-card-layout]').forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    showProperties(button.dataset.cardStyle || button.dataset.cardLayout, button.hasAttribute('data-card-layout') ? 'layout' : 'appearance');
   });
   $$('[data-del]').forEach(btn => btn.onclick = async ev => {
     ev.stopPropagation();
     board.cards = board.cards.filter(c => c.id !== btn.dataset.del);
     render();
-    try { await saveBoard(); render(); await loadCards(); }
+    try { await saveBoard(); }
     catch (e) { toast(e.message); }
-  });
-  $$('[data-viz]').forEach(sel => {
-    const card = board.cards.find(c => c.id === sel.dataset.viz);
-    const current = card && card.config && card.config.chartspec && card.config.chartspec.type;
-    const qspec = card && questionMap[card.question_id] && questionMap[card.question_id].chartspec;
-    sel.value = current || (qspec && qspec.type) || 'table';
-    sel.onchange = () => {
-      card.config = Object.assign({}, card.config || {}, { chartspec: Object.assign({}, (card.config && card.config.chartspec) || qspec || {}, { type: sel.value }) });
-      if (cardData[card.id]) paintCard(card, cardData[card.id]);
-      scheduleSave();
-    };
   });
   $$('[data-edit]').forEach(el => {
     el.onblur = () => {
       const card = board.cards.find(c => c.id === el.closest('[data-card]').dataset.card);
       if (!card) return;
-      if (el.dataset.edit === 'title') card.title = el.textContent.trim();
+      if (el.dataset.edit === 'title') {
+        card.title = el.textContent.trim();
+        if (card.type === 'heading') {
+          card.config ||= {};
+          card.config.rich_title = richText({ ...card, config: { rich_title: el.innerHTML } });
+        }
+      }
       else {
         card.body = el.innerText.trim();
         card.config = Object.assign({}, card.config || {}, { rich_text: richText({ config: { rich_text: el.innerHTML } }) });
       }
+      syncComponentName(card);
       scheduleSave();
     };
   });
-  $$('[data-format]').forEach(button => button.onmousedown = event => {
-    event.preventDefault();
-    const editor = button.closest('.rich-text-wrap, .heading-wrap').querySelector('[contenteditable]');
-    editor.focus(); document.execCommand(button.dataset.format, false, null);
-  });
-  $$('[data-typography]').forEach(input => input.onchange = () => {
-    const card = board.cards.find(item => item.id === input.dataset.cardId);
-    if (!card) return;
-    const style = typography(card);
-    style[input.dataset.typography] = input.dataset.typography === 'size' ? Number(input.value) : input.value;
-    card.config = Object.assign({}, card.config || {}, { typography: style });
-    render(); scheduleSave();
-  });
-  $$('[data-card-field]').forEach(input => {
-    input.onchange = () => {
-      const card = board.cards.find(item => item.id === input.closest('[data-card]').dataset.card);
-      if (!card) return;
-      if (input.dataset.cardField === 'iframe_url' || input.dataset.cardField === 'plugin_url') {
-        card.config = Object.assign({}, card.config || {}, { url: input.value.trim() });
-        render();
-        validateEmbed(input.value.trim(), card.id);
-      }
-      else card[input.dataset.cardField] = input.value.trim();
-      scheduleSave();
+  const inspector = $('#card-inspector');
+  inspector?.addEventListener('mousedown', keepFormatSelection);
+  inspector?.addEventListener('click', formatSelectedText);
+  $$('[data-drag]').forEach(el => {
+    el.onpointerdown = ev => startDrag(ev, el.dataset.drag, 'move');
+    if (el.matches('button')) el.onclick = ev => {
+      ev.stopPropagation();
+      if (ev.detail === 0) showProperties(el.dataset.drag, 'layout');
     };
   });
-  $$('[data-drag]').forEach(el => el.onpointerdown = ev => startDrag(ev, el.dataset.drag, 'move'));
   $$('[data-resize]').forEach(el => el.onpointerdown = ev => startDrag(ev, el.dataset.resize, 'resize'));
-  $$('[data-card]').forEach(el => el.onclick = ev => { if (!editing || ev.target.closest('a,button,select,input,[contenteditable]')) return; selectedCard = el.dataset.card; render(); });
+  if (editing) $$('[data-card]').forEach(el => {
+    el.onclick = ev => {
+      if (!ev.target.closest('a,button,select,input')) selectCard(el.dataset.card);
+    };
+    el.addEventListener('focusin', () => selectCard(el.dataset.card));
+    el.onkeydown = ev => {
+      if (ev.target === el && ev.key === 'Enter') {
+        ev.preventDefault();
+        showProperties(el.dataset.card, 'appearance');
+      }
+    };
+  });
 }
 async function validateEmbed(url, cardID) {
   const status = document.querySelector(`[data-embed-validation="${cardID}"]`);
@@ -514,70 +846,156 @@ window.addEventListener('message', event => {
 document.addEventListener('fullscreenchange', () => bindPluginFrames());
 
 function startDrag(ev, cardId, mode) {
-  if (!editing) return;
-  if (ev.button != null && ev.button !== 0) return;
-  if (ev.target.closest('a,button,select,input,[contenteditable]')) return;
-  const card = board.cards.find(c => c.id === cardId);
+  if (!editing || finishingEdit || drag || ev.button !== 0 || ev.isPrimary === false) return;
+  if (ev.target.closest('a, button:not([data-drag]), select, input, [contenteditable]')) return;
+  const card = board.cards.find(item => item.id === cardId);
   if (!card) return;
+  const el = ev.currentTarget.closest('[data-card]');
   ev.preventDefault();
-  const el = document.querySelector(`[data-card="${cardId}"]`);
-  el.setPointerCapture(ev.pointerId);
-  el.classList.add('dragging');
+  selectCard(cardId);
   drag = {
-    mode, card, el, pointer: ev.pointerId,
-    startX: ev.clientX, startY: ev.clientY,
-    layout: Object.assign({}, card.layout)
+    mode, card, el, pointer: ev.pointerId, startX: ev.clientX, startY: ev.clientY,
+    draft: { ...card.layout }, active: false, hint: el.querySelector('.card-drag-hint')
   };
+  el.setPointerCapture(ev.pointerId);
+  el.addEventListener('lostpointercapture', cancelDrag);
   window.addEventListener('pointermove', onDrag);
   window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', cancelDrag);
+  window.addEventListener('blur', cancelDrag);
+  window.addEventListener('keydown', cancelDragKey, true);
+}
+
+function cancelDragKey(ev) {
+  if (ev.key !== 'Escape') return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  cancelDrag();
 }
 
 function onDrag(ev) {
-  if (!drag) return;
+  if (!drag || ev.pointerId !== drag.pointer) return;
+  if (!drag.el.isConnected) return cancelDrag();
+  if (!drag.active && Math.hypot(ev.clientX - drag.startX, ev.clientY - drag.startY) < 5) return;
+  const { card, mode, draft } = drag;
+  if (!drag.active) {
+    drag.active = true;
+    drag.el.classList.add(mode === 'move' ? 'dragging' : 'resizing');
+    drag.hint.hidden = false;
+  }
   const cw = cellW() + X_GAP;
   const precision = appearance().snap ? 1 : 4;
   const dx = Math.round((ev.clientX - drag.startX) / cw * precision) / precision;
   const dy = Math.round((ev.clientY - drag.startY) / (ROW + Y_GAP) * precision) / precision;
-  if (drag.mode === 'move') {
-    drag.card.layout.x = clamp(drag.layout.x + dx, 0, COLS - drag.card.layout.w);
-    drag.card.layout.y = Math.max(0, drag.layout.y + dy);
+  if (mode === 'move') {
+    draft.x = clamp(card.layout.x + dx, 0, COLS - card.layout.w);
+    draft.y = Math.max(0, card.layout.y + dy);
+    drag.hint.textContent = `X ${draft.x} · Y ${draft.y}`;
   } else {
-    drag.card.layout.w = clamp(drag.layout.w + dx, minWidth(drag.card), COLS - drag.card.layout.x);
-    drag.card.layout.h = clamp(drag.layout.h + dy, minHeight(drag.card), 48);
+    draft.w = clamp(card.layout.w + dx, minWidth(card), COLS - card.layout.x);
+    draft.h = clamp(card.layout.h + dy, minHeight(card), 48);
+    drag.hint.textContent = `${draft.w} × ${draft.h} 格`;
   }
-  layoutEls();
-  requestAnimationFrame(scheduleCanvasLayout);
+  scheduleCanvasLayout();
 }
 
-function endDrag() {
+function cancelDrag(ev) {
+  if (ev?.pointerId != null && ev.pointerId !== drag?.pointer) return;
+  finishDrag(false);
+}
+
+function endDrag(ev) {
+  if (!drag || ev.pointerId !== drag.pointer) return;
+  onDrag(ev);
+  finishDrag(true);
+}
+
+function finishDrag(commit) {
+  if (!drag) return;
+  const { card, draft, el, hint, pointer, active } = drag;
+  drag = null;
+  el.removeEventListener('lostpointercapture', cancelDrag);
   window.removeEventListener('pointermove', onDrag);
   window.removeEventListener('pointerup', endDrag);
-  if (!drag) return;
-  drag.el.classList.remove('dragging');
-  resolveOverlap(drag.card);
-  drag = null;
+  window.removeEventListener('pointercancel', cancelDrag);
+  window.removeEventListener('blur', cancelDrag);
+  window.removeEventListener('keydown', cancelDragKey, true);
+  if (el.hasPointerCapture(pointer)) el.releasePointerCapture(pointer);
+  el.classList.remove('dragging', 'resizing');
+  hint.hidden = true;
+  if (!active) return;
+  if (commit && el.isConnected && ['x','y','w','h'].some(key => draft[key] !== card.layout[key])) {
+    card.layout = draft;
+    resolveOverlap(card);
+    if (selectedCard === card.id && inspectorSection === 'layout') {
+      TopbaseDashboardLayout.sync($('#card-inspector'), card.layout, layoutLimits(card));
+    }
+    scheduleSave();
+  }
   layoutEls();
-  paintCached();
-  scheduleSave();
 }
 
-function render() {
+function renderModeActions() {
+  const edit = $('#edit');
+  const preview = $('#preview');
+  if (!edit || !preview) return;
+  $('#view-actions').hidden = editing || !!previewOrigin;
+  edit.hidden = !!previewOrigin;
+  edit.disabled = finishingEdit;
+  edit.textContent = editing ? '完成编辑' : '编辑';
+  preview.hidden = !editing && !previewOrigin;
+  preview.disabled = finishingEdit;
+  preview.textContent = previewOrigin ? '返回编辑' : '预览';
+  preview.title = previewOrigin ? '返回编辑（Esc）' : '预览仪表盘';
+}
+
+function togglePreview() {
+  if (isPublicDashboard || !board || finishingEdit || drag || (!editing && !previewOrigin)) return;
+  let needsData = false;
+  if (previewOrigin) {
+    const previous = previewOrigin;
+    previewOrigin = null;
+    editing = true;
+    needsData = activeTab !== previous.activeTab;
+    activeTab = previous.activeTab;
+    selectedCard = previous.selectedCard;
+    for (const [input, value] of previous.filters) {
+      if (input.value !== value) needsData = true;
+      input.value = value;
+    }
+    renderTabs();
+  } else {
+    previewOrigin = { activeTab, selectedCard, filters: $$('[data-filter]').map(input => [input, input.value]) };
+    editing = false;
+  }
+  render();
+  // Reuse results for purely visual transitions. A tab or filter change needs
+  // fresh data, as does a card whose load was interrupted by the new DOM.
+  if (needsData || tabCards().some(card => card.type === 'question' && !cardData[card.id])) loadCards();
+  $('#preview').focus({ preventScroll: true });
+}
+
+function render({ keepInspector = false } = {}) {
   motionTimers.forEach(clearInterval); motionTimers = [];
   disposeCardVisuals();
   applyAppearance();
   $('#layout')?.classList.toggle('viewing', !editing);
   $('#board-canvas')?.classList.toggle('canvas-editing', editing);
   $('#grid').classList.toggle('editing', editing);
-  if ($('#view-actions')) $('#view-actions').hidden = editing;
-  if ($('#edit')) $('#edit').textContent = editing ? '完成编辑' : '编辑';
+  renderModeActions();
   const cards = tabCards();
-  $('#grid').innerHTML = cards.map(cardHTML).join('') + (!cards.length ? '<div class="board-empty"><span class="board-empty-mark" aria-hidden="true"><i></i><i></i><i></i></span><b>开始搭建你的数据画布</b><p>从左侧添加分析或小组件，也可以直接拖到画布中的指定位置。</p><small>24 列精细网格 · 支持自由缩放与编排</small></div>' : '');
+  const emptyCanvas = '<div class="board-empty"><h2>空白画布</h2><button type="button" data-empty-insert class="tb-btn tb-btn-primary" aria-controls="palette" aria-haspopup="dialog" aria-expanded="false">插入内容</button></div>';
+  $('#grid').innerHTML = cards.length ? cards.map(cardHTML).join('') : (editing ? emptyCanvas : '');
   layoutEls();
+  if (!keepInspector) renderInspector();
   bindCardChrome();
   bindGridDrop();
   renderPalette();
-  renderCanvasControls();
-  renderPaletteTabs();
+  syncEditorTools(editing);
+  if ($('#outline-anchor')) {
+    if (editing) renderOutline();
+    else closeOutline();
+  }
   paintCached();
   bindPluginFrames();
   tabCards().filter(card => card.type === 'time').forEach(renderClock);
@@ -596,20 +1014,54 @@ function disposeCardVisuals() {
   });
 }
 
+const questionTileSize = { w: 12, h: 10 };
+let paletteDrag = null;
+
+function beginPaletteDrag(event, item) {
+  if (!editing) { event.preventDefault(); return; }
+  paletteDrag = item;
+  // During dragover browsers expose the data types but hide the payload.
+  // Keep a local descriptor so the preview can use the item's actual size.
+  event.dataTransfer.setData('text/plain', item.widgetId ? 'component:' + item.widgetId : item.questionId);
+  event.dataTransfer.effectAllowed = 'copy';
+  // Let the browser capture the drag image before making the panel transparent.
+  if ($('#palette')) requestAnimationFrame(() => {
+    if (paletteDrag === item) $('#palette').classList.add('palette-in-flight');
+  });
+}
+
+function clearPaletteDrag() {
+  paletteDrag = null;
+  $('#palette')?.classList.remove('palette-in-flight');
+  $('#ghost')?.remove();
+}
+
+window.addEventListener('blur', clearPaletteDrag);
+document.addEventListener('dragend', clearPaletteDrag);
+
+function placementForDrag(event) {
+  if (!editing || !paletteDrag) return null;
+  const size = paletteDrag.widgetId ? TopbaseDashboardWidgets.size(paletteDrag.widgetId) : questionTileSize;
+  return size && cellAt(event.clientX, event.clientY, size.w, size.h);
+}
+
 function bindGridDrop() {
   const grid = $('#grid');
   grid.ondragover = ev => {
-    if (!editing) return;
+    const cell = placementForDrag(ev);
+    if (!cell) return;
     ev.preventDefault();
     ev.dataTransfer.dropEffect = 'copy';
     let ghost = $('#ghost');
     if (!ghost) {
       ghost = document.createElement('div');
       ghost.id = 'ghost';
-      ghost.className = 'board-ghost';
+      ghost.ariaHidden = 'true';
       grid.appendChild(ghost);
     }
-    const cell = cellAt(ev.clientX, ev.clientY, 12, 10);
+    const geometry = `X ${cell.x} · Y ${cell.y}　${cell.w} × ${cell.h} 格`;
+    if (ghost.title !== geometry) ghost.title = geometry;
+    ghost.className = cell.x >= COLS / 2 ? 'board-ghost hint-right' : 'board-ghost';
     const r = rect(cell);
     ghost.style.left = r.left + 'px';
     ghost.style.top = r.top + 'px';
@@ -617,23 +1069,35 @@ function bindGridDrop() {
     ghost.style.height = r.height + 'px';
   };
   grid.ondragleave = ev => {
-    if (ev.target === grid) { const g = $('#ghost'); if (g) g.remove(); }
+    if (!grid.contains(ev.relatedTarget)) $('#ghost')?.remove();
   };
   grid.ondrop = ev => {
+    const cell = placementForDrag(ev);
+    if (!cell) return;
     ev.preventDefault();
-    const g = $('#ghost'); if (g) g.remove();
-    const value = ev.dataTransfer.getData('text/plain');
-    if (!value) return;
-    const cell = cellAt(ev.clientX, ev.clientY, 12, 10);
-    if (value.startsWith('component:')) addStatic(value.slice('component:'.length), cell);
-    else addQuestion(value, cell);
+    const { widgetId, questionId } = paletteDrag;
+    clearPaletteDrag();
+    if (widgetId) addStatic(widgetId, cell);
+    else addQuestion(questionId, cell);
   };
+}
+
+function insertCard(card) {
+  const focusNewCard = $('#palette')?.contains(document.activeElement);
+  closeInsertPalette();
+  resolveOverlap(card);
+  board.cards = (board.cards || []).concat(card);
+  selectedCard = card.id;
+  inspectorSection = 'appearance';
+  render();
+  if (focusNewCard) $(`[data-card-style="${card.id}"]`)?.focus({ preventScroll: true });
+  $(`[data-card="${card.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 async function addQuestion(questionId, layout) {
   if (!questionId || usedQuestionIDs().has(questionId)) return toast('这条分析已经在看板上');
   const q = questionMap[questionId];
-  const place = layout || { x: 0, y: nextY(12), w: 12, h: 10 };
+  const place = layout || { x: 0, y: nextY(), ...questionTileSize };
   const card = {
     id: newID('crd'),
     type: 'question',
@@ -643,41 +1107,28 @@ async function addQuestion(questionId, layout) {
     layout: place,
     config: { chartspec: { type: (q && q.chartspec && q.chartspec.type) || 'table' } }
   };
-  resolveOverlap(card);
-  board.cards = (board.cards || []).concat([card]);
-  render();
+  insertCard(card);
   try {
     await saveBoard();
-    render();
     await loadCards();
   } catch (e) { toast(e.message); }
 }
 
-async function addStatic(type, layout) {
-  const defaults = {
-    heading: { type:'heading', title:'标题', layout:{x:0,y:nextY(COLS),w:COLS,h:2} },
-    text: { type:'text', body:'说明文字', layout:{x:0,y:nextY(COLS),w:COLS,h:2} },
-    link: { type:'link', title:'链接', body:'https://', layout:{x:0,y:nextY(12),w:12,h:4} },
-    iframe: { type:'iframe', title:'嵌入网页', config:{url:'https://'}, layout:{x:0,y:nextY(12),w:12,h:10} },
-    plugin: { type:'plugin', title:'自定义组件', config:{url:'', plugin_config:{}}, layout:{x:0,y:nextY(12),w:12,h:10} },
-    time: { type:'time', title:'时间', config:{time_mode:'datetime'}, layout:{x:0,y:nextY(6),w:6,h:4} },
-    divider: { type:'divider', title:'', layout:{x:0,y:nextY(COLS),w:COLS,h:2} }
-  };
-  const value=defaults[type];
-  if(!value)return;
-  const card = Object.assign({id:newID('crd'),tab_id:activeTab},value,{layout:layout||value.layout});
-  resolveOverlap(card);
-  board.cards = (board.cards || []).concat([card]);
-  render();
-  try { await saveBoard(); render(); }
+async function addStatic(id, layout) {
+  const defaults = TopbaseDashboardWidgets.create(id);
+  if (!editing || !defaults || id === 'image') return;
+  const place = layout || { x: 0, y: nextY(), ...TopbaseDashboardWidgets.size(id) };
+  const card = { id: newID('crd'), tab_id: activeTab, ...defaults, layout: place };
+  insertCard(card);
+  try { await saveBoard(); }
   catch (e) { toast(e.message); }
 }
 async function addImage(files) {
   const valid = [...files].filter(file => file.type.startsWith('image/') && file.size <= 3 * 1024 * 1024);
   if (!valid.length) return toast('请选择 3MB 以内的图片文件');
   const images = await Promise.all(valid.map(file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); })));
-  const card = { id:newID('crd'), tab_id:activeTab, type:'image', title:valid[0].name.replace(/\.[^.]+$/, ''), config:{images, carousel:images.length > 1, carousel_interval:5}, layout:{x:0,y:nextY(12),w:12,h:8} };
-  board.cards = (board.cards || []).concat([card]); render();
+  const card = { id:newID('crd'), tab_id:activeTab, type:'image', title:valid[0].name.replace(/\.[^.]+$/, ''), config:{images, carousel:images.length > 1, carousel_interval:5}, layout:{x:0,y:nextY(),...TopbaseDashboardWidgets.size('image')} };
+  insertCard(card);
   try { await saveBoard(); toast(images.length > 1 ? '图片轮播已添加' : '图片已添加'); } catch (error) { toast(error.message); }
 }
 
@@ -719,40 +1170,6 @@ function paintCard(card, d) {
   }
 }
 
-function closeQuestionPicker() {
-  $('#modal').hidden = true;
-  $('#modal').innerHTML = '';
-}
-function openQuestionPicker() {
-  if (!editing) { editing = true; render(); }
-  const modal = $('#modal');
-  const draw = query => {
-    const needle = (query || '').toLowerCase();
-    const used = usedQuestionIDs();
-    const items = questions.filter(question => ((question.name || '') + ' ' + (question.description || '')).toLowerCase().includes(needle));
-    modal.innerHTML = `<section class="question-picker" role="dialog" aria-modal="true" aria-label="添加分析">
-      <header><div><small>仪表盘</small><h2>添加分析</h2><p>选择一条分析，立即作为卡片加入当前仪表盘。</p></div><button class="secondary" id="close-picker" type="button">关闭</button></header>
-      <input id="picker-search" type="search" value="${esc(query || '')}" placeholder="搜索全部分析">
-      <div class="picker-list">${items.map(question => {
-        const added = used.has(question.id);
-        const kind = question.query_type === 'native' ? 'SQL 查询' : '可视化分析';
-        return `<button class="picker-question" data-picker-question="${esc(question.id)}" type="button" ${added ? 'disabled' : ''}><span><b>${esc(question.name)}</b><small>${kind}${question.description ? ' · ' + esc(question.description) : ''}</small></span><em>${added ? '已添加' : '添加'}</em></button>`;
-      }).join('') || '<p class="hint">没有找到匹配的分析。</p>'}</div>
-    </section>`;
-    $('#close-picker').onclick = closeQuestionPicker;
-    $('#picker-search').oninput = event => draw(event.target.value);
-    $$('.picker-question:not([disabled])').forEach(button => button.onclick = async () => {
-      button.disabled = true;
-      button.querySelector('em').textContent = '添加中…';
-      try { await addQuestion(button.dataset.pickerQuestion); closeQuestionPicker(); toast('已添加到仪表盘'); }
-      catch (error) { toast(error.message); draw(query); }
-    });
-  };
-  modal.hidden = false;
-  modal.onclick = event => { if (event.target === modal) closeQuestionPicker(); };
-  draw('');
-  setTimeout(() => $('#picker-search')?.focus(), 0);
-}
 
 function paintCached() {
   tabCards().forEach(card => {
@@ -803,7 +1220,6 @@ async function boot() {
   }
   upgradeCanvasGrid();
   questionMap = Object.fromEntries(questions.map(q => [q.id, q]));
-  if (!isPublicDashboard) viewer = await api('/api/user/current').catch(() => null);
   if ($('#title')) $('#title').textContent = board.name;
   renderPublicBadge();
   activeTab = board.tabs?.[0]?.id || '';
@@ -815,21 +1231,38 @@ async function boot() {
   await loadCards();
 }
 
+if ($('#preview')) {
+  $('#preview').onclick = togglePreview;
+  document.addEventListener('keydown', event => {
+    if (!previewOrigin || event.key !== 'Escape' || event.defaultPrevented || event.isComposing || document.fullscreenElement) return;
+    event.preventDefault();
+    togglePreview();
+  });
+}
 if ($('#edit')) $('#edit').onclick = async () => {
+  if (!board || previewOrigin || finishingEdit) return;
   if (editing) {
+    finishingEdit = true;
+    renderModeActions();
     try {
       await saveBoard();
       if (!(board.cards || []).length) {
         editing = true;
-        toast('空仪表盘会保持编辑状态，请从左侧添加内容');
+        toast('画布还是空的，可以点「插入」添加内容');
         render();
         return;
       }
       editing = false;
+      selectedCard = '';
+      $('#layout').classList.remove('inspector-open');
       toast('已保存');
       render();
       await loadCards();
     } catch (e) { toast(e.message); }
+    finally {
+      finishingEdit = false;
+      renderModeActions();
+    }
     return;
   }
   editing = true;
@@ -837,23 +1270,52 @@ if ($('#edit')) $('#edit').onclick = async () => {
   await loadCards();
 };
 if ($('#apply')) $('#apply').onclick = loadCards;
-if ($('#qsearch')) $('#qsearch').oninput = renderPalette;
+if ($('#qsearch')) $('#qsearch').oninput = () => { paletteLimit = 60; renderPalette(); };
 if ($('#qcollection')) $('#qcollection').onchange = () => { paletteLimit = 60; renderPalette(); };
 if ($('#palette-more')) $('#palette-more').onclick = () => { paletteLimit += 60; renderPalette(); };
-$('#palette-tabs')?.addEventListener('click', event => {
-  const button = event.target.closest('[data-palette-tab]');
-  if (!button) return;
-  paletteTab = button.dataset.paletteTab;
-  renderPaletteTabs();
-});
-if ($('#add-image')) $('#add-image').onclick = () => $('#image-upload').click();
+if ($('#insert-toggle')) {
+  const panel = $('#palette');
+  insertPopover = TopbaseUI.popover($('#insert-toggle'), panel, {
+    type: 'dialog',
+    canOpen: () => editing,
+    initialFocus: () => $(paletteTab === 'analysis' ? '#qsearch' : '#widget-search'),
+    keepOpenOnOutside: () => !!paletteDrag,
+    onClose: clearPaletteDrag
+  });
+  document.addEventListener('click', event => {
+    const opener = event.target.closest('[data-empty-insert]');
+    if (opener) insertPopover.open({ from: opener });
+  });
+}
+if ($('#palette-tabs')) {
+  TopbaseUI.tabs.mount($('#palette-tabs'), {
+    panels: $('#palette'), tabSelector: '[data-palette-tab]', panelSelector: '[data-palette-panel]',
+    tabValue: tab => tab.dataset.paletteTab, panelValue: panel => panel.dataset.palettePanel,
+    initial: paletteTab, onChange: value => { paletteTab = value; }
+  });
+}
 if ($('#image-upload')) $('#image-upload').onchange = event => { addImage(event.target.files); event.target.value = ''; };
-$$('[data-add]').forEach(button=>{
-  button.onclick=()=>addStatic(button.dataset.add);
-  button.ondragstart=event=>{
-    event.dataTransfer.setData('text/plain','component:'+button.dataset.add);
-    event.dataTransfer.effectAllowed='copy';
+if ($('#widget-library')) {
+  const library = $('#widget-library');
+  renderWidgetLibrary();
+  $('#widget-search').oninput = renderWidgetLibrary;
+  window.addEventListener('topbase:widgets-changed', renderWidgetLibrary);
+  library.onclick = event => {
+    const id = event.target.closest('[data-add]')?.dataset.add;
+    if (!editing || !id) return;
+    if (id === 'image') $('#image-upload').click();
+    else addStatic(id);
   };
+  library.ondragstart = event => {
+    const widgetId = event.target.closest('[draggable="true"]')?.dataset.add;
+    if (widgetId) beginPaletteDrag(event, { widgetId });
+  };
+  library.ondragend = clearPaletteDrag;
+}
+bindInspector();
+if ($('#outline-anchor')) bindOutline();
+$('#grid').addEventListener('click', event => {
+  if (event.target === $('#grid')) selectCard('');
 });
 observeCanvasLayout();
 window.addEventListener('resize', scheduleCanvasLayout);
@@ -864,49 +1326,95 @@ window.addEventListener('pagehide', () => {
   if (canvasResizeObserver) canvasResizeObserver.disconnect();
 });
 
-function closeActionModal(){ $('#modal').hidden=true;$('#modal').innerHTML=''; }
-function shareURL(kind) {
-  if (!board?.public_uuid) return '';
-  return location.origin + '/' + kind + '/dashboard/' + encodeURIComponent(board.public_uuid) + '/';
-}
+const shareDialogElement = $('#modal');
+const shareDialog = shareDialogElement && TopbaseUI.modal(shareDialogElement, {
+  onClose: () => shareDialogElement.replaceChildren()
+});
 function copyValue(value) {
   if (!value) return;
   navigator.clipboard.writeText(value).then(() => toast('已复制')).catch(() => toast('复制失败，请手动复制'));
 }
-function renderShareDialog() {
-  const published = !!board?.public_uuid;
-  const publicURL = shareURL('public');
-  const embedURL = shareURL('embed');
-  const iframe = `<iframe src="${embedURL}" width="100%" height="800" frameborder="0" allowtransparency="true" title="${board?.name || 'Topbase 仪表盘'}"></iframe>`;
-  const canEmbed = !!viewer?.is_admin;
-  const publicDetails = published
-    ? `<label>公开链接<div class="copy-row"><input readonly value="${esc(publicURL)}"><button data-copy="${esc(publicURL)}" class="secondary" type="button">复制</button></div></label>`
-    : `<p class="share-help">开启后会创建一个无需登录即可访问的公开链接。</p>`;
-  const embedDetails = !canEmbed
-    ? `<div class="share-restricted"><b>嵌入仅管理员可配置</b><p>管理员启用后，才会生成可供第三方网页动态加载的 iframe 地址。</p></div>`
-    : `<section class="embed-share-settings ${published ? '' : 'disabled'}"><label class="share-toggle"><input id="embed-enabled" type="checkbox" ${board.public_embed_enabled ? 'checked' : ''} ${published ? '' : 'disabled'}><span><b>允许 iframe 嵌入</b><small>仅管理员可以启用。关闭分享后会自动关闭嵌入。</small></span></label>${board.public_embed_enabled ? `<label>动态加载地址<div class="copy-row"><input readonly value="${esc(embedURL)}"><button data-copy="${esc(embedURL)}" class="secondary" type="button">复制</button></div></label><label>iframe 代码<div class="copy-row"><input readonly value="${esc(iframe)}"><button data-copy="${esc(iframe)}" class="secondary" type="button">复制</button></div></label>` : ''}</section>`;
-  $('#modal').hidden = false;
-  $('#modal').innerHTML = `<section class="action-dialog"><header><div><small>访问控制</small><h2>分享与嵌入</h2><p>分享默认关闭。公开链接与 iframe 都会始终加载仪表盘的最新数据。</p></div><button id="close-action" class="secondary" type="button">关闭</button></header><label class="share-toggle"><input id="public-sharing-toggle" type="checkbox" ${published ? 'checked' : ''}><span><b>公开分享</b><small>生成无需登录即可访问的仪表盘链接。</small></span></label>${publicDetails}<div class="share-section"><h3>嵌入</h3>${embedDetails}</div></section>`;
-  $('#close-action').onclick = closeActionModal;
-  $$('[data-copy]').forEach(button => button.onclick = () => copyValue(button.dataset.copy));
-  $('#public-sharing-toggle').onchange = async event => {
-    try {
-      const result = event.target.checked ? await api(`/api/dashboards/${boardId}/public-link`, 'POST', {}) : await api(`/api/dashboards/${boardId}/public-link`, 'DELETE');
-      board = result.dashboard || result;
-      renderPublicBadge();
-      renderShareDialog();
-      toast(event.target.checked ? '公开分享已开启' : '公开分享已关闭');
-    } catch (error) { renderShareDialog(); toast(error.message); }
-  };
-  $('#embed-enabled')?.addEventListener('change', async event => {
-    try {
-      board = await api(`/api/dashboards/${boardId}/embedding`, 'PUT', { enabled:event.target.checked });
-      renderShareDialog();
-      toast(event.target.checked ? 'iframe 嵌入已启用' : 'iframe 嵌入已关闭');
-    } catch (error) { renderShareDialog(); toast(error.message); }
-  });
+function copyShareField(label, value) {
+  return `<label>${label}<div class="copy-row"><input readonly value="${esc(value)}"><button data-copy="${esc(value)}" class="secondary" type="button">复制</button></div></label>`;
 }
-function openShare(){ renderShareDialog(); }
+function renderShareDialog(policy, focusId) {
+  const published = !!policy.public_uuid;
+  const publicActive = published && policy.allow_public;
+  const canToggleLink = policy.can_manage && (published || policy.allow_public);
+  const canToggleEmbed = policy.is_admin && (policy.public_embed_enabled || (publicActive && policy.allow_embed));
+  const publicHelp = [];
+  if (!policy.allow_public) publicHelp.push(published ? '工作区已暂停公开链接，此链接当前无法访问。' : '工作区尚未允许公开链接。');
+  if (!policy.can_manage) publicHelp.push('需要此仪表盘的管理权限才能创建或撤销链接。');
+  else if (published) publicHelp.push('关闭后将撤销现有链接。');
+  else if (policy.allow_public) publicHelp.push('开启后，持有链接的人无需登录即可查看。');
+  let embedHelp = '';
+  if (!policy.is_admin) embedHelp = '仅工作区管理员可以设置嵌入。';
+  else if (!policy.allow_public || !policy.allow_embed) embedHelp = '工作区需要同时允许公开链接和外部嵌入。';
+  else if (!published) embedHelp = '先为这张仪表盘开启公开分享。';
+  const path = '/dashboard/' + encodeURIComponent(policy.public_uuid) + '/';
+  const publicURL = policy.base_url + '/public' + path;
+  const embedURL = policy.base_url + '/embed' + path;
+  const settingsLink = policy.is_admin && (!policy.allow_public || !policy.allow_embed)
+    ? '<a href="/admin/settings/#access">前往管理后台设置对外访问</a>' : '';
+  const modal = $('#modal');
+  modal.innerHTML = `<header><h2 id="share-dialog-title">分享与嵌入</h2><button id="close-action" class="secondary" type="button" autofocus>关闭</button></header>
+    <label class="share-toggle"><input id="public-sharing-toggle" type="checkbox" ${published ? 'checked' : ''} ${canToggleLink ? '' : 'disabled'}>
+      <span><b>公开分享</b><small>${publicHelp.join('')}</small></span></label>
+    ${publicActive ? copyShareField('公开链接', publicURL) : ''}
+    <div class="share-section"><label class="share-toggle"><input id="embed-enabled" type="checkbox" ${policy.public_embed_enabled ? 'checked' : ''} ${canToggleEmbed ? '' : 'disabled'}>
+      <span><b>允许 iframe 嵌入</b><small>${embedHelp}</small></span></label>
+      ${policy.is_admin && publicActive && policy.allow_embed && policy.public_embed_enabled
+        ? copyShareField('嵌入地址', embedURL) + copyShareField('iframe 代码', `<iframe src="${esc(embedURL)}" width="100%" height="800" title="仪表盘"></iframe>`) : ''}
+    </div>${settingsLink}`;
+  shareDialog.open({ from: $('#share') });
+  if (focusId) {
+    const next = document.getElementById(focusId);
+    (next && !next.disabled ? next : $('#close-action')).focus({ preventScroll: true });
+  }
+  $('#close-action').onclick = () => shareDialog.close();
+  $$('[data-copy]', modal).forEach(button => button.onclick = () => copyValue(button.dataset.copy));
+
+  const change = async event => {
+    const control = event.target;
+    const link = control.id === 'public-sharing-toggle';
+    const enabled = control.checked;
+    $$('.share-toggle input', modal).forEach(input => input.disabled = true);
+    try {
+      const resource = link ? 'public-link' : 'embedding';
+      const method = link ? (enabled ? 'POST' : 'DELETE') : 'PUT';
+      const result = await api(`/api/dashboards/${boardId}/${resource}`, method, link ? undefined : {enabled});
+      const updated = result.dashboard || result;
+      board.public_uuid = policy.public_uuid = updated.public_uuid || '';
+      board.public_embed_enabled = policy.public_embed_enabled = !!updated.public_embed_enabled;
+      renderPublicBadge();
+      if (modal.open && modal.contains(control)) renderShareDialog(policy, control.id);
+      toast(link ? (enabled ? '公开分享已开启' : '公开链接已撤销') : (enabled ? '嵌入已开启' : '嵌入已关闭'));
+    } catch (error) {
+      if (modal.open && modal.contains(control)) {
+        let refreshed = policy;
+        try { refreshed = await api(`/api/dashboards/${boardId}?view=sharing`); }
+        catch { /* Keep the last confirmed policy if refreshing also fails. */ }
+        if (modal.open && modal.contains(control)) renderShareDialog(refreshed, control.id);
+      }
+      toast(error.message);
+    }
+  };
+  $('#public-sharing-toggle').onchange = change;
+  $('#embed-enabled').onchange = change;
+}
+async function openShare() {
+  if (!board) return;
+  const button = $('#share');
+  button.disabled = true;
+  try {
+    const policy = await api(`/api/dashboards/${boardId}?view=sharing`);
+    renderShareDialog(policy);
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
 async function addBookmark(){try{await api('/api/bookmarks','POST',{target_type:'dashboard',target_id:boardId});toast('已加入书签')}catch(error){toast(error.message)}}
 async function archiveBoard(){if(!await confirmDialog({kicker:'仪表盘管理',title:'将这个仪表盘移到回收站？',description:'归档后会从仪表盘列表中隐藏，之后仍可在回收站恢复。',confirmText:'移到回收站',tone:'danger'}))return;try{await api('/api/dashboards/'+boardId,'DELETE');location.href='/dashboard/'}catch(error){toast(error.message)}}
 async function duplicateBoard(){try{const copy=await api(`/api/dashboards/${boardId}/copy`,'POST',{});location.href='/dashboard/'+copy.id+'/'}catch(error){toast(error.message)}}
@@ -930,19 +1438,15 @@ async function subscribeBoard(){
     toast('已订阅每天 09:00（' + sub.channel + '）');
   } catch (e) { toast(e.message); }
 }
-function toggleMore(){
-  const menu=$('#more-menu');
-  menu.hidden=!menu.hidden;
-  if(menu.hidden)return;
-  menu.innerHTML='<button data-more="bookmark" type="button">加入书签</button><button data-more="duplicate" type="button">创建副本</button><button data-more="alert" type="button">设置结果提醒</button><button data-more="subscribe" type="button">订阅仪表盘</button><hr><button data-more="archive" class="danger-text" type="button">移到回收站</button>';
-  $$('[data-more]').forEach(button=>button.onclick=()=>{
-    menu.hidden=true;
-    ({bookmark:addBookmark,duplicate:duplicateBoard,alert:createAlert,subscribe:subscribeBoard,archive:archiveBoard})[button.dataset.more]();
+if ($('#more')) {
+  const panel = $('#more-menu');
+  TopbaseUI.popover($('#more'), panel);
+  const actions = { bookmark: addBookmark, duplicate: duplicateBoard, alert: createAlert, subscribe: subscribeBoard, archive: archiveBoard };
+  panel.addEventListener('click', event => {
+    const item = event.target.closest('[data-more]');
+    if (item) actions[item.dataset.more]();
   });
 }
 if ($('#fullscreen')) $('#fullscreen').onclick=()=>$('#board-canvas')?.requestFullscreen?.();
 if ($('#share')) $('#share').onclick=openShare;
-if ($('#more')) $('#more').onclick=event=>{event.stopPropagation();toggleMore()};
-if ($('#modal')) $('#modal').onclick=event=>{if(event.target===$('#modal'))closeActionModal()};
-document.addEventListener('click',event=>{if(!event.target.closest('#more-menu,#more') && $('#more-menu'))$('#more-menu').hidden=true});
 boot().catch(e => { if ($('#title')) $('#title').textContent = e.message; else toast(e.message); });

@@ -36,7 +36,10 @@ func (m *memSchedules) List() ([]core.Schedule, error) {
 	return out, nil
 }
 
-type memRuns struct{ items []core.Run }
+type memRuns struct {
+	items  []core.Run
+	tables *memTables
+}
 
 func (m *memRuns) Create(item core.Run) error { m.items = append(m.items, item); return nil }
 func (m *memRuns) Update(item core.Run) error {
@@ -50,6 +53,23 @@ func (m *memRuns) Update(item core.Run) error {
 	return nil
 }
 func (m *memRuns) List(string) ([]core.Run, error) { return m.items, nil }
+func (m *memRuns) Unconfirmed(id string) (core.Run, *core.MaterializedTable, error) {
+	for _, run := range m.items {
+		if run.ScheduleID == id && (run.Status == "writing" || run.Status == "needs_review") {
+			return run, nil, nil
+		}
+	}
+	return core.Run{}, nil, core.ErrNotFound
+}
+func (m *memRuns) Finish(run core.Run, table *core.MaterializedTable) error {
+	if table != nil {
+		if err := m.tables.Upsert(*table); err != nil {
+			return err
+		}
+	}
+	return m.Update(run)
+}
+func (m *memRuns) MarkUncertain(run core.Run, _ *core.MaterializedTable) error { return m.Update(run) }
 
 type memTables struct{ items []core.MaterializedTable }
 
@@ -118,7 +138,7 @@ func TestRunMaterializesQuestion(t *testing.T) {
 	writer := &memWriter{}
 	tables := &memTables{}
 	svc := &Service{
-		Schedules: &memSchedules{}, Runs: &memRuns{}, Tables: tables, Edges: &memLineage{},
+		Schedules: &memSchedules{}, Runs: &memRuns{tables: tables}, Tables: tables, Edges: &memLineage{},
 		Questions: memQuestions{item: question}, Writer: writer, Compile: adapters.CompilePostgresWarehouse,
 	}
 	schedule, err := svc.Create(core.Schedule{
@@ -153,6 +173,26 @@ func TestDueCronHour(t *testing.T) {
 	}
 	if Due("0 9 * * *", "Asia/Shanghai", now, &now) {
 		t.Fatal("same minute should not re-run")
+	}
+}
+
+func TestClaimedPlanCanRefreshOnlyItsOwnMaterializedTable(t *testing.T) {
+	question := core.Question{ID: "orders", DatabaseID: "db1", QueryType: "native", NativeSQL: "SELECT 1"}
+	schedule := core.Schedule{ID: "plan", ClaimedTarget: true, QuestionID: question.ID, DatabaseID: "db1", MaterializeTo: "warehouse.wh_orders"}
+	writer, tables := &memWriter{}, &memTables{}
+	svc := &Service{
+		Schedules: &memSchedules{items: map[string]core.Schedule{"plan": schedule}}, Runs: &memRuns{tables: tables},
+		Writer: writer, Tables: tables, Questions: memQuestions{item: question},
+	}
+	if _, err := svc.Run(context.Background(), schedule.ID); err != nil || !writer.spec.RequireNewTarget {
+		t.Fatalf("first run must create a fresh table: spec=%+v err=%v", writer.spec, err)
+	}
+	if _, err := svc.Run(context.Background(), schedule.ID); err != nil || writer.spec.RequireNewTarget {
+		t.Fatalf("refresh did not recognize its table: spec=%+v err=%v", writer.spec, err)
+	}
+	tables.items[0].ScheduleID = "other"
+	if _, err := svc.Run(context.Background(), schedule.ID); err != core.ErrWarehouseTargetInUse {
+		t.Fatalf("run with conflicting owner: %v", err)
 	}
 }
 
@@ -198,7 +238,7 @@ func TestIncrementalRunAppliesWatermark(t *testing.T) {
 	writer := &memWriter{}
 	tables := &memTables{}
 	svc := &Service{
-		Schedules: &memSchedules{}, Runs: &memRuns{}, Tables: tables,
+		Schedules: &memSchedules{}, Runs: &memRuns{tables: tables}, Tables: tables,
 		Questions: memQuestions{item: question}, Writer: writer, Compile: adapters.CompilePostgresWarehouse,
 	}
 	schedule, err := svc.Create(core.Schedule{

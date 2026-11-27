@@ -1,4 +1,34 @@
 let databases=[], tables=[], active=null, currentDB=null, lastQueryIR=null, lastChart=null, lastResultMode='visual', isAdmin=false, aliases={}, fieldMeta=[], filterBar=null, gridState={hidden:{}}, creationMode=false, queryEditor=null, editingQuestion=null;
+let navigationRequest = null;
+let resultRequest = null;
+
+function beginNavigation() {
+  navigationRequest?.abort();
+  resultRequest?.abort();
+  $('#save-question').disabled = false;
+  navigationRequest = new AbortController();
+  return navigationRequest.signal;
+}
+
+// Every producer of the result grid shares one slot. Even when a transport
+// finishes after cancellation, only the latest result can update the editor.
+async function loadResult(request, applyResult, onError) {
+  resultRequest?.abort();
+  const controller = new AbortController();
+  resultRequest = controller;
+  $('#save-question').disabled = true;
+  try {
+    const result = await request(controller.signal);
+    if (!controller.signal.aborted) applyResult(result);
+  } catch (error) {
+    if (!controller.signal.aborted) onError(error);
+  } finally {
+    if (resultRequest === controller) {
+      resultRequest = null;
+      $('#save-question').disabled = false;
+    }
+  }
+}
 function key(t){return t.schema+'.'+t.name}
 function setURL(){
   const p=new URLSearchParams();
@@ -52,10 +82,19 @@ async function hydrateQuestion(question){
     $('#sort-direction').value=order.dir==='desc'?'desc':'asc';
   }
   mountFilter();
-  try{const result=await api('/api/dataset','POST',query);lastQueryIR=result.queryir||query;lastChart=question.chartspec||result.chartspec;renderGrid(result,'visual')}catch(error){toast('已载入配置，但暂时无法运行：'+error.message)}
   updateSelectedFieldCount();updateBuilderSummary();
+  await loadResult(signal=>api('/api/dataset','POST',query,{signal}), result=>{
+    lastQueryIR=result.queryir||query;
+    lastChart=question.chartspec||result.chartspec;
+    renderGrid(result,'visual');
+  }, error=>{
+    $('#grid-status').textContent='已载入配置，但暂时无法运行：'+error.message;
+    $('#grid-wrap').innerHTML='';
+    toast(error.message);
+  });
 }
 function showDatabases(){
+  beginNavigation();
   currentDB=null;active=null;tables=[];
   $('#db-view').hidden=false;$('#table-view').hidden=true;
   $('#crumb').textContent='选择数据库';
@@ -69,24 +108,39 @@ function renderDatabases(){
   $$('#db-cards [data-id]').forEach(card=>card.onclick=()=>openDatabase(card.dataset.id).catch(e=>toast(e.message)));
 }
 async function openDatabase(id){
+  const signal = beginNavigation();
   currentDB=databases.find(d=>d.id===id)||{id};
   topbaseRememberDatabase(id);
-  active=null;
+  active=null;tables=[];
+  $('#search').value='';
+  $('#table-count').textContent='';
+  $('#schema-status').textContent='';
+  $('#schema-status').hidden=true;
+  $('#table-list').textContent='正在读取表…';
   $('#db-view').hidden=true;$('#table-view').hidden=false;
   $('#db-title').textContent=currentDB.name||id;
   $('#crumb').textContent=currentDB.name||id;
   $('#empty-state').hidden=false;$('#table-workspace').hidden=true;
   setURL();
+  let items;
   try{
-    tables=await api('/api/databases/'+id+'/tables');
+    items=await api('/api/databases/'+id+'/tables','GET',null,{signal});
   }catch(e){
-    try{tables=await api('/api/databases/'+id+'/tables?cached=1')}catch(_){tables=[]}
-    $('#table-list').innerHTML=`<div class="reconnect"><b>无法读取表结构</b><small>${esc(e.message)}</small><a href="/admin/?id=${encodeURIComponent(id)}">前往数据源管理</a></div>`;
-    toast(e.message);
-    return;
+    if(signal.aborted)return false;
+    try{items=await api('/api/databases/'+id+'/tables?cached=1','GET',null,{signal})}catch(_){items=[]}
+    if(signal.aborted)return false;
+    if(!items.length){
+      $('#table-list').innerHTML=`<div class="reconnect"><b>无法读取表结构</b><small>${esc(e.message)}</small>${isAdmin?`<a href="/admin/?id=${encodeURIComponent(id)}">前往数据源管理</a>`:''}</div>`;
+      return false;
+    }
+    $('#schema-status').textContent='当前显示缓存的表结构';
+    $('#schema-status').hidden=false;
   }
+  if(signal.aborted)return false;
+  tables=items;
   $('#table-count').textContent=tables.length;
   renderTables(tables.filter(t=>!t.hidden));
+  return true;
 }
 function renderTables(items){
   const groups={};
@@ -100,7 +154,8 @@ function renderTables(items){
   const selected=$('#table-list .table-item.active');
   if(selected)requestAnimationFrame(()=>selected.scrollIntoView({block:'center',inline:'nearest'}));
 }
-async function openTable(table){
+async function openTable(table, question){
+  const signal = beginNavigation();
   active=table;lastQueryIR=null;lastChart=null;lastResultMode='visual';aliases={};fieldMeta=[];gridState={hidden:{}};
   if(filterBar){filterBar.destroy();filterBar=null}
   queryEditor.setMode('visual');queryEditor.setSQL('',{dirty:false});queryEditor.setGeneratedSQL('');
@@ -140,29 +195,42 @@ async function openTable(table){
   updateBuilderSummary();
   const id=currentDB.id;
   const query={version:1,source:{database_id:id,table:{schema:table.schema,name:table.name}},limit:1000};
-  const [note, fields, preview]=await Promise.all([
-    api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/annotation`).catch(()=>({})),
-    api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/fields`).catch(()=>[]),
-    api('/api/dataset','POST',query).catch(err=>({error:err.message,columns:[],rows:[]}))
+  const metadata=Promise.all([
+    api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/annotation`,'GET',null,{signal}).catch(()=>({})),
+    api(`/api/databases/${id}/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}/fields`,'GET',null,{signal}).catch(()=>[])
   ]);
+  const preview=question ? null : loadResult(async resultSignal=>{
+    const [result]=await Promise.all([api('/api/dataset','POST',query,{signal:resultSignal}),metadata]);
+    return result;
+  },result=>{
+    lastQueryIR=result.queryir||query;
+    lastChart=result.chartspec;
+    renderGrid(result,'visual');
+  },error=>{
+    $('#grid-status').textContent='无法拉取数据：'+error.message;
+    $('#grid-wrap').innerHTML=`<div class="reconnect"><b>查询失败</b><small>${esc(error.message)}</small></div>`;
+  });
+  const [note, fields]=await metadata;
+  if(signal.aborted)return false;
   fieldMeta=fields||[];
   fieldMeta.forEach(f=>{if(f.display_name)aliases[f.name]=f.display_name});
   $('#table-name').textContent=note.display_name||table.name;
   $('#table-description').textContent=note.user_note||table.description||(table.schema+'.'+table.name);
-  lastQueryIR=preview.queryir||query;
-  lastChart=preview.chartspec;
+  lastQueryIR=query;
   configureJoinBuilder();
   mountFilter();
-  if(preview.error){
-    $('#grid-status').textContent='无法拉取数据：'+preview.error;
-    $('#grid-wrap').innerHTML=`<div class="reconnect"><b>查询失败</b><small>${esc(preview.error)}</small></div>`;
-    return;
+  if(question){
+    $('#grid-status').textContent=question.query_type==='native'?'运行 SQL 即可预览结果。':'正在运行已保存的分析…';
+    await hydrateQuestion(question);
+  }else{
+    await preview;
   }
-  renderGrid(preview,'visual');
+  return !signal.aborted;
 }
 function columnModels(){
-  return (active&&active.columns||[]).filter(c=>{const meta=fieldMeta.find(f=>f.name===c.name)||{};return meta.visibility!=='hidden'}).map(c=>{
-    const meta=fieldMeta.find(f=>f.name===c.name)||{};
+  const metadata = new Map(fieldMeta.map(field=>[field.name,field]));
+  return (active&&active.columns||[]).filter(column=>metadata.get(column.name)?.visibility!=='hidden').map(c=>{
+    const meta=metadata.get(c.name)||{};
     return {
       name:c.name,
       data_type:c.data_type,
@@ -288,6 +356,7 @@ function qualifyBaseFilters(filters, joined){
 }
 async function fetchDistinct(field){
   if(!lastQueryIR||!lastQueryIR.source)return [];
+  const signal=navigationRequest.signal;
   const others=(lastQueryIR.filters||[]).filter(f=>f.field!==field&&f.field!==active.name+'.'+field);
   const sourceField=lastQueryIR.joins&&lastQueryIR.joins.length?active.name+'.'+field:field;
   const d=await api('/api/dataset','POST',{
@@ -299,7 +368,8 @@ async function fetchDistinct(field){
     order_by:[{field:'count',dir:'desc'}],
     filters:others,
     limit:80
-  });
+  },{signal});
+  signal.throwIfAborted();
   return (d.rows||[]).map(r=>r[0]).filter(v=>v!==null&&v!==undefined);
 }
 function mountFilter(){
@@ -315,15 +385,14 @@ async function runWithFilters(filters){
   if(!lastQueryIR)return;
   const query=Object.assign({}, lastQueryIR, {filters:qualifyBaseFilters(filters,(lastQueryIR.joins||[]).length>0), limit:lastQueryIR.limit||Number($('#row-limit').value)||1000});
   $('#grid-status').textContent='正在按筛选条件查询…';
-  try{
-    const d=await api('/api/dataset','POST',query);
+  await loadResult(signal=>api('/api/dataset','POST',query,{signal}), d=>{
     lastQueryIR=d.queryir||query;
     lastChart=d.chartspec;
     renderGrid(d,'visual');
-  }catch(e){
+  },e=>{
     $('#grid-status').textContent='筛选失败：'+e.message;
     toast(e.message);
-  }
+  });
 }
 function renderGrid(d, mode){
   mode=mode||lastResultMode||'visual';
@@ -439,29 +508,30 @@ async function runVisualQuery(){
     if(sortField==='__group__')field=breakoutAlias(groupField,groupTemporal,joined);
     query.order_by=[{field,dir:$('#sort-direction').value}];
   }
-  try{
-    const d=await api('/api/dataset','POST',query);
+  $('#grid-status').textContent='正在运行查询…';
+  await loadResult(signal=>api('/api/dataset','POST',query,{signal}), d=>{
     lastQueryIR=d.queryir||query;
     lastChart=d.chartspec;
     renderGrid(d,'visual');updateBuilderSummary();toast('查询已完成');
-  }catch(e){$('#grid-status').textContent='查询失败：'+e.message;toast(e.message)}
+  },e=>{$('#grid-status').textContent='查询失败：'+e.message;toast(e.message)});
 }
 async function runNativeSQL(){
   if(!active||!currentDB)return;
   const sql=queryEditor.sql().trim();
   if(!sql){toast('请先输入要执行的 SQL');return}
   $('#grid-status').textContent='正在执行 SQL…';
-  try{
-    const d=await api('/api/queries/run','POST',{database_id:currentDB.id,sql});
+  await loadResult(signal=>api('/api/queries/run','POST',{database_id:currentDB.id,sql},{signal}), d=>{
     lastChart=null;
     renderGrid(Object.assign({},d,{sql:d.sql||sql}),'sql');
     toast('SQL 查询已完成');
-  }catch(e){$('#grid-status').textContent='SQL 查询失败：'+e.message;toast(e.message)}
+  },e=>{$('#grid-status').textContent='SQL 查询失败：'+e.message;toast(e.message)});
 }
 $('#save-question').onclick=async()=>{
   if(!lastQueryIR&&!queryEditor.sql().trim())return toast('请先打开一张表并完成查询');
+  const signal=navigationRequest.signal;
   let collections;
-  try{collections=await api('/api/collections')}catch(e){toast('无法读取可保存的分组：'+e.message);return}
+  try{collections=await api('/api/collections')}catch(e){if(!signal.aborted)toast('无法读取可保存的分组：'+e.message);return}
+  if(signal.aborted)return;
   const writableCollections=collections.filter(collection=>!collection.read_only);
   const personal=writableCollections.find(collection=>collection.kind==='personal_project');
   const values=await formDialog({
@@ -474,7 +544,7 @@ $('#save-question').onclick=async()=>{
       {name:'collection_id',label:'保存到分组',type:'select',value:(editingQuestion&&editingQuestion.collection_id)||(personal?personal.id:'__personal__'),required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,label:collection.name+(collection.kind==='personal_project'?' · 个人分组':' · 企业项目')})))}
     ]
   });
-  if(!values)return;
+  if(!values||signal.aborted)return;
   const sql=queryEditor.sql().trim();
   const payload=queryEditor.mode()==='sql'
     ?{name:values.name,collection_id:values.collection_id==='__personal__'?'':values.collection_id,query_type:'native',database_id:currentDB.id,native_sql:sql,chartspec:lastChart}
@@ -487,13 +557,12 @@ async function drill(kind){
   if(!lastQueryIR)return toast('请先查看表数据');
   const field=$('#drill-field').value|| (lastQueryIR.filters&&lastQueryIR.filters[0]&&lastQueryIR.filters[0].field) || (lastQueryIR.group_by&&lastQueryIR.group_by[0]&&lastQueryIR.group_by[0].field);
   const value=(lastQueryIR.filters&&lastQueryIR.filters[0]&&lastQueryIR.filters[0].value)||'';
-  try{
-    const selected=tableForJoin($('#join-table').value);
-    const d=await api('/api/dataset/drill','POST',{queryir:lastQueryIR,drill:{kind,field,value},join_table:selected?selected.name:''});
+  const selected=tableForJoin($('#join-table').value);
+  await loadResult(signal=>api('/api/dataset/drill','POST',{queryir:lastQueryIR,drill:{kind,field,value},join_table:selected?selected.name:''},{signal}), d=>{
     if(d.queryir) lastQueryIR=d.queryir;
     if(filterBar) filterBar.setFilters(lastQueryIR.filters||[]);
     renderGrid(d,'visual');toast('下钻完成');
-  }catch(e){toast(e.message)}
+  },e=>toast(e.message));
 }
 $('#drill-records').onclick=()=>drill('records');
 $('#drill-filter').onclick=()=>drill('filter');
@@ -501,22 +570,23 @@ async function boot(){
   try{
     const me=await api('/api/user/current').catch(()=>null);
     isAdmin=!!(me&&me.is_admin);
+    $('#warehouse-link').hidden=!isAdmin;
     databases=await api('/api/databases');
     const params=new URLSearchParams(location.search);
     const editID=params.get('edit');
     if(editID){editingQuestion=await api('/api/questions/'+encodeURIComponent(editID));$('#section-title').textContent='编辑分析';$('#back-dbs').textContent='← 返回分析';$('#toggle-ask').textContent='查询步骤';}
     creationMode=!!editingQuestion||params.get('from')==='new-analysis';
-    if(creationMode){$('#section-title').textContent='新建分析';$('#back-dbs').textContent='← 更换起始数据';$('#toggle-ask').textContent='查询步骤'}
+    if(creationMode&&!editingQuestion){$('#section-title').textContent='新建分析';$('#back-dbs').textContent='← 更换起始数据';$('#toggle-ask').textContent='查询步骤'}
     const source=editingQuestion&&editingQuestion.queryir&&editingQuestion.queryir.source;
     const db=params.get('db') || (source&&source.database_id) || (editingQuestion&&editingQuestion.database_id) || topbasePickDatabase(databases);
     renderDatabases();
     if(db && databases.some(d=>d.id===db)){
       topbaseRememberDatabase(db);
-      await openDatabase(db);
+      if(!await openDatabase(db))return;
       const schema=params.get('schema') || (source&&source.table&&source.table.schema), table=params.get('table') || (source&&source.table&&source.table.name);
       if((schema&&table)||(editingQuestion&&editingQuestion.query_type==='native'&&tables.length)){
         const found=(schema&&table?tables.find(t=>t.schema===schema&&t.name===table):tables[0]);
-        if(found){await openTable(found);if(editingQuestion)await hydrateQuestion(editingQuestion);}
+        if(found)await openTable(found,editingQuestion);
       }
     }
   }catch(e){toast(e.message)}

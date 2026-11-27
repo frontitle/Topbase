@@ -6,6 +6,10 @@
   <title>Topbase · 仪表盘</title>
   <link rel="stylesheet" href="/ui.css">
   <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/dashboard-inspector.css">
+  <link rel="stylesheet" href="/dashboard-layout.css">
+  <link rel="stylesheet" href="/dashboard-tools.css">
+  <link rel="stylesheet" href="/dashboard-workspace.css">
   <link rel="stylesheet" href="/grid.css">
   <link rel="stylesheet" href="/viz.css">
 </head>
@@ -16,53 +20,66 @@
       <a href="/dashboard/">仪表盘</a><span>/</span><strong id="title">加载中</strong><span id="public-badge" class="public-badge" hidden title="此仪表盘已公开分享">◉ 已公开</span>
       <div class="top-actions">
         <span id="view-actions">
-          <button class="secondary" id="fullscreen" type="button">全屏</button>
-          <button class="secondary" id="share" type="button">分享</button>
-          <button class="secondary" id="more" type="button">更多</button>
+          <button class="tb-btn tb-btn-secondary" id="fullscreen" type="button">全屏</button>
+          <button class="tb-btn tb-btn-secondary" id="share" type="button">分享</button>
+          <span class="tb-menu-anchor">
+            <button class="tb-btn tb-btn-secondary" id="more" type="button">更多</button>
+            <span id="more-menu" class="tb-menu tb-menu-end" aria-label="仪表盘操作" hidden>
+              <button type="button" data-more="bookmark">加入书签</button>
+              <button type="button" data-more="duplicate">创建副本</button>
+              <button type="button" data-more="alert">设置结果提醒</button>
+              <button type="button" data-more="subscribe">订阅仪表盘</button>
+              <span class="tb-menu-separator" role="separator"></span>
+              <button type="button" class="danger-text" data-more="archive">移到回收站</button>
+            </span>
+          </span>
         </span>
-        <button class="primary" id="edit" type="button">编辑</button>
+        <button class="tb-btn tb-btn-secondary" id="preview" aria-controls="board-canvas" type="button" hidden>预览</button>
+        <button class="tb-btn tb-btn-primary" id="edit" type="button">编辑</button>
       </div>
     </header>
     <main>
       <div class="board-layout viewing" id="layout">
-        <aside class="board-palette" id="palette">
-          <div class="tb-tabs palette-tabs" id="palette-tabs" role="tablist" aria-label="添加内容">
-            <button class="active" data-palette-tab="analysis" type="button">添加分析</button>
-            <button data-palette-tab="components" type="button">添加小组件</button>
+        <div class="editor-tools" id="editor-tools" role="group" aria-label="画布编辑工具" hidden>
+          <div class="insert-anchor">
+            <button class="editor-tool tb-btn tb-btn-secondary insert-toggle" id="insert-toggle" type="button" aria-haspopup="dialog" aria-controls="palette" aria-expanded="false">
+              <span class="insert-plus" aria-hidden="true">+</span>插入<span class="tool-chevron" aria-hidden="true"></span>
+            </button>
+            <section class="insert-panel tb-popover" id="palette" role="dialog" aria-label="插入分析或小组件" hidden>
+              <div class="tb-tabs palette-tabs" id="palette-tabs" role="tablist" aria-label="添加内容">
+                <button class="active" role="tab" aria-controls="analysis-palette" data-palette-tab="analysis" type="button">添加分析</button>
+                <button role="tab" aria-controls="widget-palette" data-palette-tab="components" type="button">添加小组件</button>
+              </div>
+              <div class="palette-content">
+                <div class="palette-section" id="analysis-palette" aria-label="添加分析" data-palette-panel="analysis" role="tabpanel">
+                  <input class="tb-input" id="qsearch" type="search" placeholder="搜索分析名称或描述" aria-label="搜索已创建的分析">
+                  <select class="tb-select" id="qcollection" aria-label="按分组筛选分析"><option value="">全部分组</option></select>
+                  <div id="palette-questions"></div>
+                  <button class="tb-btn tb-btn-secondary palette-more" id="palette-more" type="button" hidden>加载更多</button>
+                </div>
+                <div class="palette-section palette-components" id="widget-palette" aria-label="添加小组件" data-palette-panel="components" role="tabpanel" hidden>
+                  <input class="tb-input" id="widget-search" type="search" placeholder="搜索小组件" aria-label="搜索小组件">
+                  <div id="widget-library"></div>
+                  <a class="plugin-doc-link" href="/developers/dashboard-components/" target="_blank" rel="noopener">组件开发文档 ↗</a>
+                  <input id="image-upload" type="file" accept="image/*" multiple hidden>
+                </div>
+              </div>
+            </section>
           </div>
-          <div class="palette-content">
-          <div class="palette-section" data-palette-panel="analysis" role="tabpanel">
-            <h3>快速添加分析</h3>
-            <p class="hint">点击立即添加，也可以拖到右侧指定位置。</p>
-            <input id="qsearch" type="search" placeholder="搜索已创建的分析">
-            <select id="qcollection" aria-label="按分组筛选分析"><option value="">全部分组</option></select>
-            <div id="palette-questions"></div>
-            <button class="secondary palette-more" id="palette-more" type="button" hidden>加载更多</button>
+          <div class="outline-anchor" id="outline-anchor">
+            <button class="editor-tool tb-btn tb-btn-ghost" id="outline-toggle" type="button" aria-expanded="false" aria-controls="component-outline" aria-haspopup="dialog">
+              <svg aria-hidden="true"><use href="/vendor/lucide-nav.svg#panels-top-left"></use></svg>组件列表<span id="outline-count"></span>
+            </button>
+            <section id="component-outline" class="outline-popover tb-popover" role="dialog" aria-label="画布上的组件" hidden>
+              <input class="tb-input" type="search" id="outline-search" aria-label="查找画布上的组件" placeholder="查找画布上的组件">
+              <div id="outline-items"></div>
+            </section>
           </div>
-          <div class="palette-section palette-components" data-palette-panel="components" role="tabpanel" hidden>
-            <h3>小组件</h3>
-            <div class="palette-actions">
-              <button class="secondary" draggable="true" data-add="heading" type="button">标题</button>
-              <button class="secondary" draggable="true" data-add="text" type="button">文本</button>
-            </div>
-            <div class="palette-actions">
-              <button class="secondary" draggable="true" data-add="link" type="button">链接</button>
-              <button class="secondary" draggable="true" data-add="iframe" type="button">网页</button>
-            </div>
-            <div class="palette-actions">
-              <button class="secondary" id="add-image" type="button">图片</button>
-              <button class="secondary" draggable="true" data-add="divider" type="button">分隔线</button>
-            </div>
-            <div class="palette-actions">
-              <button class="secondary" draggable="true" data-add="time" type="button">时间</button>
-              <button class="secondary" draggable="true" data-add="plugin" type="button">自定义组件</button>
-            </div>
-            <a class="plugin-doc-link" href="/developers/dashboard-components/" target="_blank" rel="noopener">开发第三方组件 ↗</a>
-            <input id="image-upload" type="file" accept="image/*" multiple hidden>
-          </div>
-          </div>
-        </aside>
-        <div id="canvas-controls" class="canvas-controls" hidden></div>
+          <button class="editor-tool tb-btn tb-btn-ghost" id="canvas-settings" type="button" data-inspector-toggle aria-controls="card-inspector">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><use href="/vendor/lucide-nav.svg#settings-2"></use></svg>
+            <span class="canvas-settings-label">画布设置</span><span class="mobile-settings-label">属性</span>
+          </button>
+        </div>
         <div class="board-canvas" id="board-canvas">
           <div class="board-toolbar">
             <div id="tabs" class="tabs"></div>
@@ -70,17 +87,20 @@
           </div>
           <section id="grid" class="board-grid"></section>
         </div>
+        <aside id="card-inspector" class="board-inspector" aria-label="属性" hidden></aside>
       </div>
     </main>
   </div>
-  <div id="more-menu" class="board-menu" hidden></div>
-  <div id="modal" class="board-modal" hidden></div>
+  <dialog id="modal" class="tb-modal action-dialog" aria-labelledby="share-dialog-title"></dialog>
   <div id="toast"></div>
   <script src="/ui.js"></script>
   <script src="/shell.js"></script>
   <script src="/grid.js"></script>
   <script src="/echarts.min.js"></script>
   <script src="/viz.js"></script>
+  <script src="/dashboard-layout.js"></script>
+  <script src="/dashboard-widgets.js"></script>
+  <script src="/dashboard-outline.js"></script>
   <script src="/dashboard-view.js"></script>
 </body>
 </html>

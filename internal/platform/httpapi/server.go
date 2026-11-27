@@ -231,6 +231,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("PUT /api/questions/{id}", s.updateQuestion)
 	mux.HandleFunc("DELETE /api/questions/{id}", s.archiveQuestion)
 	mux.HandleFunc("POST /api/questions/{id}/export", s.exportQuestion)
+	mux.HandleFunc("POST /api/questions/{id}/native-preview", s.previewNativeQuestion)
 	mux.HandleFunc("GET /api/collections", s.listCollections)
 	mux.HandleFunc("POST /api/collections", s.createCollection)
 	mux.HandleFunc("GET /api/collections/{id}", s.getCollection)
@@ -294,6 +295,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /api/runs", s.listRuns)
 	mux.HandleFunc("GET /api/warehouse/tables", s.listWarehouseTables)
 	mux.HandleFunc("GET /api/warehouse/uploads", s.listUploadedTables)
+	mux.HandleFunc("GET /api/warehouse/uploads/{id}/preview", s.previewUploadedTable)
 	mux.HandleFunc("POST /api/warehouse/uploads", s.uploadWorkbook)
 	mux.HandleFunc("DELETE /api/warehouse/uploads/{id}", s.deleteUploadedTable)
 	mux.HandleFunc("GET /api/lineage/{type}/{id}", s.listLineage)
@@ -305,6 +307,9 @@ func NewServer() http.Handler {
 	mux.HandleFunc("PUT /api/projects/{id}/access", s.putProjectAccess)
 	mux.HandleFunc("GET /api/identity/providers", s.listIdentityProviders)
 	mux.HandleFunc("PUT /api/identity/providers", s.saveIdentityProviders)
+	mux.HandleFunc("POST /api/identity/providers/validate", s.validateIdentityProvider)
+	mux.HandleFunc("PUT /api/identity/providers/{id}", s.saveIdentityProvider)
+	mux.HandleFunc("DELETE /api/identity/providers/{id}", s.deleteIdentityProvider)
 	mux.HandleFunc("POST /api/identity/providers/{id}/sync", s.syncIdentityProvider)
 	mux.HandleFunc("GET /api/webhooks", s.listWebhooks)
 	mux.HandleFunc("GET /api/subscription-channels", s.listSubscriptionChannels)
@@ -325,6 +330,7 @@ func NewServer() http.Handler {
 	}
 	s.static = static
 	mux.HandleFunc("GET /admin/{path...}", s.serveAdminStatic)
+	mux.HandleFunc("GET /warehouse/{$}", s.serveWarehousePage)
 	mux.HandleFunc("GET /dashboard/{id}/{$}", s.serveDashboardView)
 	mux.HandleFunc("GET /public/dashboard/{uuid}/{$}", s.servePublicDashboard)
 	mux.HandleFunc("GET /embed/dashboard/{uuid}/{$}", s.servePublicDashboard)

@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"bytes"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -118,6 +120,21 @@ func (s *server) listUploadedTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, items)
+}
+func (s *server) previewUploadedTable(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	preview, err := s.store.PreviewUploadedTable(r.Context(), r.PathValue("id"))
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "上传的数据集不存在"})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取本地数据预览失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, preview)
 }
 func (s *server) deleteUploadedTable(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {

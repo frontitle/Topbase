@@ -1,3 +1,10 @@
+:where(.sidebar) button.sidebar-profile {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: start;
+}
+
 .sidebar nav .nav-icon,
 .sidebar-toggle-icon,
 .sidebar-search-icon {
@@ -43,12 +50,73 @@ body.sidebar-collapsed .sidebar-toggle:has(.sidebar-toggle-icon) {
   transform: none;
 }
 
+/* Author styles on links and cards must respect the native hidden attribute. */
+[hidden]:not([hidden="until-found"]) {
+  display: none !important;
+}
+
+body.sidebar-collapsed .sidebar-version {
+  justify-content: center;
+  padding: 6px 0;
+  margin-inline: 0;
+  white-space: nowrap;
+}
+
+body.sidebar-collapsed .sidebar-version::before,
+body.sidebar-collapsed .sidebar-version b {
+  display: none;
+}
+
 @media (max-width: 780px) {
-  html body .sidebar.sidebar-admin {
-    width: 58px !important;
+  .topbar.analysis-topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    gap: 6px;
   }
 
-  html body .sidebar.sidebar-admin + .page {
+  .analysis-topbar a,
+  .analysis-topbar .secondary {
+    white-space: nowrap;
+  }
+
+  .analysis-topbar #group-crumb {
+    max-width: 32%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .analysis-topbar .top-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  html body .sidebar[data-shell] + .page,
+  html body.sidebar-collapsed .sidebar[data-shell] + .page {
     margin-left: 58px !important;
+  }
+
+  html body.sidebar-collapsed .sidebar[data-shell] {
+    width: 58px !important;
+    padding-inline: 0;
+  }
+
+  html body:not(.sidebar-collapsed) .sidebar[data-shell] {
+    width: min(220px, 85vw) !important;
+    box-shadow: 8px 0 24px #18253a26;
+  }
+
+  body:not(.sidebar-collapsed) .sidebar .sidebar-search {
+    display: flex;
+  }
+
+  body:not(.sidebar-collapsed) .sidebar .workspace {
+    justify-content: flex-start;
+  }
+
+  body:not(.sidebar-collapsed) .sidebar-app .workspace strong,
+  body:not(.sidebar-collapsed) .sidebar-admin .shell-context,
+  body:not(.sidebar-collapsed) .sidebar footer strong {
+    display: inline;
   }
 }

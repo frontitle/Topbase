@@ -219,6 +219,45 @@ func TestAdminPagesRequireAdministratorSession(t *testing.T) {
 	if nonAdminRec.Code != http.StatusFound || nonAdminRec.Header().Get("Location") != "/" {
 		t.Fatalf("member admin page %d %q", nonAdminRec.Code, nonAdminRec.Header().Get("Location"))
 	}
+
+	for _, tc := range []struct {
+		name   string
+		cookie *http.Cookie
+		status int
+	}{
+		{"guest", nil, http.StatusFound},
+		{"member", cookieNamed(t, loginRec.Result().Cookies(), sessionCookie), http.StatusForbidden},
+		{"administrator", adminCookie, http.StatusOK},
+	} {
+		t.Run("warehouse_"+tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/warehouse/?question=example", nil)
+			if tc.cookie != nil {
+				req.AddCookie(tc.cookie)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != tc.status {
+				t.Fatalf("warehouse status = %d, want %d", rec.Code, tc.status)
+			}
+			body := rec.Body.String()
+			if tc.cookie == nil {
+				if rec.Header().Get("Location") != "/auth/login/" {
+					t.Fatal("guest must sign in")
+				}
+				return
+			}
+			if !strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
+				t.Fatal("role-dependent warehouse HTML must not be cached")
+			}
+			manager := tc.status == http.StatusOK
+			if strings.Contains(body, "create-materialization") != manager || strings.Contains(body, "/warehouse/warehouse.js") != manager {
+				t.Fatal("warehouse controls and management requests should only load for managers")
+			}
+			if !manager && (!strings.Contains(body, "数据沉淀由管理员维护") || !strings.Contains(body, `href="/questions/"`) || !strings.Contains(body, `href="/data/"`)) {
+				t.Fatal("member should see an explanation and both return links")
+			}
+		})
+	}
 }
 
 func TestDeveloperModeControlsAPIKeysAndEndpointScope(t *testing.T) {
@@ -605,6 +644,71 @@ func TestPublicVersionAndReadinessExposeMigrationState(t *testing.T) {
 	expectedVersion := []byte(fmt.Sprintf(`"version":%q`, buildinfo.Version))
 	if !bytes.Contains(versionRec.Body.Bytes(), expectedSchema) || !bytes.Contains(versionRec.Body.Bytes(), expectedVersion) {
 		t.Fatalf("unexpected version payload: %s", versionRec.Body.String())
+	}
+}
+
+func TestIdentityProviderLifecycleAndLoginMethodSafety(t *testing.T) {
+	handler := testServer(t)
+	session := adminSession(t, handler)
+
+	validateReq := httptest.NewRequest(http.MethodPost, "/api/identity/providers/validate", bytes.NewBufferString(`{"id":"google-main","type":"google","name":"Google","client_id":"client","client_secret":"secret"}`))
+	validateReq.AddCookie(session)
+	validateRec := httptest.NewRecorder()
+	handler.ServeHTTP(validateRec, validateReq)
+	if validateRec.Code != http.StatusOK || !bytes.Contains(validateRec.Body.Bytes(), []byte(`"valid":true`)) {
+		t.Fatalf("validate provider %d: %s", validateRec.Code, validateRec.Body.String())
+	}
+
+	saveReq := httptest.NewRequest(http.MethodPut, "/api/identity/providers/google-main", bytes.NewBufferString(`{"type":"google","name":"Google","client_id":"client","client_secret":"secret"}`))
+	saveReq.AddCookie(session)
+	saveRec := httptest.NewRecorder()
+	handler.ServeHTTP(saveRec, saveReq)
+	if saveRec.Code != http.StatusOK || !bytes.Contains(saveRec.Body.Bytes(), []byte(`"configured":true`)) || bytes.Contains(saveRec.Body.Bytes(), []byte(`"client_secret":"secret"`)) {
+		t.Fatalf("save provider %d: %s", saveRec.Code, saveRec.Body.String())
+	}
+
+	settingsReq := httptest.NewRequest(http.MethodPut, "/api/admin/auth-settings", bytes.NewBufferString(`{"password_login_enabled":false,"enabled_provider_ids":["google-main"]}`))
+	settingsReq.AddCookie(session)
+	settingsRec := httptest.NewRecorder()
+	handler.ServeHTTP(settingsRec, settingsReq)
+	if settingsRec.Code != http.StatusOK {
+		t.Fatalf("enable third-party login %d: %s", settingsRec.Code, settingsRec.Body.String())
+	}
+	optionsRec := httptest.NewRecorder()
+	handler.ServeHTTP(optionsRec, httptest.NewRequest(http.MethodGet, "/api/auth/options", nil))
+	if optionsRec.Code != http.StatusOK || !bytes.Contains(optionsRec.Body.Bytes(), []byte(`"id":"google-main"`)) || !bytes.Contains(optionsRec.Body.Bytes(), []byte(`"password_login_enabled":false`)) {
+		t.Fatalf("auth options %d: %s", optionsRec.Code, optionsRec.Body.String())
+	}
+
+	noMethodReq := httptest.NewRequest(http.MethodPut, "/api/admin/auth-settings", bytes.NewBufferString(`{"password_login_enabled":false,"enabled_provider_ids":[]}`))
+	noMethodReq.AddCookie(session)
+	noMethodRec := httptest.NewRecorder()
+	handler.ServeHTTP(noMethodRec, noMethodReq)
+	if noMethodRec.Code != http.StatusBadRequest {
+		t.Fatalf("disable every login method = %d, want 400: %s", noMethodRec.Code, noMethodRec.Body.String())
+	}
+
+	blockedDeleteReq := httptest.NewRequest(http.MethodDelete, "/api/identity/providers/google-main", nil)
+	blockedDeleteReq.AddCookie(session)
+	blockedDeleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(blockedDeleteRec, blockedDeleteReq)
+	if blockedDeleteRec.Code != http.StatusBadRequest {
+		t.Fatalf("delete last login provider = %d, want 400: %s", blockedDeleteRec.Code, blockedDeleteRec.Body.String())
+	}
+
+	passwordReq := httptest.NewRequest(http.MethodPut, "/api/admin/auth-settings", bytes.NewBufferString(`{"password_login_enabled":true,"enabled_provider_ids":["google-main"]}`))
+	passwordReq.AddCookie(session)
+	passwordRec := httptest.NewRecorder()
+	handler.ServeHTTP(passwordRec, passwordReq)
+	if passwordRec.Code != http.StatusOK {
+		t.Fatalf("restore password login %d: %s", passwordRec.Code, passwordRec.Body.String())
+	}
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/identity/providers/google-main", nil)
+	deleteReq.AddCookie(session)
+	deleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("delete provider %d: %s", deleteRec.Code, deleteRec.Body.String())
 	}
 }
 

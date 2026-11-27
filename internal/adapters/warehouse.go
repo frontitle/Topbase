@@ -17,10 +17,7 @@ func (p *SQLConnector) Materialize(ctx context.Context, spec core.MaterializeSpe
 	if err := queryir.CheckIdent("table", spec.Table); err != nil {
 		return core.MaterializeResult{}, err
 	}
-	tmpName := spec.Table + "__new"
-	if err := queryir.CheckIdent("temp table", tmpName); err != nil {
-		return core.MaterializeResult{}, err
-	}
+	tmpName := core.NewID("tb_stage")
 	sqlText := strings.TrimSpace(spec.SQL)
 	lower := strings.ToLower(sqlText)
 	if !strings.HasPrefix(lower, "select") && !strings.HasPrefix(lower, "with") {
@@ -58,17 +55,24 @@ func (p *SQLConnector) Materialize(ctx context.Context, spec core.MaterializeSpe
 	if _, err := tx.ExecContext(queryCtx, "CREATE SCHEMA IF NOT EXISTS "+schemaQ); err != nil {
 		return core.MaterializeResult{}, fmt.Errorf("create schema: %w", err)
 	}
-	if _, err := tx.ExecContext(queryCtx, "DROP TABLE IF EXISTS "+tmp); err != nil {
+	var exists int
+	if err := tx.QueryRowContext(queryCtx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2`, spec.Schema, spec.Table).Scan(&exists); err != nil {
 		return core.MaterializeResult{}, err
+	}
+	if spec.RequireNewTarget && exists > 0 {
+		return core.MaterializeResult{}, core.ErrWarehouseTargetInUse
 	}
 	if _, err := tx.ExecContext(queryCtx, "CREATE TABLE "+tmp+" AS "+sqlText, spec.Args...); err != nil {
 		return core.MaterializeResult{}, fmt.Errorf("create table as select: %w", err)
 	}
 
-	var exists int
-	_ = tx.QueryRowContext(queryCtx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2`, spec.Schema, spec.Table).Scan(&exists)
-
-	switch strings.ToLower(spec.Strategy) {
+	strategy := strings.ToLower(spec.Strategy)
+	// On the first run of a new plan, publishing the staging table by
+	// rename alone also protects a target created after the existence check.
+	if spec.RequireNewTarget {
+		strategy = "create_only"
+	}
+	switch strategy {
 	case "create_only":
 		if exists > 0 {
 			if _, err := tx.ExecContext(queryCtx, "DROP TABLE "+tmp); err != nil {
@@ -120,13 +124,18 @@ func (p *SQLConnector) Materialize(ctx context.Context, spec core.MaterializeSpe
 		if err := queryir.CheckIdent("watermark", spec.WatermarkField); err != nil {
 			return core.MaterializeResult{}, err
 		}
-		var value any
-		if err := tx.QueryRowContext(queryCtx, "SELECT MAX("+queryir.Quote(spec.WatermarkField)+") FROM "+target).Scan(&value); err == nil && value != nil {
-			watermark = fmt.Sprint(value)
+		var value *string
+		if err := tx.QueryRowContext(queryCtx, "SELECT MAX("+queryir.Quote(spec.WatermarkField)+")::text FROM "+target).Scan(&value); err != nil {
+			return core.MaterializeResult{}, fmt.Errorf("读取目标表水位失败: %w", err)
+		}
+		if value != nil {
+			watermark = *value
+		} else if count > 0 && strings.EqualFold(spec.Strategy, "incremental") {
+			return core.MaterializeResult{}, fmt.Errorf("非空增量目标表的水位为空，请检查变化字段")
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return core.MaterializeResult{}, err
+		return core.MaterializeResult{}, fmt.Errorf("%w: %v", core.ErrWarehouseCommitUnknown, err)
 	}
 	return core.MaterializeResult{RowCount: count, Watermark: watermark}, nil
 }

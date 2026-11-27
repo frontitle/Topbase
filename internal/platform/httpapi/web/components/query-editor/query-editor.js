@@ -15,7 +15,8 @@
     const summary = host.querySelector('[data-query-summary]');
     const sqlHost = host.querySelector('[data-query-sql-editor]');
     const useGenerated = host.querySelector('[data-use-generated-sql]');
-    const editor = global.TopbaseCode.mountEditor(sqlHost, {
+    const code = global.TopbaseUI?.components?.code || global.TopbaseCode;
+    const editor = code.mountEditor(sqlHost, {
       language: 'sql',
       label: 'SQL 查询',
       placeholder: 'SELECT *\nFROM schema.table\nLIMIT 100;',

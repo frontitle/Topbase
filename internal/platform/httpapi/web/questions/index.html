@@ -18,9 +18,9 @@
           <p>创建可视化或 SQL 分析，并在这里用分组整理个人与团队内容。</p>
         </div>
         <div class="analysis-head-actions">
-          <a class="secondary" id="manage-groups" href="#analysis-groups">分组管理 <span id="group-count"></span></a>
-          <button class="secondary" id="create-group" type="button">新建分组</button>
-          <a class="primary" href="/questions/new/">新建分析</a>
+          <a class="secondary tb-btn tb-btn-secondary" id="manage-groups" href="#analysis-groups">分组管理 <span id="group-count"></span></a>
+          <button class="secondary tb-btn tb-btn-secondary" id="create-group" type="button">新建分组</button>
+          <a class="primary tb-btn tb-btn-primary" href="/questions/new/">新建分析</a>
         </div>
       </div>
       <section id="analysis-groups" class="analysis-group-overview" aria-labelledby="analysis-groups-heading">
@@ -30,7 +30,7 @@
       <section id="analysis-view">
         <div class="toolbar">
           <label><span>⌕</span><input id="search" placeholder="搜索分析"></label>
-          <select id="collection" aria-label="按分组筛选"><option value="">全部分组</option></select>
+          <select class="tb-select" id="collection" aria-label="按分组筛选"><option value="">全部分组</option></select>
         </div>
         <section id="list" class="cards" aria-live="polite"><div class="empty-state"><b>正在加载分析</b><p>请稍候…</p></div></section>
       </section>

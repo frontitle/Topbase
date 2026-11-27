@@ -1,3 +1,7 @@
+.question-view:not([data-can-edit]) [data-edit-action],
+.question-view [hidden] { display: none; }
+.question-view:not([data-can-edit]) .viz-workspace { grid-template-columns: minmax(0, 1fr); }
+.question-view #native-controls { margin-bottom: 12px; }
 .viz-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -114,21 +118,7 @@
   color: #444;
   margin-bottom: 10px;
 }
-.viz-settings select,
-.viz-settings input[type="number"],
-.viz-settings input[type="text"] {
-  height: 34px;
-  border:1px solid #d9e4e9;
-  border-radius: 7px;
-  padding: 0 10px;
-  font: 13px var(--tb-font);
-  background:linear-gradient(180deg,#fff,#fbfdfd);
-  width: 100%;
-  color:#314b5a;
-  outline:0;
-  transition:border-color .18s ease,box-shadow .18s ease;
-}
-.viz-settings select:focus,.viz-settings input[type="number"]:focus,.viz-settings input[type="text"]:focus{border-color:var(--tb-accent);box-shadow:var(--tb-focus-ring)}
+.viz-settings :is(.tb-input, .tb-select) { width: 100%; }
 .viz-field { display: grid; gap: 6px; margin-bottom: 12px; }
 .viz-field > span { font-size: 12px; color: #444; }
 .viz-axis-row {
@@ -137,17 +127,7 @@
   align-items: center;
 }
 .viz-axis-row select { flex: 1; min-width: 0; }
-.viz-add-link {
-  justify-self: start;
-  margin-top: 2px;
-  border: 0;
-  background: none;
-  color:var(--tb-brand);
-  font: 500 12px var(--tb-font);
-  cursor: pointer;
-  padding: 0;
-}
-.viz-add-link:hover { color:var(--tb-accent-strong); }
+.viz-add-link { justify-self: start; margin-top: 2px; --tb-control-height: 28px; }
 .viz-series { display: grid; gap: 6px; }
 .viz-series label {
   display: flex;
@@ -165,23 +145,8 @@
   color: #333;
   margin: 0 0 8px;
 }
-.viz-seg {
-  display: flex;
-  border:1px solid #dce7eb;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.viz-seg button {
-  flex: 1;
-  height: 32px;
-  border: 0;
-  background: #fff;
-  color:#536773;
-  font: 500 12px var(--tb-font);
-}
-.viz-seg button + button { border-left:1px solid #dce7eb; }
-.viz-seg button:hover{color:var(--tb-brand-strong);background:var(--tb-brand-soft)}
-.viz-seg button.active { background:linear-gradient(135deg,var(--tb-brand),var(--tb-accent-strong));color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.24); }
+.viz-seg { display: flex; }
+.viz-seg > button { flex: 1; }
 .viz-muted { font-size: 13px; color: #777; line-height: 1.55; margin: 8px 0 0; }
 .viz-tabs { margin: 8px 0 14px; }
 .viz-series-card {
@@ -290,25 +255,8 @@
 .viz-segment-row {
   grid-template-columns: 1fr 1fr 32px 24px;
 }
-.viz-icon {
-  height: 28px;
-  border: 0;
-  background: none;
-  color: #888;
-  font-size: 18px;
-  cursor: pointer;
-}
-.viz-add {
-  height: 32px;
-  width: 100%;
-  border:1px dashed #b9d6d8;
-  border-radius: 8px;
-  background: #fff;
-  color:var(--tb-brand-strong);
-  font: 500 12px var(--tb-font);
-  cursor: pointer;
-}
-.viz-add:hover { border-color:var(--tb-accent);color:var(--tb-brand-deep);background:var(--tb-accent-soft); }
+.viz-icon { --tb-icon-hit: 28px; font-size: 18px; }
+.viz-add { width: 100%; }
 .query-debug {
   margin-top: 18px;
   border: 1px solid #eee;

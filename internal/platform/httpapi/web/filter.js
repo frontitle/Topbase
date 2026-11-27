@@ -161,7 +161,13 @@
     if (!host) return { setColumns: function () {}, setFilters: function () {}, destroy: function () {} };
     var columns = opts.columns || [];
     var items = fromQueryFilters(opts.filters || [], columns);
-    var open = false;
+    host.innerHTML = '<div class="tb-filter-bar"><button type="button" class="tb-filter-btn" data-open></button>' +
+      '<div class="tb-filter-pills"></div><div class="tb-filter-pop" aria-label="设置筛选条件" hidden></div></div>';
+    const trigger = host.querySelector('[data-open]');
+    const pop = host.querySelector('.tb-filter-pop');
+    const pills = host.querySelector('.tb-filter-pills');
+    let lastPills;
+    let destroyed = false;
     var step = 'columns';
     var draft = null;
     var values = [];
@@ -178,26 +184,23 @@
       if (opts.onChange) opts.onChange(next);
     }
 
-    function closePop() {
-      open = false;
-      step = 'columns';
-      draft = null;
-      render();
-    }
-    function openAdd() {
-      open = true;
-      step = 'columns';
-      draft = null;
-      colQuery = '';
-      render();
-    }
-    function openEdit(index) {
-      open = true;
-      step = 'value';
+    const popup = global.TopbaseUI.popover(trigger, pop, {
+      type: 'dialog',
+      initialFocus: () => pop.querySelector('.tb-filter-search,[data-op]'),
+      onOpen: render,
+      onClose: () => {
+        step = 'columns';
+        draft = null;
+        colQuery = '';
+        render();
+      }
+    });
+    function openEdit(index, from) {
       draft = Object.assign({ index: index }, items[index]);
+      step = 'value';
       valueQuery = '';
       loadValues();
-      render();
+      popup.open({ from });
     }
     function selectCol(name) {
       var col = columns.find(function (c) { return c.name === name; });
@@ -215,9 +218,11 @@
       if (!opts.fetchValues || !draft) return;
       var kind = kindOf(columns.find(function (c) { return c.name === draft.field; }) || {});
       if (kind !== 'text' && kind !== 'number') return;
+      const pending = draft;
       Promise.resolve(opts.fetchValues(draft.field)).then(function (rows) {
+        if (destroyed || draft !== pending) return;
         values = (rows || []).map(String);
-        if (open && step === 'value') render();
+        if (!pop.hidden && step === 'value') render();
       }).catch(function () {});
     }
     function currentOp() {
@@ -245,7 +250,7 @@
         render();
         return;
       }
-      closePop();
+      popup.close();
     }
     function removeAt(index) {
       items.splice(index, 1);
@@ -258,7 +263,7 @@
       var list = columns.filter(function (c) {
         return !q || (c.name + ' ' + colName(c)).toLowerCase().includes(q);
       });
-      return '<input class="tb-filter-search" placeholder="搜索字段" value="' + esc(colQuery) + '">' +
+      return '<input class="tb-filter-search tb-input" aria-label="搜索字段" placeholder="搜索字段" value="' + esc(colQuery) + '">' +
         '<div class="tb-filter-cols">' +
         (list.length ? list.map(function (c) {
           return '<button type="button" class="tb-filter-col" data-col="' + esc(c.name) + '"><b>' + esc(colName(c)) + '</b><small>' + esc(kindOf(c) === 'date' ? '日期' : kindOf(c) === 'number' ? '数值' : kindOf(c) === 'boolean' ? '布尔' : '文本') + '</small></button>';
@@ -277,8 +282,8 @@
         body = '<p class="tb-filter-empty" style="padding:0">这条筛选不需要输入值。</p>';
       } else if (kind === 'boolean') {
         body = '<div class="tb-filter-bool">' +
-          '<label><input type="radio" name="tb-bool" value="true"' + (String(draft.value) === 'true' ? ' checked' : '') + '> 真</label>' +
-          '<label><input type="radio" name="tb-bool" value="false"' + (String(draft.value) === 'false' ? ' checked' : '') + '> 假</label>' +
+          '<label class="tb-check"><input type="radio" name="tb-bool" value="true"' + (String(draft.value) === 'true' ? ' checked' : '') + '> 真</label>' +
+          '<label class="tb-check"><input type="radio" name="tb-bool" value="false"' + (String(draft.value) === 'false' ? ' checked' : '') + '> 假</label>' +
           '</div>';
       } else if (kind === 'date' && draft.op === 'relative') {
         body = '<div class="tb-filter-dates">' + RELATIVE.map(function (r) {
@@ -286,70 +291,63 @@
         }).join('') + '</div>';
       } else if (kind === 'date' && draft.op === 'between') {
         var pair = asList(draft.value);
-        body = '<div class="tb-filter-pair"><input type="date" data-bound="0" value="' + esc(pair[0] || '') + '"><input type="date" data-bound="1" value="' + esc(pair[1] || '') + '"></div>';
+        body = '<div class="tb-filter-pair"><input class="tb-input" type="date" aria-label="开始日期" data-bound="0" value="' + esc(pair[0] || '') + '"><input class="tb-input" type="date" aria-label="结束日期" data-bound="1" value="' + esc(pair[1] || '') + '"></div>';
       } else if (kind === 'date') {
-        body = '<input type="date" data-single value="' + esc(asList(draft.value)[0] || '') + '">';
+        body = '<input class="tb-input" type="date" aria-label="筛选日期" data-single value="' + esc(asList(draft.value)[0] || '') + '">';
       } else if (kind === 'number' && draft.op === 'between') {
         var nums = asList(draft.value);
-        body = '<div class="tb-filter-pair"><input type="number" data-bound="0" value="' + esc(nums[0] || '') + '" placeholder="最小值"><input type="number" data-bound="1" value="' + esc(nums[1] || '') + '" placeholder="最大值"></div>';
+        body = '<div class="tb-filter-pair"><input class="tb-input" type="number" aria-label="最小值" data-bound="0" value="' + esc(nums[0] || '') + '" placeholder="最小值"><input class="tb-input" type="number" aria-label="最大值" data-bound="1" value="' + esc(nums[1] || '') + '" placeholder="最大值"></div>';
       } else if (op.values === 'many') {
         var selected = asList(draft.value);
         var filtered = values.filter(function (v) { return !valueQuery || String(v).toLowerCase().includes(valueQuery.toLowerCase()); });
-        body = '<input class="tb-filter-search" style="margin:0;width:100%" placeholder="搜索或勾选取值" data-value-search value="' + esc(valueQuery) + '">' +
+        body = '<input class="tb-filter-search tb-input" aria-label="搜索取值" placeholder="搜索或勾选取值" data-value-search value="' + esc(valueQuery) + '">' +
           (filtered.length ? '<div class="tb-filter-values">' + filtered.map(function (v) {
-            return '<label><input type="checkbox" data-pick="' + esc(v) + '"' + (selected.indexOf(String(v)) >= 0 ? ' checked' : '') + '> ' + esc(v || '（空）') + '</label>';
+            return '<label class="tb-check"><input type="checkbox" data-pick="' + esc(v) + '"' + (selected.indexOf(String(v)) >= 0 ? ' checked' : '') + '> ' + esc(v || '（空）') + '</label>';
           }).join('') + '</div>' : '<div class="tb-filter-empty" style="padding:8px 0">没有现成取值，可在下方输入。</div>') +
-          '<input type="text" data-custom placeholder="输入其他值后回车">';
+          '<input class="tb-input" type="text" aria-label="其他筛选值" data-custom placeholder="输入其他值后回车">';
       } else if (kind === 'number') {
-        body = '<input type="number" data-single value="' + esc(asList(draft.value)[0] || '') + '" placeholder="输入数值">';
+        body = '<input class="tb-input" type="number" aria-label="筛选数值" data-single value="' + esc(asList(draft.value)[0] || '') + '" placeholder="输入数值">';
       } else {
-        body = '<input type="text" data-single value="' + esc(asList(draft.value)[0] || '') + '" placeholder="输入文本">';
+        body = '<input class="tb-input" type="text" aria-label="筛选文本" data-single value="' + esc(asList(draft.value)[0] || '') + '" placeholder="输入文本">';
       }
       return '<header><button type="button" class="back" data-back>' + esc(colName(col)) + '</button></header>' +
-        '<div class="tb-filter-body"><div class="tb-filter-ops"><select data-op>' + ops + '</select></div>' + body + '</div>' +
+        '<div class="tb-filter-body"><div class="tb-filter-ops"><select class="tb-select" aria-label="筛选条件" data-op>' + ops + '</select></div>' + body + '</div>' +
         '<div class="tb-filter-foot"><button type="button" class="ghost" data-add>再加一条</button><button type="button" class="apply" data-apply' + (canApply() ? '' : ' disabled') + '>' + (typeof draft.index === 'number' ? '更新筛选' : '应用筛选') + '</button></div>';
     }
 
     function render() {
-      host.innerHTML = '<div class="tb-filter-bar">' +
-        '<button type="button" class="tb-filter-btn' + (items.length ? ' active' : '') + (open ? ' open' : '') + '" data-open>筛选' +
-          (items.length ? '<span class="count">' + items.length + '</span>' : '') +
-        '</button>' +
-        '<div class="tb-filter-pills">' + items.map(function (item, i) {
-          var col = columns.find(function (c) { return c.name === item.field; }) || { name: item.field };
-          return '<span class="tb-filter-pill" data-edit="' + i + '"><span>' + esc(pillText(item, col)) + '</span><button type="button" class="x" data-del="' + i + '" aria-label="移除">×</button></span>';
-        }).join('') + '</div>' +
-        (open ? '<div class="tb-filter-pop">' + (step === 'columns' || !draft ? renderColumns() : renderValue()) + '</div>' : '') +
-      '</div>';
-
-      var pop = host.querySelector('.tb-filter-pop');
-      var btn = host.querySelector('[data-open]');
-      if (pop && btn) {
-        pop.style.top = (btn.offsetTop + btn.offsetHeight + 6) + 'px';
-        pop.style.left = btn.offsetLeft + 'px';
+      if (destroyed) return;
+      trigger.classList.toggle('active', !!items.length);
+      trigger.classList.toggle('open', !pop.hidden);
+      trigger.innerHTML = '筛选' + (items.length ? '<span class="count">' + items.length + '</span>' : '');
+      const html = items.map(function (item, i) {
+        var col = columns.find(function (c) { return c.name === item.field; }) || { name: item.field };
+        return '<span class="tb-filter-pill"><button type="button" data-edit="' + i + '" aria-haspopup="dialog" aria-controls="' + pop.id +
+          '">' + esc(pillText(item, col)) + '</button><button type="button" class="x" data-del="' + i + '" aria-label="移除">×</button></span>';
+      }).join('');
+      if (lastPills !== html) {
+        lastPills = html;
+        pills.innerHTML = html;
       }
-
-      host.querySelector('[data-open]').onclick = function (ev) {
-        ev.stopPropagation();
-        if (open) closePop(); else openAdd();
-      };
-      host.querySelectorAll('[data-edit]').forEach(function (el) {
-        el.onclick = function (ev) {
-          if (ev.target.closest('[data-del]')) return;
-          ev.stopPropagation();
-          openEdit(Number(el.dataset.edit));
-        };
-      });
-      host.querySelectorAll('[data-del]').forEach(function (el) {
-        el.onclick = function (ev) {
-          ev.stopPropagation();
-          removeAt(Number(el.dataset.del));
-        };
-      });
-      var search = host.querySelector('.tb-filter-search:not([data-value-search])');
-      if (search && step === 'columns') {
-        search.oninput = function () { colQuery = search.value; render(); search.focus(); search.setSelectionRange(colQuery.length, colQuery.length); };
-        search.focus();
+      if (pop.hidden) return;
+      pop.style.top = (trigger.offsetTop + trigger.offsetHeight + 6) + 'px';
+      pop.style.left = trigger.offsetLeft + 'px';
+      // Restore the active control when a query, operator or asynchronous value list redraws the form.
+      const oldFocus = pop.contains(document.activeElement) ? document.activeElement : null;
+      const identity = el => Array.from(el.attributes).filter(a => a.name.startsWith('data-') || a.name === 'name').map(a => [a.name, a.value]);
+      const oldKeys = oldFocus && identity(oldFocus);
+      const oldValue = oldFocus?.type === 'radio' ? oldFocus.value : null;
+      const selection = oldFocus?.selectionStart != null ? [oldFocus.selectionStart, oldFocus.selectionEnd] : null;
+      pop.innerHTML = step === 'columns' || !draft ? renderColumns() : renderValue();
+      const search = pop.querySelector('.tb-filter-search:not([data-value-search])');
+      if (search) search.oninput = function () { colQuery = search.value; render(); };
+      if (oldFocus) {
+        const controls = Array.from(pop.querySelectorAll('button,select,input'));
+        const next = controls.find(el => (oldKeys.length ? oldKeys.every(([k,v]) => el.getAttribute(k) === v) :
+          el.className === oldFocus.className && el.tagName === oldFocus.tagName) && (oldValue === null || el.value === oldValue)) ||
+          search || pop.querySelector('[data-op]');
+        next?.focus({ preventScroll: true });
+        if (next && selection && next.selectionStart != null) next.setSelectionRange(...selection);
       }
       host.querySelectorAll('[data-col]').forEach(function (el) {
         el.onclick = function (ev) { ev.stopPropagation(); selectCol(el.dataset.col); };
@@ -378,13 +376,12 @@
           var pair = asList(draft.value);
           pair[Number(el.dataset.bound)] = el.value;
           draft.value = pair;
+          pop.querySelector('[data-apply]').disabled = !canApply();
         };
-        el.onchange = function () { render(); };
       });
       var single = host.querySelector('[data-single]');
       if (single) {
-        single.oninput = function () { draft.value = single.value; };
-        single.onchange = function () { render(); };
+        single.oninput = function () { draft.value = single.value; pop.querySelector('[data-apply]').disabled = !canApply(); };
       }
       var valueSearch = host.querySelector('[data-value-search]');
       if (valueSearch) {
@@ -416,15 +413,19 @@
       if (add) add.onclick = function (ev) { ev.stopPropagation(); applyDraft(true); };
       var apply = host.querySelector('[data-apply]');
       if (apply) apply.onclick = function (ev) { ev.stopPropagation(); applyDraft(false); };
-      if (pop) pop.onclick = function (ev) { ev.stopPropagation(); };
     }
-
-    function onDoc(ev) {
-      if (!open) return;
-      if (host.contains(ev.target)) return;
-      closePop();
-    }
-    document.addEventListener('click', onDoc);
+    pills.onclick = function (event) {
+      const del = event.target.closest('[data-del]');
+      if (del) {
+        removeAt(Number(del.dataset.del));
+        trigger.focus();
+        return;
+      }
+      const edit = event.target.closest('[data-edit]');
+      if (!edit) return;
+      if (edit.getAttribute('aria-expanded') === 'true') popup.close();
+      else openEdit(Number(edit.dataset.edit), edit);
+    };
     render();
     return {
       setColumns: function (next) { columns = next || []; render(); },
@@ -438,7 +439,8 @@
         return out;
       },
       destroy: function () {
-        document.removeEventListener('click', onDoc);
+        destroyed = true;
+        popup.dispose();
         host.innerHTML = '';
       }
     };

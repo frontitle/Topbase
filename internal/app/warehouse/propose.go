@@ -29,9 +29,7 @@ func Propose(question core.Question, message string) core.ScheduleProposal {
 		}
 	}
 	table := slug(question.Name)
-	if table == "" {
-		table = "query"
-	}
+	table = table[:min(len(table), 40)] + "_" + strings.TrimPrefix(core.NewID("wh"), "wh_")
 	proposal := core.ScheduleProposal{
 		Name: question.Name + " 数仓", QuestionID: question.ID,
 		Cron: cron, Timezone: "Asia/Shanghai",
@@ -59,7 +57,7 @@ func parseHour(message string) int {
 func slug(name string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(name) {
-		if unicode.IsLetter(r) && r < 128 || unicode.IsDigit(r) {
+		if r < 128 && (unicode.IsLetter(r) || unicode.IsDigit(r)) {
 			b.WriteRune(r)
 		} else if r == ' ' || r == '-' || r == '_' {
 			b.WriteByte('_')

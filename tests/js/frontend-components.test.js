@@ -45,7 +45,8 @@ test('SQL surfaces use the shared code component with copy feedback', () => {
 
 test('analysis names are edited in place instead of through a rename action', () => {
   assert.match(questionHTML, /id="title" type="button" title="点击修改名称"/);
-  assert.match(questionHTML, /id="heading" class="editable-analysis-name"/);
+  assert.match(questionHTML, /<h1 id="heading">/);
+  assert.match(questionJS, /heading\.classList\.add\('editable-analysis-name'\)/);
   assert.doesNotMatch(questionHTML, /id="rename"/);
   assert.match(questionJS, /function editName\(\)/);
   assert.match(questionJS, /on\('title', editName\)/);
@@ -101,14 +102,46 @@ test('application shell uses the vendored icon system instead of text glyphs', (
   assert.doesNotMatch(shell, /icon:\s*'[▦◇☷▣▤⌫☺⚿◴⚙]'/);
 });
 
-test('enterprise account onboarding stays in one layer and is provider neutral', () => {
-  assert.match(peopleHTML, /企业账号接入/);
-  assert.match(peopleHTML, /id="provider-create"/);
+test('account access separates organization sync from personal login in one layer', () => {
+  assert.match(peopleHTML, /企业组织接入/);
+  assert.match(peopleHTML, /个人第三方登录/);
+  assert.match(peopleHTML, /data-provider-create="org"/);
+  assert.match(peopleHTML, /data-provider-create="login"/);
+  assert.match(peopleHTML, /data-login-method="password"/);
+  assert.match(peopleHTML, /至少保留一种登录方式/);
+  assert.match(peopleHTML, /\/api\/identity\/providers\/validate/);
+  assert.match(peopleHTML, /'DELETE'/);
   assert.match(peopleHTML, /\/api\/identity\/providers\/'\+encodeURIComponent\(id\)\+'\/sync/);
-  assert.doesNotMatch(peopleHTML, /id="sync-feishu"|>组织绑定</);
-  const addHandler = peopleHTML.match(/\$\('#add-provider'\)\.onclick=([^;]+);/);
+  assert.doesNotMatch(peopleHTML, /data-provider-save|id="save-auth-settings"|id="sync-feishu"|>组织绑定</);
+  const addHandler = peopleHTML.match(/\$\$\('\[data-add-provider\]'\)\.forEach\(button=>button\.onclick=([^;]+);/);
   assert.ok(addHandler);
   assert.doesNotMatch(addHandler[0], /formDialog|showModal/);
+});
+
+test('compact action controls use shared geometric icons instead of font glyphs', () => {
+  const adminHTML = read('internal/platform/httpapi/web/admin/index.html');
+  const uiCSS = read('internal/platform/httpapi/web/ui.css');
+  const gridJS = read('internal/platform/httpapi/web/grid.js');
+  assert.match(peopleHTML, /tb-icon-trigger tb-more-trigger/);
+  assert.doesNotMatch(peopleHTML, />•••<\/summary>/);
+  assert.match(adminHTML, /tb-button-with-caret/);
+  assert.doesNotMatch(adminHTML, /<span>⌄<\/span>/);
+  assert.match(uiCSS, /\.tb-more-trigger::before/);
+  assert.match(uiCSS, /\.tb-caret\{/);
+  assert.match(uiCSS, /\.primary\.tb-button-with-caret \.tb-caret/);
+  assert.match(gridJS, /class="tb-caret"/);
+  assert.doesNotMatch(gridJS, />⌄<\/span>/);
+});
+
+test('admin data page exposes Excel upload from a top-level local warehouse tab', () => {
+  const adminHTML = read('internal/platform/httpapi/web/admin/index.html');
+  const adminJS = read('internal/platform/httpapi/web/admin/admin.js');
+  assert.ok(adminHTML.indexOf('class="tb-tabs data-admin-tabs"') < adminHTML.indexOf('id="remote-data"'));
+  assert.match(adminHTML, /data-data-tab="local">本地数仓/);
+  assert.match(adminHTML, /id="local-warehouse" hidden/);
+  assert.match(adminHTML, /id="upload-excel" type="button">上传 Excel/);
+  assert.match(adminJS, /panelSelector:'#remote-data,#local-warehouse'/);
+  assert.match(adminJS, /fetch\('\/api\/warehouse\/uploads'/);
 });
 
 test('data model field editor supports an in-page fullscreen workspace', () => {

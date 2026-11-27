@@ -14,3 +14,9 @@ type UploadedTable struct {
 	RowCount  int       `json:"row_count"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type UploadedTablePreview struct {
+	Rows        [][]string `json:"rows"`
+	TotalRows   int        `json:"total_rows"`
+	ByteLimited bool       `json:"byte_limited"`
+}

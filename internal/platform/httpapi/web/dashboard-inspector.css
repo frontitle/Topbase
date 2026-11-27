@@ -1,0 +1,211 @@
+.board-page main { container: board-workspace / inline-size; }
+#layout:not(.viewing) {
+  grid-template-columns: minmax(0, 1fr) clamp(236px, 24cqi, 292px);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "tools inspector" "canvas inspector";
+  align-items: start;
+  gap: 10px 16px;
+}
+#layout.viewing { grid-template-columns: minmax(0, 1fr); grid-template-areas: "canvas"; }
+#editor-tools { grid-area: tools; min-width: 0; }
+#layout.viewing :is(#editor-tools, #card-inspector) { display: none; }
+[data-inspector-dismiss] { display: none; }
+.board-inspector {
+  grid-area: inspector;
+  position: sticky;
+  top: 68px;
+  min-width: 0;
+  min-height: min(450px, calc(100dvh - 84px));
+  max-height: calc(100dvh - 84px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: #273343;
+  border: 1px solid #dce2e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 5px #14253608;
+}
+.board-inspector[hidden] { display: none; }
+.board-inspector header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 14px 16px 7px;
+}
+.board-inspector h2 { margin: 0; font-size: 15px; }
+.board-inspector header button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #536979;
+  font-size: 20px;
+  cursor: pointer;
+}
+.board-inspector header button:hover { background: #edf4f7; }
+.inspector-tabs { display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid #dee8eb; }
+.inspector-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 9px 1px;
+  color: #566b77;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.inspector-tabs button[aria-pressed="true"] { border-color: var(--tb-brand); color: var(--tb-brand); font-weight: 650; }
+.inspector-fields { padding: 14px 16px 18px; }
+.inspector-fields section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.inspector-fields section + section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #ebeff2; }
+.inspector-fields .card-style-section > b { font-size: 12px; color: #354250; letter-spacing: 0; }
+.inspector-fields .card-style-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 8px;
+  margin-top: 9px;
+}
+.inspector-content, .inspector-content label { display: grid; gap: 6px; }
+.inspector-content label, .inspector-fields .card-style-grid label { min-width: 0; color: #536979; font-size: 12px; }
+.inspector-fields { --tb-control-height: 32px; }
+.inspector-fields :is(.tb-input, .tb-select) { width: 100%; }
+.inspector-fields .tb-check { display: flex; margin-block-start: 8px; }
+.inspector-fields .card-style-grid label { display: grid; gap: 5px; }
+.inspector-format-tools { margin-top: 9px; }
+.board-grid.editing .heading-wrap [contenteditable] { max-width: 100%; min-width: 1ch; min-height: 0; padding: 0 2px; }
+.board-grid.editing .rich-text[contenteditable] { box-sizing: border-box; min-height: 0; padding-block: 0; }
+.board-inspector :focus-visible, .board-card .card-tools button:focus-visible {
+  outline: 2px solid var(--tb-brand);
+  outline-offset: 1px;
+}
+/* Editing chrome sits outside the card so a one-row title stays directly editable. */
+#board-canvas.canvas-editing:has(.board-card) { padding-top: max(36px, 1.5vw); }
+.board-grid.editing .board-card {
+  --card-action-size: 25px;
+  --card-tools-width: calc(var(--card-action-size) * 4 + 10px);
+  --card-selection: var(--board-control-ink);
+  overflow: visible;
+}
+.board-grid.editing .card-body { border-radius: inherit; }
+.board-grid.editing .board-card:hover { z-index: 2; outline: 1px solid #8db4de; transform: none; }
+.board-grid.editing .board-card:is(.selected, :focus-visible) {
+  z-index: 3;
+  outline: 2px solid var(--card-selection);
+  outline-offset: 0;
+}
+.board-grid.editing .board-card:hover { z-index: 4; }
+.board-grid.editing .board-card:has([contenteditable]:focus) { outline-style: dashed; }
+.board-grid.editing [contenteditable] { cursor: text; outline: 0; }
+.board-grid.editing [contenteditable]:focus { background: color-mix(in srgb, var(--card-selection) 6%, transparent); }
+.board-grid.editing [data-drag], .board-grid.editing .resize-handle { touch-action: none; }
+.board-grid.editing .card-tools {
+  position: absolute;
+  z-index: 3;
+  right: min(0px, calc(var(--card-offset-x, 0px) + 100% - var(--card-tools-width)));
+  bottom: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  width: var(--card-tools-width);
+  box-sizing: border-box;
+  padding: 2px;
+  border: 1px solid #b7c8df;
+  border-radius: 6px 6px 0 0;
+  background: #fff;
+  box-shadow: 0 2px 6px #142d4a12;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.board-grid.editing .board-card:is(.selected, :focus-within) .card-tools { visibility: visible; opacity: 1; pointer-events: auto; }
+.board-grid.editing .card-tools button {
+  flex: 0 0 var(--card-action-size);
+  width: var(--card-action-size);
+  height: var(--card-action-size);
+  padding: 0;
+}
+.board-grid.editing .card-tools button[data-drag] { cursor: grab; color: #697a8d; }
+.board-grid.editing .resize-handle {
+  position: absolute;
+  z-index: 2;
+  right: -8px;
+  bottom: -8px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  cursor: nwse-resize;
+  visibility: hidden;
+}
+.board-grid.editing .resize-handle::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--card-selection);
+  border-radius: 2px;
+  background: #fff;
+}
+.board-grid.editing .board-card:is(.selected, :focus-within) .resize-handle { visibility: visible; }
+.board-grid.editing .card-drag-hint {
+  position: absolute;
+  z-index: 3;
+  right: min(0px, calc(var(--card-offset-x, 0px) + 100% - 88px));
+  bottom: 100%;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 4px 4px 0 4px;
+  background: var(--board-control-hint);
+  color: #fff;
+  font: 600 11px/1.4 var(--tb-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.board-grid.editing .card-drag-hint[hidden] { display: none; }
+.board-grid.editing .board-card:is(.dragging, .resizing) {
+  z-index: 5;
+  outline: 2px solid var(--card-selection);
+  box-shadow: 0 6px 18px #17314d20;
+  user-select: none;
+}
+.board-grid.editing .board-card.dragging { cursor: grabbing; }
+.board-grid.editing .board-card.resizing { cursor: nwse-resize; }
+.board-grid.editing .dashboard-frame,
+.board-grid.editing .board-card:not(.selected) .dashboard-plugin-frame { pointer-events: none; }
+@media (hover: hover) {
+  .board-grid.editing .board-card:hover .card-tools { visibility: visible; opacity: 1; pointer-events: auto; }
+  .board-grid.editing .board-card:hover .resize-handle { visibility: visible; }
+  .board-grid.editing:has(.board-card:hover) .board-card:not(:hover, :focus-within) .card-tools { visibility: hidden; pointer-events: none; }
+}
+.board-grid.editing .board-card:is(.dragging, .resizing) .card-tools { visibility: hidden; pointer-events: none; }
+.board-grid.editing:has(.board-ghost) .board-card :is(.card-tools, .resize-handle) { visibility: hidden; pointer-events: none; }
+@media (pointer: coarse) {
+  #board-canvas.canvas-editing:has(.board-card) { padding-top: 44px; }
+  .board-grid.editing .board-card { --card-action-size: 34px; }
+  .board-grid.editing .resize-handle { width: 26px; height: 26px; right: -12px; bottom: -12px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid.editing .card-tools { transition: opacity .12s ease; }
+}
+@container board-workspace (max-width: 720px) {
+  #layout { --compact-inspector: 1; }
+  #layout:not(.viewing) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "tools" "canvas";
+  }
+  #layout:not(.inspector-open) .board-inspector { display: none; }
+  #layout.inspector-open:not(.viewing) .board-inspector:not([hidden]) {
+    display: block;
+    position: fixed;
+    z-index: 18;
+    inset: auto 12px max(12px, env(safe-area-inset-bottom)) auto;
+    width: min(350px, calc(100cqi - 16px), calc(100vw - 24px));
+    min-height: 0;
+    max-height: min(65dvh, 540px);
+    border-radius: 12px;
+    box-shadow: 0 10px 36px #1e293b29;
+  }
+  [data-inspector-dismiss] { display: inline-grid; place-items: center; }
+}

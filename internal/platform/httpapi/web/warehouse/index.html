@@ -17,7 +17,7 @@
           <h1>数据沉淀</h1>
           <p>把一条分析按周期计算并保存下来；后续查询只读取沉淀结果，减少源库压力。</p>
         </div>
-        <button class="primary" id="create-materialization" type="button">新建数据沉淀</button>
+        <button class="primary tb-btn tb-btn-primary" id="create-materialization" type="button">新建数据沉淀</button>
       </div>
       <aside class="warehouse-role-note" aria-label="数据沉淀说明">
         <span>本地保存 · 按计划更新</span>
@@ -28,7 +28,7 @@
         <div class="section-row"><div><h2>沉淀数据列表</h2><p class="section-note">每一行对应一份本地数据及其更新计划；可以立即更新或继续创建分析。</p></div><span id="materialization-count"></span></div>
         <div class="warehouse-table-shell">
           <table class="warehouse-table">
-            <thead><tr><th>沉淀数据</th><th>来源分析</th><th>更新计划</th><th>保存方式</th><th>最近更新</th><th>状态</th><th></th></tr></thead>
+            <thead><tr><th>沉淀数据</th><th>来源分析</th><th>更新计划</th><th>保存方式</th><th>最近运行</th><th>状态</th><th>操作</th></tr></thead>
             <tbody id="materializations"></tbody>
           </table>
         </div>

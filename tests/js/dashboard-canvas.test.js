@@ -10,12 +10,11 @@ function read(file) {
 const script = read('internal/platform/httpapi/web/dashboard-view.js');
 const styles = read('internal/platform/httpapi/web/dashboard.css');
 
-test('dashboard canvas switches drive distinct visual states', () => {
+test('only the editor draws the switchable alignment grid', () => {
   assert.match(script, /canvas\.classList\.toggle\('canvas-grid-off', !a\.grid\)/);
   assert.match(script, /canvas\.classList\.toggle\('canvas-snap-off', !a\.snap\)/);
-  assert.match(script, /canvas\.classList\.toggle\('canvas-glow-off', !a\.glow\)/);
-  assert.match(styles, /canvas-grid-off \.board-grid\{background-image:none!important\}/);
-  assert.match(styles, /canvas-glow-off \.board-grid\{box-shadow:none\}/);
+  assert.match(styles, /\.board-canvas:not\(\.canvas-grid-off\) \.board-grid\.editing\s*\{\s*background-image:/);
+  assert.doesNotMatch(styles, /canvas-glow-off|DATA CANVAS/);
 });
 
 test('free positioning uses finer increments when snap is disabled', () => {
@@ -24,11 +23,9 @@ test('free positioning uses finer increments when snap is disabled', () => {
   assert.match(script, /Math\.round\(\(ev\.clientY - drag\.startY\) \/ \(ROW \+ Y_GAP\) \* precision\) \/ precision/);
 });
 
-test('empty dashboard presents an explicit composition canvas', () => {
-  assert.match(script, /开始搭建你的数据画布/);
-  assert.match(script, /24 列精细网格/);
-  assert.match(styles, /DATA CANVAS · 24 COL/);
-  assert.match(styles, /\.board-canvas\.canvas-editing/);
+test('empty canvas offers an insert action in the editor only', () => {
+  assert.match(script, /<button type="button" data-empty-insert[^>]*>插入内容<\/button>/);
+  assert.match(script, /editing \? emptyCanvas : ''/);
 });
 
 test('small number cards fit their value instead of scaling the whole visualization', () => {

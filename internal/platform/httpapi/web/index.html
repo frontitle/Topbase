@@ -15,11 +15,17 @@
         <div>
           <span class="home-kicker">工作台概览</span>
           <h1 id="welcome">欢迎回来</h1>
-          <p>从源数据到分析、数据沉淀和仪表盘，在一个工作台持续掌握业务指标。</p>
+          <p>查询源数据、打开分析和仪表盘，持续掌握业务指标。</p>
         </div>
         <div class="home-head-actions">
           <a class="secondary" href="/data/">查看源数据</a>
-          <a class="primary" href="/questions/new/">创建分析</a>
+          <div class="tb-menu-anchor">
+            <button class="primary tb-button-with-caret" type="button" id="home-create">新建<span class="tb-caret" aria-hidden="true"></span></button>
+            <div class="tb-menu tb-menu-end" id="home-create-menu" aria-label="新建内容" hidden>
+              <a href="/questions/new/">创建分析</a>
+              <button type="button" id="menu-create-dashboard">新建仪表盘</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -67,6 +73,9 @@
               </a>
               <a class="home-quick" id="admin-database-link" href="/admin/" hidden>
                 <i>⚙</i><span><strong>连接数据源</strong><small>添加或维护数据库连接</small></span><b>→</b>
+              </a>
+              <a class="home-quick" id="warehouse-link" href="/warehouse/" hidden>
+                <i>▦</i><span><strong>数据沉淀</strong><small>保存分析结果并按计划更新</small></span><b>→</b>
               </a>
             </div>
           </section>

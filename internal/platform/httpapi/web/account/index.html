@@ -10,7 +10,7 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="account"></aside>
   <div class="page">
-    <header class="topbar"><strong>个人中心</strong><div class="top-actions"><a class="secondary" href="/">返回工作台</a></div></header>
+    <header class="topbar"><strong>个人中心</strong><div class="top-actions"><a class="secondary tb-btn tb-btn-secondary" href="/">返回工作台</a></div></header>
     <main class="account-page">
       <section class="account-hero">
         <div class="account-avatar account-avatar-large" data-avatar><span>T</span><img alt="个人头像" hidden></div>
@@ -20,7 +20,7 @@
           <p id="account-email">—</p>
           <div id="account-badges" class="account-badges"></div>
         </div>
-        <button class="secondary danger-subtle" id="logout" type="button">退出登录</button>
+        <button class="secondary danger-subtle tb-btn tb-btn-secondary" id="logout" type="button">退出登录</button>
       </section>
 
       <nav class="tb-tabs account-tabs" aria-label="个人中心设置">
@@ -35,24 +35,24 @@
         <form id="profile-form">
           <div class="avatar-editor">
             <div class="account-avatar" data-avatar><span>T</span><img alt="头像预览" hidden></div>
-            <div><strong>头像</strong><p>支持 PNG、JPEG、WebP，上传后会自动裁剪压缩。</p><div class="inline-actions"><label class="secondary file-button">上传新头像<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="tertiary" id="remove-avatar" type="button">移除</button></div></div>
+            <div><strong>头像</strong><p>支持 PNG、JPEG、WebP，上传后会自动裁剪压缩。</p><div class="inline-actions"><label class="secondary file-button tb-btn tb-btn-secondary">上传新头像<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="tertiary tb-btn tb-btn-ghost" id="remove-avatar" type="button">移除</button></div></div>
           </div>
           <div class="account-form-grid">
-            <label><span>姓名 <em>*</em></span><input id="profile-name" required maxlength="80" autocomplete="name"></label>
-            <label><span>登录邮箱 <em>*</em></span><input id="profile-email" type="email" required autocomplete="email"><small>修改邮箱时需要填写当前密码。</small></label>
-            <label class="email-password" id="email-password" hidden><span>当前密码 <em>*</em></span><input id="profile-current-password" type="password" autocomplete="current-password"><small>仅用于确认本次邮箱修改。</small></label>
+            <label class="tb-field"><span>姓名 <em>*</em></span><input class="tb-input" id="profile-name" required maxlength="80" autocomplete="name"></label>
+            <label class="tb-field"><span>登录邮箱 <em>*</em></span><input class="tb-input" id="profile-email" type="email" required autocomplete="email"><small>修改邮箱时需要填写当前密码。</small></label>
+            <label class="email-password tb-field" id="email-password" hidden><span>当前密码 <em>*</em></span><input class="tb-input" id="profile-current-password" type="password" autocomplete="current-password"><small>仅用于确认本次邮箱修改。</small></label>
           </div>
-          <footer class="account-form-footer"><span id="profile-status" role="status"></span><button class="primary" type="submit">保存个人资料</button></footer>
+          <footer class="account-form-footer"><span id="profile-status" role="status"></span><button class="primary tb-btn tb-btn-primary" type="submit">保存个人资料</button></footer>
         </form>
       </section>
 
       <section class="account-panel" data-panel="security" hidden>
         <div class="account-panel-head"><div><h2>登录与安全</h2><p>定期更新密码，不要与其他产品重复使用同一密码。</p></div><span id="password-status" class="account-state">密码登录</span></div>
         <form id="password-form" class="security-form">
-          <label><span>当前密码 <em>*</em></span><input id="current-password" type="password" required autocomplete="current-password"></label>
-          <label><span>新密码 <em>*</em></span><input id="new-password" type="password" required minlength="8" autocomplete="new-password"><small>至少 8 位，建议同时包含字母、数字和符号。</small></label>
-          <label><span>确认新密码 <em>*</em></span><input id="confirm-password" type="password" required minlength="8" autocomplete="new-password"></label>
-          <footer class="account-form-footer"><span id="security-status" role="status"></span><button class="primary" type="submit">更新密码</button></footer>
+          <label class="tb-field"><span>当前密码 <em>*</em></span><input class="tb-input" id="current-password" type="password" required autocomplete="current-password"></label>
+          <label class="tb-field"><span>新密码 <em>*</em></span><input class="tb-input" id="new-password" type="password" required minlength="8" autocomplete="new-password"><small>至少 8 位，建议同时包含字母、数字和符号。</small></label>
+          <label class="tb-field"><span>确认新密码 <em>*</em></span><input class="tb-input" id="confirm-password" type="password" required minlength="8" autocomplete="new-password"></label>
+          <footer class="account-form-footer"><span id="security-status" role="status"></span><button class="primary tb-btn tb-btn-primary" type="submit">更新密码</button></footer>
         </form>
       </section>
 
@@ -62,10 +62,10 @@
       </section>
 
       <section class="account-panel" data-panel="api" hidden>
-        <div class="account-panel-head"><div><h2>AI 与 API</h2><p>创建个人 API Key，用于 Topbase MCP、CLI 和受信任的自动化程序；权限与当前账户完全一致。</p></div><button class="primary" id="create-api-key" type="button">创建 API Key</button></div>
+        <div class="account-panel-head"><div><h2>AI 与 API</h2><p>创建个人 API Key，用于 Topbase MCP、CLI 和受信任的自动化程序；权限与当前账户完全一致。</p></div><button class="primary tb-btn tb-btn-primary" id="create-api-key" type="button">创建 API Key</button></div>
         <div class="developer-notice" id="developer-notice"><div><strong>正在读取开发者模式…</strong><small>开发者模式由管理员统一启用并设置安全限制。</small></div><span class="account-state">—</span></div>
-        <div class="api-key-reveal" id="api-key-reveal" hidden><div><strong>请立即复制并安全保存</strong><small>完整密钥只显示这一次。不要发送到聊天、日志或提交到 Git。</small></div><code id="api-key-secret"></code><button class="secondary" id="copy-api-key" type="button">复制密钥</button></div>
-        <div class="developer-command" id="developer-command" hidden><div><strong>MCP 启动参数</strong><small>把密钥放入受信任客户端的 Secret 配置，不要直接写入代码。</small></div><code id="developer-command-code"></code><button class="secondary" id="copy-developer-command" type="button">复制配置</button></div>
+        <div class="api-key-reveal" id="api-key-reveal" hidden><div><strong>请立即复制并安全保存</strong><small>完整密钥只显示这一次。不要发送到聊天、日志或提交到 Git。</small></div><code id="api-key-secret"></code><button class="secondary tb-btn tb-btn-secondary" id="copy-api-key" type="button">复制密钥</button></div>
+        <div class="developer-command" id="developer-command" hidden><div><strong>MCP 启动参数</strong><small>把密钥放入受信任客户端的 Secret 配置，不要直接写入代码。</small></div><code id="developer-command-code"></code><button class="secondary tb-btn tb-btn-secondary" id="copy-developer-command" type="button">复制配置</button></div>
         <div id="api-key-list" class="binding-list"><div class="account-loading">打开此页签后读取 API Key…</div></div>
       </section>
     </main>

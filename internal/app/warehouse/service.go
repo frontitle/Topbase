@@ -2,6 +2,7 @@ package warehouse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -26,27 +27,6 @@ type Service struct {
 	running   sync.Map
 }
 
-func ParseTarget(raw string) (schema, table string, err error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", "", fmt.Errorf("materialize_to is required")
-	}
-	schema, table = "warehouse", raw
-	if i := strings.LastIndex(raw, "."); i >= 0 {
-		schema, table = raw[:i], raw[i+1:]
-	}
-	if !strings.HasPrefix(table, "wh_") {
-		table = "wh_" + table
-	}
-	if err := queryir.CheckIdent("schema", schema); err != nil {
-		return "", "", err
-	}
-	if err := queryir.CheckIdent("table", table); err != nil {
-		return "", "", err
-	}
-	return schema, table, nil
-}
-
 func (s *Service) Create(input core.Schedule, userID string) (core.Schedule, error) {
 	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.Cron) == "" {
 		return core.Schedule{}, fmt.Errorf("name and cron are required")
@@ -57,29 +37,29 @@ func (s *Service) Create(input core.Schedule, userID string) (core.Schedule, err
 	if _, err := ParseCron(input.Cron); err != nil {
 		return core.Schedule{}, err
 	}
-	schema, _, err := ParseTarget(input.MaterializeTo)
+	schema, table, err := core.ParseWarehouseTarget(input.MaterializeTo)
 	if err != nil {
 		return core.Schedule{}, err
 	}
 	if schema != "warehouse" && !input.ConfirmSourceWrite {
 		return core.Schedule{}, fmt.Errorf("writing outside warehouse schema requires confirm_source_write")
 	}
-	if input.QuestionID != "" {
-		if _, err := s.Questions.ByID(input.QuestionID); err != nil {
-			return core.Schedule{}, err
-		}
+	if len(schema) > 63 || len(table) > 63 {
+		return core.Schedule{}, fmt.Errorf("PostgreSQL 的目标 schema 和表名最长各为 63 字节")
 	}
-	if input.ModelID != "" {
-		if s.Models == nil {
-			return core.Schedule{}, fmt.Errorf("model store is not configured")
-		}
-		if _, err := s.Models.ByID(input.ModelID); err != nil {
-			return core.Schedule{}, err
-		}
+	input.MaterializeTo = schema + "." + table
+	question, err := s.sourceQuestion(input)
+	if err != nil {
+		return core.Schedule{}, err
 	}
-	if input.DatabaseID == "" && input.QuestionID != "" {
-		question, _ := s.Questions.ByID(input.QuestionID)
+	if input.DatabaseID == "" {
 		input.DatabaseID = question.DatabaseID
+		if input.DatabaseID == "" && question.QueryIR != nil {
+			input.DatabaseID = question.QueryIR.Source.DatabaseID
+		}
+	}
+	if input.DatabaseID == "" {
+		return core.Schedule{}, fmt.Errorf("沉淀计划缺少目标数据库连接")
 	}
 	if input.Timezone == "" {
 		input.Timezone = "Asia/Shanghai"
@@ -147,44 +127,79 @@ func (s *Service) Run(ctx context.Context, scheduleID string) (core.Run, error) 
 	if err != nil {
 		return core.Run{}, err
 	}
+	if s.Runs == nil || s.Tables == nil {
+		return core.Run{}, fmt.Errorf("沉淀运行记录与目标表登记服务未配置")
+	}
+	previous, receipt, err := s.Runs.Unconfirmed(schedule.ID)
+	if err == nil {
+		if receipt != nil {
+			// The writer confirmed the physical commit. Replay just the
+			// application transaction, without querying or appending rows.
+			recovered := previous
+			recovered.Status, recovered.Error = "succeeded", ""
+			recovered.FinishedAt, recovered.RowCount = receipt.LastRunAt, receipt.RowCount
+			if err := s.Runs.Finish(recovered, receipt); err != nil {
+				return previous, fmt.Errorf("恢复运行 %s 的登记失败: %w", previous.ID, err)
+			}
+			if s.Notify != nil {
+				s.Notify("数仓物化已恢复", schedule.Name+" 的写入记录与水位已恢复")
+			}
+			return recovered, nil
+		}
+		return previous, fmt.Errorf("运行 %s 的写入尚未核对，请管理员核对 %s 的数据、水位与运行记录后恢复计划。%s", previous.ID, schedule.MaterializeTo, previous.Error)
+	}
+	if !errors.Is(err, core.ErrNotFound) {
+		return core.Run{}, fmt.Errorf("检查上次写入状态失败: %w", err)
+	}
+	run := core.Run{ID: core.NewID("run"), ScheduleID: schedule.ID, Status: "running", StartedAt: time.Now().UTC()}
+	if err := s.Runs.Create(run); err != nil {
+		return core.Run{}, fmt.Errorf("record schedule run: %w", err)
+	}
 	question, err := s.sourceQuestion(schedule)
 	if err != nil {
-		return core.Run{}, err
+		return s.fail(run, schedule, err)
 	}
-	schema, table, err := ParseTarget(schedule.MaterializeTo)
+	schema, table, err := core.ParseWarehouseTarget(schedule.MaterializeTo)
 	if err != nil {
-		return core.Run{}, err
+		return s.fail(run, schedule, err)
 	}
 	if schema != "warehouse" && !schedule.ConfirmSourceWrite {
-		return core.Run{}, fmt.Errorf("writing outside warehouse schema requires confirm_source_write")
+		return s.fail(run, schedule, fmt.Errorf("writing outside warehouse schema requires confirm_source_write"))
 	}
 	watermark := ""
-	if s.Tables != nil {
-		if existing, err := s.Tables.ByTarget(schedule.DatabaseID, schema, table); err == nil {
-			watermark = existing.Watermark
-			if schedule.DatabaseID == "" {
-				schedule.DatabaseID = existing.DatabaseID
-			}
+	requireNewTarget := schedule.ClaimedTarget
+	if existing, err := s.Tables.ByTarget(schedule.DatabaseID, schema, table); err == nil {
+		if schedule.ClaimedTarget && existing.ScheduleID != schedule.ID {
+			return s.fail(run, schedule, core.ErrWarehouseTargetInUse)
 		}
+		requireNewTarget = false
+		watermark = existing.Watermark
+		if schedule.DatabaseID == "" {
+			schedule.DatabaseID = existing.DatabaseID
+		}
+	} else if !errors.Is(err, core.ErrNotFound) {
+		return s.fail(run, schedule, err)
 	}
 	sqlText, args, databaseID, err := s.compile(question, schedule, watermark)
-	run := core.Run{
-		ID: core.NewID("run"), ScheduleID: schedule.ID, Status: "running",
-		SQLCompiled: sqlText, StartedAt: time.Now().UTC(),
-	}
-	if s.Runs != nil {
-		_ = s.Runs.Create(run)
-	}
+	run.SQLCompiled = sqlText
 	if err != nil {
 		return s.fail(run, schedule, err)
 	}
 	if s.Writer == nil {
 		return s.fail(run, schedule, fmt.Errorf("warehouse writer is not configured"))
 	}
+	run.Status = "writing"
+	if err := s.Runs.Update(run); err != nil {
+		return s.fail(run, schedule, fmt.Errorf("登记目标库写入意图失败，尚未写入目标表: %w", err))
+	}
 	result, err := s.Writer.Materialize(ctx, core.MaterializeSpec{
-		DatabaseID: databaseID, Schema: schema, Table: table, Strategy: schedule.Strategy,
+		RequireNewTarget: requireNewTarget,
+		DatabaseID:       databaseID, Schema: schema, Table: table, Strategy: schedule.Strategy,
 		SQL: sqlText, Args: args, WatermarkField: schedule.WatermarkField,
 	})
+	if errors.Is(err, core.ErrWarehouseCommitUnknown) {
+		return s.needsReview(run, schedule, nil, err)
+	}
 	if err != nil {
 		return s.fail(run, schedule, err)
 	}
@@ -192,22 +207,13 @@ func (s *Service) Run(ctx context.Context, scheduleID string) (core.Run, error) 
 	run.Status = "succeeded"
 	run.RowCount = result.RowCount
 	run.FinishedAt = &now
-	if s.Runs != nil {
-		_ = s.Runs.Update(run)
-	}
-	schedule.LastRunAt = &now
-	_ = s.Schedules.Update(schedule)
 	mat := core.MaterializedTable{
 		ID: core.NewID("mat"), DatabaseID: databaseID, Schema: schema, Name: table,
 		ScheduleID: schedule.ID, QuestionID: question.ID, Warehouse: true,
 		LastRunAt: &now, LastStatus: "succeeded", RowCount: result.RowCount, Watermark: result.Watermark,
 	}
-	if s.Tables != nil {
-		_ = s.Tables.Upsert(mat)
-	}
-	if s.Edges != nil {
-		_ = s.Edges.Add(core.LineageEdge{FromType: "question", FromID: question.ID, ToType: "table", ToID: schema + "." + table})
-		_ = s.Edges.Add(core.LineageEdge{FromType: "schedule", FromID: schedule.ID, ToType: "table", ToID: schema + "." + table})
+	if err := s.Runs.Finish(run, &mat); err != nil {
+		return s.needsReview(run, schedule, &mat, fmt.Errorf("目标库已提交 %d 行，水位 %q，应用库登记未确认: %w", result.RowCount, result.Watermark, err))
 	}
 	if s.Notify != nil {
 		s.Notify("数仓物化成功", fmt.Sprintf("%s 已写入 %s.%s，共 %d 行", schedule.Name, schema, table, result.RowCount))
@@ -215,8 +221,25 @@ func (s *Service) Run(ctx context.Context, scheduleID string) (core.Run, error) 
 	return run, nil
 }
 
+func (s *Service) needsReview(run core.Run, schedule core.Schedule, receipt *core.MaterializedTable, cause error) (core.Run, error) {
+	run.Status = "needs_review"
+	run.FinishedAt = nil
+	err := fmt.Errorf("运行 %s 需核对 %s，已暂停重写目标表: %w", run.ID, schedule.MaterializeTo, cause)
+	if receipt != nil {
+		err = fmt.Errorf("%w；重试将使用已确认的回执恢复登记", err)
+	}
+	run.Error = err.Error()
+	if markErr := s.Runs.MarkUncertain(run, receipt); markErr != nil {
+		return run, fmt.Errorf("写入回执未能登记，请管理员核对运行 %s 和目标 %s: %w", run.ID, schedule.MaterializeTo, errors.Join(cause, markErr))
+	}
+	return run, err
+}
+
 func (s *Service) sourceQuestion(schedule core.Schedule) (core.Question, error) {
-	if schedule.ModelID != "" && s.Models != nil {
+	if schedule.ModelID != "" {
+		if s.Models == nil {
+			return core.Question{}, fmt.Errorf("model store is not configured")
+		}
 		model, err := s.Models.ByID(schedule.ModelID)
 		if err != nil {
 			return core.Question{}, err
@@ -279,11 +302,9 @@ func (s *Service) fail(run core.Run, schedule core.Schedule, err error) (core.Ru
 	run.Status = "failed"
 	run.Error = err.Error()
 	run.FinishedAt = &now
-	if s.Runs != nil {
-		_ = s.Runs.Update(run)
+	if recordErr := s.Runs.Finish(run, nil); recordErr != nil {
+		return run, errors.Join(err, fmt.Errorf("登记失败运行状态: %w", recordErr))
 	}
-	schedule.LastRunAt = &now
-	_ = s.Schedules.Update(schedule)
 	if s.Notify != nil {
 		s.Notify("数仓物化失败", schedule.Name+"："+err.Error())
 	}

@@ -639,31 +639,58 @@ func (s Service) IdentityProviders() ([]core.IdentityProvider, error) {
 func (s Service) AuthSettings() (core.AuthSettings, error) {
 	value, ok, err := s.Settings.Get("auth_settings")
 	if err != nil || !ok || strings.TrimSpace(value) == "" {
-		return core.AuthSettings{PasswordLoginEnabled: true}, err
+		return core.AuthSettings{PasswordLoginEnabled: true, EnabledProviderIDs: []string{}}, err
 	}
 	var settings core.AuthSettings
 	if err := json.Unmarshal([]byte(value), &settings); err != nil {
 		return core.AuthSettings{}, err
 	}
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal([]byte(value), &fields)
+	if _, exists := fields["enabled_provider_ids"]; !exists {
+		providers, providerErr := s.IdentityProviders()
+		if providerErr != nil {
+			return core.AuthSettings{}, providerErr
+		}
+		for _, provider := range providers {
+			if usableLoginProvider(provider) {
+				settings.EnabledProviderIDs = append(settings.EnabledProviderIDs, provider.ID)
+			}
+		}
+	}
+	if settings.EnabledProviderIDs == nil {
+		settings.EnabledProviderIDs = []string{}
+	}
 	return settings, nil
 }
 
 func (s Service) SaveAuthSettings(settings core.AuthSettings) error {
-	if !settings.PasswordLoginEnabled {
-		providers, err := s.IdentityProviders()
-		if err != nil {
-			return err
+	providers, err := s.IdentityProviders()
+	if err != nil {
+		return err
+	}
+	available := map[string]bool{}
+	for _, provider := range providers {
+		if usableLoginProvider(provider) {
+			available[provider.ID] = true
 		}
-		enabled := false
-		for _, provider := range providers {
-			if supportsBrowserLogin(provider.Type) && provider.Enabled && strings.TrimSpace(provider.ClientID) != "" && strings.TrimSpace(provider.ClientSecret) != "" {
-				enabled = true
-				break
-			}
+	}
+	seen := map[string]bool{}
+	selected := make([]string, 0, len(settings.EnabledProviderIDs))
+	for _, id := range settings.EnabledProviderIDs {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
 		}
-		if !enabled {
-			return fmt.Errorf("enable and configure at least one third-party login before disabling password login")
+		if !available[id] {
+			return fmt.Errorf("所选第三方登录尚未完成接入或已被停用")
 		}
+		seen[id] = true
+		selected = append(selected, id)
+	}
+	settings.EnabledProviderIDs = selected
+	if !settings.PasswordLoginEnabled && len(selected) == 0 {
+		return fmt.Errorf("必须至少保留一种登录方式")
 	}
 	raw, err := json.Marshal(settings)
 	if err != nil {
@@ -750,15 +777,16 @@ func (s Service) SaveIdentityProviders(items []core.IdentityProvider) error {
 		return err
 	}
 	if !settings.PasswordLoginEnabled {
-		hasLogin := false
+		available := map[string]bool{}
 		for _, item := range items {
-			if supportsBrowserLogin(item.Type) && item.Enabled && item.ClientID != "" && item.ClientSecret != "" {
-				hasLogin = true
-				break
+			if usableLoginProvider(item) {
+				available[item.ID] = true
 			}
 		}
-		if !hasLogin {
-			return fmt.Errorf("cannot remove the last configured third-party login while password login is disabled")
+		for _, id := range settings.EnabledProviderIDs {
+			if !available[id] {
+				return fmt.Errorf("账号密码登录关闭时，不能删除仍在使用的第三方登录")
+			}
 		}
 	}
 	return writeSettingsJSON(s.Settings, "identity_providers", items)
@@ -766,6 +794,10 @@ func (s Service) SaveIdentityProviders(items []core.IdentityProvider) error {
 
 func supportsBrowserLogin(providerType string) bool {
 	return providerType == "google" || providerType == "wechat"
+}
+
+func usableLoginProvider(provider core.IdentityProvider) bool {
+	return supportsBrowserLogin(provider.Type) && provider.Enabled && strings.TrimSpace(provider.ClientID) != "" && strings.TrimSpace(provider.ClientSecret) != ""
 }
 
 func (s Service) Webhooks() ([]core.WebhookEndpoint, error) {

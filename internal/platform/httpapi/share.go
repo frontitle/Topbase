@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	appquery "github.com/topbase/topbase/internal/app/query"
 	"github.com/topbase/topbase/internal/core"
 	"github.com/topbase/topbase/internal/core/queryir"
 )
@@ -475,6 +476,49 @@ func (s *server) exportDataset(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func isNativeQuestion(question core.Question) bool {
+	return question.QueryType == "native" || (question.QueryIR == nil && question.NativeSQL != "")
+}
+
+func (s *server) runSavedNative(w http.ResponseWriter, r *http.Request, question core.Question) (appquery.DatasetResult, bool) {
+	if _, ok := s.requireCapability(w, r, "sql", "native"); !ok {
+		return appquery.DatasetResult{}, false
+	}
+	var input struct {
+		Parameters map[string]any `json:"parameters"`
+	}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &input) {
+		return appquery.DatasetResult{}, false
+	}
+	if err := s.catalog.EnsureConnected(r.Context(), question.DatabaseID); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return appquery.DatasetResult{}, false
+	}
+	result, err := s.dataset.RunNativeQuestion(r.Context(), question, input.Parameters)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return appquery.DatasetResult{}, false
+	}
+	return result, true
+}
+
+func (s *server) previewNativeQuestion(w http.ResponseWriter, r *http.Request) {
+	_, question, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "view")
+	if !ok {
+		return
+	}
+	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
+		return
+	}
+	if !isNativeQuestion(question) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "native analysis required"})
+		return
+	}
+	if result, ok := s.runSavedNative(w, r, question); ok {
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
 func (s *server) exportQuestion(w http.ResponseWriter, r *http.Request) {
 	_, question, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "view")
 	if !ok {
@@ -483,12 +527,26 @@ func (s *server) exportQuestion(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireCapability(w, r, "data", "view"); !ok {
 		return
 	}
-	if question.QueryIR == nil {
+	native := isNativeQuestion(question)
+	if !native && question.QueryIR == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "question not exportable"})
 		return
 	}
+	var result appquery.DatasetResult
+	if native {
+		result, ok = s.runSavedNative(w, r, question)
+		if !ok {
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+question.ID+`.csv"`)
+	if native {
+		if err := appquery.WriteCSV(w, result.Columns, result.Rows); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
 	if err := s.dataset.ExportCSV(r.Context(), *question.QueryIR, w); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}

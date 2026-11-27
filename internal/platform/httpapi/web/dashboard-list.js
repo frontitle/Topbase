@@ -6,7 +6,7 @@ async function load(){
     href:'/dashboard/'+board.id+'/',
     title:(board.public_uuid ? '◉ ' : '')+board.name,
     meta:projectName(board.collection_id)+' · '+(board.cards||[]).length+' 张卡片 · '+(board.filters||[]).length+' 个筛选'
-  })).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'创建后会直接进入空白编辑器，从左侧选择分析即可。',href:'#',cta:'新建仪表盘'});
+  })).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'新建后，点击「插入」即可添加分析或小组件。',href:'#',cta:'新建仪表盘'});
   const emptyCTA=document.querySelector('#list .empty a');
   if(emptyCTA)emptyCTA.onclick=event=>{event.preventDefault();createDashboard()};
 }

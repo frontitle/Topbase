@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据模型</title>
   <link rel="stylesheet" href="/admin/admin.css">
-  <link rel="stylesheet" href="/ui.css?v=sidebar-compact-2">
+  <link rel="stylesheet" href="/ui.css">
   <link rel="stylesheet" href="/admin/datamodel/datamodel.css">
 </head>
 <body>
@@ -23,8 +23,8 @@
       <div class="schema-layout">
         <aside class="schema-tables">
           <div class="table-browser-head">
-            <label class="side-select">数据源<select id="database"></select></label>
-            <input id="search" placeholder="搜索表">
+            <label class="side-select tb-field">数据源<select class="tb-select" id="database"></select></label>
+            <input class="tb-input" id="search" placeholder="搜索表">
             <div class="side-title">数据表 <span id="table-count"></span></div>
           </div>
           <div class="table-list-scroll" tabindex="0" aria-label="数据表列表">
@@ -44,8 +44,8 @@
               </div>
             </header>
             <div class="meta-grid">
-              <label>表显示名称（别称）<input id="display-name" placeholder="例如：订单明细"></label>
-              <label class="full">业务备注<textarea id="description" placeholder="例如：口径说明、用途、刷新频率；填写后将优先展示给成员"></textarea><small class="metadata-hint">这是 Topbase 内的备注，可替换前台显示的源表注释。</small></label>
+              <label class="tb-field">表显示名称（别称）<input class="tb-input" id="display-name" placeholder="例如：订单明细"></label>
+              <label class="full tb-field">业务备注<textarea class="tb-input" id="description" placeholder="例如：口径说明、用途、刷新频率；填写后将优先展示给成员"></textarea><small class="metadata-hint">这是 Topbase 内的备注，可替换前台显示的源表注释。</small></label>
             </div>
             <div class="field-heading"><h3>字段</h3><button id="toggle-field-fullscreen" class="field-fullscreen-button" type="button" aria-pressed="false" title="全屏编辑字段"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>全屏编辑</span><kbd>Esc</kbd></button></div>
             <div class="field-scroll">

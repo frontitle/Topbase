@@ -7,7 +7,8 @@
 | 组件 | 源码 | 全局入口 | 主要使用页面 | 状态 |
 | --- | --- | --- | --- | --- |
 | 应用外壳 | `web/shell.js` | 页面上的 `data-shell` | 全部登录后页面 | 稳定 |
-| UI 基础设施 | `web/ui.js` | `api`、`toast`、`promptDialog`、`choiceDialog`、`confirmDialog` | 全站 | 稳定 |
+| 基础控件 | `web/ui.js`、`web/components/ui-controls.css` | `TopbaseUI` | 所有交互页面 | 稳定 |
+| 菜单与弹层 | `web/ui.js` | `TopbaseUI.popover`、`TopbaseUI.modal`、`TopbaseUI.formDialog` | 应用侧栏、仪表盘、筛选、数据管理 | 稳定 |
 | 页签切换 | `web/ui.js`、`web/ui.css` | `TopbaseTabs.mount`、`.tb-tabs` | 通知与订阅、人员与组、个人中心、新建分析、数据源连接 | 稳定 |
 | 查询编辑器 | `web/components/query-editor/` | `TopbaseQueryEditor.mount` | 数据浏览、创建分析 | 稳定 |
 | 代码展示与编辑 | `web/components/code/` | `TopbaseCode.mountBlock`、`mountEditor`、`setCode` | 查询编辑器、分析详情 | 稳定 |
@@ -15,7 +16,53 @@
 | 数据表格 | `web/grid.js`、`web/grid.css` | `TopbaseGrid` | 数据浏览、分析详情、仪表盘卡片 | 稳定 |
 | 可视化渲染器 | `web/viz.js`、`web/viz.css` | `TopbaseViz` | 分析详情、仪表盘卡片 | 稳定 |
 
-这里的“全部组件”指已经形成跨页面公共接口的前端功能组件。只服务单一页面、仍与页面业务状态强耦合的局部模块不计入公共组件；当它在第二个页面复用时，必须先抽出接口再登记。
+## 新页面接入
+
+在页面头部引入 `/ui.css`，在业务脚本前引入 `/ui.js`。基础控件、页签、菜单和对话框均从 `window.TopbaseUI` 调用。静态模板也可以直接写原生控件并使用下表的公共类。页面样式负责位置、间距和宽度，工具栏可通过 `--tb-control-height` 设置控件高度。
+
+| 用途 | 接口或标记 |
+| --- | --- |
+| 主要、次要、轻量与危险操作 | `button({label, variant, icon, attrs})`，或 `.tb-btn` 搭配 `.tb-btn-primary`、`.tb-btn-secondary`、`.tb-btn-ghost`、`.tb-btn-danger` |
+| 纯图标动作 | `iconButton({icon, label, tone, attrs})`，必填的中文名称同时用于辅助技术和悬停提示 |
+| 文本、数字、日期、多行输入 | `input({label, type, value, attrs, help})`，静态模板使用 `.tb-input` |
+| 选择字段值 | `select({label, options, value, attrs})`，选项为 `{label,value,disabled?}`。原生 `select.tb-select` 支持键盘和移动端选择器 |
+| 复选项 | `checkbox({label, checked, attrs})`，静态模板使用 `label.tb-check` 包住原生复选框和标签 |
+| 分段选项与紧凑工具组 | `.tb-segmented` 包含原生按钮。可切换的选项通过 `aria-pressed` 同步当前状态，图表格式选项和画布文字工具均使用这个容器 |
+| 页面反馈 | `toast(message)`、`emptyHTML(...)` |
+| 输入、选择、确认 | `formDialog(options)`、`promptDialog(options)`、`choiceDialog(options)`、`confirmDialog(options)`，异步返回结果 |
+| 有专用内容的模态窗口 | `modal(dialog, {onClose})`，传入带标题的原生 `<dialog class="tb-modal">`，用控制器的 `open({from})`、`close()`、`dispose()` 管理生命周期 |
+| 页签 | `tabs.mount(tabList, options)` |
+
+例如，页面可以同时提供一个原生选择框和一个操作菜单。
+
+```html
+<label class="tb-field">显示方式
+  <select class="tb-select" id="display-mode">
+    <option value="table">表格</option>
+    <option value="chart">图表</option>
+  </select>
+</label>
+<div class="tb-menu-anchor">
+  <button class="tb-btn tb-btn-secondary" type="button" id="actions">更多操作</button>
+  <div class="tb-menu-end" id="actions-menu" hidden>
+    <button type="button" data-action="rename">重命名</button>
+  </div>
+</div>
+```
+
+```js
+const trigger = document.querySelector('#actions');
+const menu = document.querySelector('#actions-menu');
+const actions = TopbaseUI.popover(trigger, menu);
+menu.querySelector('[data-action="rename"]').addEventListener('click', rename);
+// 整个工具栏需要卸载、替换时调用 actions.dispose()。
+```
+
+操作菜单支持方向键、Home、End 和 Esc。含搜索框或多个字段的浮层使用 `popover(trigger, panel, {type: 'dialog', initialFocus: () => searchInput})`。用户可以在浮层内连续操作，业务提交后调用 `close()`。有多个入口时，用 `open({from: 实际触发元素})` 指定关闭后应返回的位置。
+
+动态生成控件时，调用方提供纯文本和原生属性，通过 `attrs` 传递 `disabled`、`aria-*` 或 `data-*`。返回的标记插入页面后，用事件监听器连接业务逻辑。图标名来自本地 `/vendor/lucide-nav.svg`。
+
+表格、图表、筛选、代码编辑、查询编辑和仪表盘组件目录分别通过 `TopbaseUI.components.grid`、`viz`、`filter`、`code`、`queryEditor` 和 `dashboardWidgets` 访问。页面只需引入实际使用的专业组件脚本和样式。下方已有的全局入口继续兼容。
 
 ## 公共接口
 

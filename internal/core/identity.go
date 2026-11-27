@@ -44,7 +44,8 @@ type IdentityProvider struct {
 // Password sign-in is on by default so an administrator cannot be locked out
 // before a third-party provider has been configured.
 type AuthSettings struct {
-	PasswordLoginEnabled bool `json:"password_login_enabled"`
+	PasswordLoginEnabled bool     `json:"password_login_enabled"`
+	EnabledProviderIDs   []string `json:"enabled_provider_ids"`
 }
 
 type ExternalIdentityLink struct {

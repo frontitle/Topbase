@@ -26,26 +26,27 @@
       <aside class="data-role-note" aria-label="源数据说明">
         <span>实时 · 只读</span>
         <div><b>数据仍保存在远程数据库</b><p>这里看到的是源库当前内容；Topbase 默认只读取，不会把查询结果自动保存到本地。</p></div>
-        <a href="/warehouse/">需要周期保存？前往数据沉淀 →</a>
+        <a id="warehouse-link" href="/warehouse/" hidden>需要周期保存？前往数据沉淀 →</a>
       </aside>
-      <input id="db-search" class="browse-search" placeholder="搜索数据库">
+      <input id="db-search" class="browse-search tb-input" placeholder="搜索数据库">
       <div id="db-cards" class="cards"></div>
     </section>
     <section id="table-view" hidden>
       <div class="source">
-        <button class="secondary" id="back-dbs" type="button">← 所有数据库</button>
+        <button class="secondary tb-btn tb-btn-secondary" id="back-dbs" type="button">← 所有数据库</button>
         <strong id="db-title"></strong>
-        <input id="search" placeholder="搜索表">
+        <input class="tb-input" id="search" placeholder="搜索表">
       </div>
       <div class="browser-grid">
         <aside class="tables">
           <div class="side-title">数据表 <span id="table-count"></span></div>
+          <small id="schema-status" role="status" hidden></small>
           <div id="table-list">正在读取表…</div>
         </aside>
         <section class="workbench">
           <div id="empty-state">
             <h1>选择一张表</h1>
-            <p>打开后会立刻拉取该表的数据，用表格展示前 100 行。</p>
+            <p>打开数据表可预览记录、筛选字段并创建分析。</p>
           </div>
           <div id="table-workspace" hidden>
             <header class="table-head">
@@ -55,9 +56,9 @@
                 <p id="table-description"></p>
               </div>
               <div class="table-actions">
-                <button class="secondary" id="toggle-ask" type="button" aria-expanded="true">收起查询编辑器</button>
-                <a class="secondary admin-only" id="edit-meta" hidden href="/admin/datamodel/">编辑元数据</a>
-                <button class="primary" id="save-question" type="button">保存分析</button>
+                <button class="secondary tb-btn tb-btn-secondary" id="toggle-ask" type="button" aria-expanded="true">收起查询编辑器</button>
+                <a class="secondary admin-only tb-btn tb-btn-secondary" id="edit-meta" hidden href="/admin/datamodel/">编辑元数据</a>
+                <button class="primary tb-btn tb-btn-primary" id="save-question" type="button">保存分析</button>
               </div>
             </header>
             <section id="ask-panel" class="query-builder" aria-label="查询编辑器">
@@ -92,14 +93,14 @@
                 <div class="summary-layout">
                   <label class="summary-surface">
                     <span>计算</span>
-                    <select id="aggregation"><option value="">不汇总</option><option value="count">记录数</option><option value="sum">求和</option><option value="avg">平均值</option><option value="min">最小值</option><option value="max">最大值</option><option value="distinct">去重计数</option></select>
-                    <select id="aggregation-field"></select>
+                    <select class="tb-select" id="aggregation"><option value="">不汇总</option><option value="count">记录数</option><option value="sum">求和</option><option value="avg">平均值</option><option value="min">最小值</option><option value="max">最大值</option><option value="distinct">去重计数</option></select>
+                    <select class="tb-select" id="aggregation-field"></select>
                   </label>
                   <span class="summary-by">按</span>
                   <label class="summary-surface">
                     <span>分组</span>
-                    <select id="group-by-field"></select>
-                    <select id="group-by-temporal" hidden><option value="">原始值</option><option value="day">日</option><option value="week">周</option><option value="month">月</option><option value="quarter">季度</option><option value="year">年</option></select>
+                    <select class="tb-select" id="group-by-field"></select>
+                    <select class="tb-select" id="group-by-temporal" hidden><option value="">原始值</option><option value="day">日</option><option value="week">周</option><option value="month">月</option><option value="quarter">季度</option><option value="year">年</option></select>
                   </label>
                 </div>
               </section>
@@ -114,10 +115,10 @@
               <section class="step-editor join-builder" id="join-builder" hidden aria-labelledby="join-title">
                 <header><div><h3 id="join-title">关联另一张表</h3><p>选择关联表和匹配字段；识别到外键时会自动推荐。</p></div><button type="button" class="close-step" data-close-step="join-builder">关闭</button></header>
                 <div class="join-grid">
-                  <label>关联表<select id="join-table"><option value="">不关联</option></select></label>
-                  <label>关联方式<select id="join-type"><option value="left">保留当前表全部记录</option><option value="inner">只保留匹配记录</option></select></label>
-                  <label>当前表字段<select id="join-left-field"><option value="">选择字段</option></select></label>
-                  <label>关联表字段<select id="join-right-field"><option value="">选择字段</option></select></label>
+                  <label class="tb-field">关联表<select class="tb-select" id="join-table"><option value="">不关联</option></select></label>
+                  <label class="tb-field">关联方式<select class="tb-select" id="join-type"><option value="left">保留当前表全部记录</option><option value="inner">只保留匹配记录</option></select></label>
+                  <label class="tb-field">当前表字段<select class="tb-select" id="join-left-field"><option value="">选择字段</option></select></label>
+                  <label class="tb-field">关联表字段<select class="tb-select" id="join-right-field"><option value="">选择字段</option></select></label>
                 </div>
                 <label class="join-fields-label">显示关联表字段<div id="join-fields" class="field-picker">请先选择关联表。</div></label>
                 <p id="join-hint" class="join-hint">如果已在数据模型中标记外键，系统会预选推荐关联关系。</p>
@@ -125,21 +126,21 @@
 
               <section class="step-editor" id="sort-builder" hidden>
                 <header><div><h3>排序</h3><p>选择一个字段和排列方向。</p></div><button type="button" class="close-step" data-close-step="sort-builder">关闭</button></header>
-                <div class="inline-editor"><label>排序字段<select id="sort-field"></select></label><label>方向<select id="sort-direction"><option value="asc">升序</option><option value="desc">降序</option></select></label></div>
+                <div class="inline-editor"><label class="tb-field">排序字段<select class="tb-select" id="sort-field"></select></label><label class="tb-field">方向<select class="tb-select" id="sort-direction"><option value="asc">升序</option><option value="desc">降序</option></select></label></div>
               </section>
 
               <section class="step-editor" id="limit-builder" hidden>
                 <header><div><h3>行数限制</h3><p>最多返回 10,000 行；建议先用较小结果快速验证。</p></div><button type="button" class="close-step" data-close-step="limit-builder">关闭</button></header>
-                <div class="inline-editor"><label>返回行数<input id="row-limit" type="number" min="1" max="10000" step="1" value="1000"></label></div>
+                <div class="inline-editor"><label class="tb-field">返回行数<input class="tb-input" id="row-limit" type="number" min="1" max="10000" step="1" value="1000"></label></div>
               </section>
 
               <section class="step-editor" id="expression-builder" hidden>
                 <header><div><h3>自定义字段</h3><p>用字段与另一个字段或常量完成安全计算。</p></div><button type="button" class="close-step" data-close-step="expression-builder">关闭</button></header>
                 <div class="expression-grid">
-                  <label>新字段名<input id="expression-alias" placeholder="例如：实付金额"></label>
-                  <label>左侧字段<select id="expression-left"></select></label>
-                  <label>运算<select id="expression-op"><option value="add">加</option><option value="sub">减</option><option value="mul">乘</option><option value="div">除</option><option value="concat">拼接</option></select></label>
-                  <label>右侧字段或常量<input id="expression-right" list="expression-field-options" placeholder="字段名或数值"><datalist id="expression-field-options"></datalist></label>
+                  <label class="tb-field">新字段名<input class="tb-input" id="expression-alias" placeholder="例如：实付金额"></label>
+                  <label class="tb-field">左侧字段<select class="tb-select" id="expression-left"></select></label>
+                  <label class="tb-field">运算<select class="tb-select" id="expression-op"><option value="add">加</option><option value="sub">减</option><option value="mul">乘</option><option value="div">除</option><option value="concat">拼接</option></select></label>
+                  <label class="tb-field">右侧字段或常量<input class="tb-input" id="expression-right" list="expression-field-options" placeholder="字段名或数值"><datalist id="expression-field-options"></datalist></label>
                 </div>
               </section>
 
@@ -148,22 +149,22 @@
               <section class="tb-query-sql" data-query-panel="sql" hidden>
                 <header class="tb-query-sql-head">
                   <div><h3>编写只读 SQL</h3><p>SQL 会直接在当前数据库执行。建议先限制返回行数，再逐步验证复杂查询。</p></div>
-                  <button class="secondary" type="button" data-use-generated-sql>使用可视化生成的 SQL</button>
+                  <button class="secondary tb-btn tb-btn-secondary" type="button" data-use-generated-sql>使用可视化生成的 SQL</button>
                 </header>
                 <div data-query-sql-editor></div>
               </section>
 
               <footer class="builder-footer">
                 <div><b id="query-summary" data-query-summary>显示原始数据</b><small>运行后会在下方更新预览，不会修改数据库。</small></div>
-                <button id="run-query" data-query-run class="primary" type="button">运行并预览</button>
+                <button id="run-query" data-query-run class="primary tb-btn tb-btn-primary" type="button">运行并预览</button>
               </footer>
             </section>
-            <div id="grid-status" class="grid-status">正在拉取数据…</div>
+            <div id="grid-status" class="grid-status" role="status">正在拉取数据…</div>
             <div id="grid-wrap" class="grid-wrap"></div>
             <section class="result-tools" aria-label="结果探索">
-              <label class="visual-result-action">下钻字段<select id="drill-field"><option value="">当前筛选字段</option></select></label>
-              <button id="drill-records" class="secondary visual-result-action" type="button">查看明细记录</button>
-              <button id="drill-filter" class="secondary visual-result-action" type="button">用当前值筛选</button>
+              <label class="visual-result-action">下钻字段<select class="tb-select" id="drill-field"><option value="">当前筛选字段</option></select></label>
+              <button id="drill-records" class="secondary visual-result-action tb-btn tb-btn-secondary" type="button">查看明细记录</button>
+              <button id="drill-filter" class="secondary visual-result-action tb-btn tb-btn-secondary" type="button">用当前值筛选</button>
             </section>
           </div>
         </section>

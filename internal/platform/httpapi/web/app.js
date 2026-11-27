@@ -50,7 +50,7 @@ function renderNotifications(items) {
     : '<div class="home-quiet"><i>✓</i><strong>暂无待处理动态</strong><small>计划任务、告警和订阅结果会显示在这里。</small></div>';
 }
 
-async function loadOverview(user) {
+async function loadOverview() {
   const databaseRequest = api('/api/databases').then(items => ({ allowed: true, items })).catch(() => ({ allowed: false, items: [] }));
   const [questions, dashboards, collections, notifications, databaseResult, readiness] = await Promise.all([
     optional('/api/questions', []),
@@ -71,7 +71,6 @@ async function loadOverview(user) {
   const ready = readiness && readiness.status === 'ready';
   $('#ready-badge').textContent = ready ? '运行正常' : '需要检查';
   $('#ready-badge').classList.toggle('healthy', ready);
-  if (user.is_admin) $('#admin-database-link').hidden = false;
 }
 
 async function boot() {
@@ -94,20 +93,25 @@ async function boot() {
     return;
   }
   const name = user.name || user.email || '';
+  $('#warehouse-link').hidden = !user.is_admin;
+  $('#admin-database-link').hidden = !user.is_admin;
   $('#welcome').textContent = name ? `欢迎回来，${name}` : '欢迎回来';
-  await loadOverview(user);
+  await loadOverview();
 }
 
-$('#create-dashboard').onclick = async () => {
-  const button = $('#create-dashboard');
-  button.disabled = true;
+TopbaseUI.popover($('#home-create'), $('#home-create-menu'));
+const dashboardButtons = [$('#create-dashboard'), $('#menu-create-dashboard')];
+async function createDashboard() {
+  if (dashboardButtons.some(button => button.disabled)) return;
+  dashboardButtons.forEach(button => { button.disabled = true; });
   try {
     const dashboard = await api('/api/dashboards', 'POST', {});
     location.href = `/dashboard/${dashboard.id}/`;
   } catch (error) {
     toast(error.message);
-    button.disabled = false;
+    dashboardButtons.forEach(button => { button.disabled = false; });
   }
-};
+}
+dashboardButtons.forEach(button => { button.onclick = createDashboard; });
 
 boot();

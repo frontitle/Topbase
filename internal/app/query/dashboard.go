@@ -34,15 +34,10 @@ func (s DatasetService) RunDashboardCard(ctx context.Context, board core.Dashboa
 	mapped := mappedValues(board, card.ID, values)
 	if question.QueryType == "native" || (question.QueryIR == nil && question.NativeSQL != "") {
 		valueMap := nativeValues(mapped, values, question.Parameters)
-		sql, args, err := queryir.ApplyNative(question.NativeSQL, question.Parameters, valueMap)
+		out, err := s.RunNativeQuestion(ctx, question, valueMap)
 		if err != nil {
 			return DatasetResult{}, err
 		}
-		result, err := s.Queries.RunArgs(ctx, question.DatabaseID, sql, args)
-		if err != nil {
-			return DatasetResult{}, err
-		}
-		out := DatasetResult{SQL: sql, Columns: result.Columns, Rows: result.Rows, Meta: result.Meta, ChartSpec: core.ChartSpec{Type: "table"}}
 		applyChartSpec(&out, question, card)
 		return out, nil
 	}

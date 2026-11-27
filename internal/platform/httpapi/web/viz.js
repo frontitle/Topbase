@@ -922,7 +922,7 @@
     };
   }
 
-  function mountChart(host, option, spec, optionFactory) {
+  function mountChart(host, spec, createOption) {
     disposeHost(host);
     host.innerHTML = '<div class="viz-chart"></div>';
     var el = host.querySelector('.viz-chart');
@@ -940,7 +940,7 @@
       ensureMapPackage(pkg).then(function () {
         if (el._tbChart !== chart) return;
         if (chart.hideLoading) chart.hideLoading();
-        chart.setOption(optionFactory ? optionFactory() : option, true);
+        chart.setOption(createOption(), true);
       }).catch(function (error) {
         if (el._tbChart !== chart) return;
         if (el._tbRo) el._tbRo.disconnect();
@@ -950,7 +950,7 @@
       });
       return;
     }
-    chart.setOption(option, true);
+    chart.setOption(createOption(), true);
   }
   function renderTypes(host, spec, onPick) {
     host.innerHTML = TYPES.map(function (t) {
@@ -962,8 +962,10 @@
   }
   function seg(name, value, options, seriesName) {
     var extra = seriesName ? ' data-series="' + esc(seriesName) + '"' : '';
-    return '<div class="viz-seg">' + options.map(function (opt) {
-      return '<button type="button" data-k="' + name + '" data-v="' + esc(String(opt.value)) + '"' + extra + ' class="' + (String(value || '') === String(opt.value) ? 'active' : '') + '">' + esc(opt.label) + '</button>';
+    return '<div class="tb-segmented viz-seg">' + options.map(function (opt) {
+      var active = String(value ?? '') === String(opt.value);
+      return '<button type="button" data-k="' + name + '" data-v="' + esc(String(opt.value)) + '"' + extra +
+        ' aria-pressed="' + active + '">' + esc(opt.label) + '</button>';
     }).join('') + '</div>';
   }
   function field(label, control) {
@@ -984,12 +986,12 @@
       if (val && options.indexOf(val) < 0) options = [val].concat(options);
       var canRemove = opts.canRemove ? opts.canRemove(i, values) : values.length > 1;
       html += '<div class="viz-axis-row">';
-      html += '<select data-pick="' + key + '" data-i="' + i + '">' + optionList(options, val) + '</select>';
-      if (canRemove) html += '<button type="button" class="viz-icon" data-pick-del="' + key + '" data-i="' + i + '" title="移除">×</button>';
+      html += '<select class="tb-select" data-pick="' + key + '" data-i="' + i + '">' + optionList(options, val) + '</select>';
+      if (canRemove) html += '<button type="button" class="tb-icon-trigger viz-icon" data-pick-del="' + key + '" data-i="' + i + '" title="移除">×</button>';
       html += '</div>';
     });
     if (opts.addLabel && opts.canAdd) {
-      html += '<button type="button" class="viz-add-link" data-pick-add="' + key + '">+ ' + esc(opts.addLabel) + '</button>';
+      html += '<button type="button" class="tb-btn tb-btn-ghost viz-add-link" data-pick-add="' + key + '">+ ' + esc(opts.addLabel) + '</button>';
     }
     html += '</div>';
     return html;
@@ -1027,8 +1029,8 @@
     var kind = displayOf(spec, st);
     var html = '<details class="viz-series-card" data-series="' + esc(name) + '"' + (open ? ' open' : '') + '>';
     html += '<summary><input type="color" data-series="' + esc(name) + '" data-sk="color" value="' + esc(color) + '">' +
-      '<input type="text" data-series="' + esc(name) + '" data-sk="title" value="' + esc(st.title || name) + '" placeholder="' + esc(name) + '">' +
-      '<label class="viz-mini"><input type="checkbox" data-series="' + esc(name) + '" data-sk="visible"' + (st.visible !== false ? ' checked' : '') + '> 显示</label></summary>';
+      '<input class="tb-input" type="text" data-series="' + esc(name) + '" data-sk="title" value="' + esc(st.title || name) + '" placeholder="' + esc(name) + '">' +
+      '<label class="tb-check viz-mini"><input type="checkbox" data-series="' + esc(name) + '" data-sk="visible"' + (st.visible !== false ? ' checked' : '') + '> 显示</label></summary>';
     html += swatches(name, color);
     if (cartesian && spec.type !== 'row') {
       html += field('展示类型', seg('display', kind, [{ value: 'line', label: '折线' }, { value: 'area', label: '面积' }, { value: 'bar', label: '柱状' }], name));
@@ -1071,20 +1073,20 @@
       html += '<p class="viz-muted">设置字段的显示状态和名称。数据筛选请使用页面顶部的筛选器。</p>';
       html += (columns || []).map(function (c) {
         var cs = columnStyle(spec, c);
-        return '<div class="viz-col-block"><div class="viz-col-row"><label class="viz-mini"><input type="checkbox" data-col="' + esc(c) + '" data-ck="visible"' + (cs.visible !== false ? ' checked' : '') + '></label>' +
-          '<input type="text" data-col="' + esc(c) + '" data-ck="title" value="' + esc(cs.title || '') + '" placeholder="' + esc(c) + '"></div></div>';
+        return '<div class="viz-col-block"><div class="viz-col-row"><label class="tb-check viz-mini"><input type="checkbox" data-col="' + esc(c) + '" data-ck="visible"' + (cs.visible !== false ? ' checked' : '') + '></label>' +
+          '<input class="tb-input" type="text" data-col="' + esc(c) + '" data-ck="title" value="' + esc(cs.title || '') + '" placeholder="' + esc(c) + '"></div></div>';
       }).join('');
     }
 
     if (tab === 'data' && spec.type === 'scalar') {
-      html += field('要显示的字段', '<select data-k="scalar">' + optionList(metrics.length ? metrics : columns, (spec.y || [])[0]) + '</select>');
+      html += field('要显示的字段', '<select class="tb-select" data-k="scalar">' + optionList(metrics.length ? metrics : columns, (spec.y || [])[0]) + '</select>');
       var scalarField = (spec.y || [])[0];
       var comparisonOptions = (metrics.length ? metrics : columns).filter(function (name) { return name && name !== scalarField; });
-      html += field('数值对比', '<select data-k="comparison_field">' + optionList([{ value: '', label: '不比较' }].concat(comparisonOptions.map(function (name) { return { value: name, label: name }; })), spec.comparison_field || '') + '</select>');
+      html += field('数值对比', '<select class="tb-select" data-k="comparison_field">' + optionList([{ value: '', label: '不比较' }].concat(comparisonOptions.map(function (name) { return { value: name, label: name }; })), spec.comparison_field || '') + '</select>');
     }
     if (tab === 'data' && spec.type === 'pie') {
-      html += field('维度', '<select data-k="x">' + optionList(dims, spec.x) + '</select>');
-      html += field('指标', '<select data-k="scalar">' + optionList(metrics, (spec.y || [])[0]) + '</select>');
+      html += field('维度', '<select class="tb-select" data-k="x">' + optionList(dims, spec.x) + '</select>');
+      html += field('指标', '<select class="tb-select" data-k="scalar">' + optionList(metrics, (spec.y || [])[0]) + '</select>');
       html += '<h4>切片颜色</h4>';
       html += packed.labels.map(function (name, i) { return seriesCard(spec, name, i, false, openSeries.indexOf(name) >= 0 || (!openSeries.length && i === 0)); }).join('');
       html += field('「其他」颜色', '<input type="color" data-k="other_color" value="' + esc(spec.other_color || '#7172AD') + '">');
@@ -1093,9 +1095,9 @@
       var currentMapPackage = mapPackageOf(spec);
       var mapMetrics = metrics.filter(function (name) { return name !== spec.x; });
       if (!mapMetrics.length) mapMetrics = columns.filter(function (name) { return name !== spec.x; });
-      html += field('图资包', '<select data-k="map_package">' + optionList(mapPackageList().map(function (pkg) { return { value: pkg.id, label: pkg.label }; }), currentMapPackage && currentMapPackage.id) + '</select>');
-      html += field('区域字段', '<select data-k="x">' + optionList(columns, spec.x) + '</select>');
-      html += field('数值字段', '<select data-k="scalar">' + optionList(mapMetrics, (spec.y || [])[0]) + '</select>');
+      html += field('图资包', '<select class="tb-select" data-k="map_package">' + optionList(mapPackageList().map(function (pkg) { return { value: pkg.id, label: pkg.label }; }), currentMapPackage && currentMapPackage.id) + '</select>');
+      html += field('区域字段', '<select class="tb-select" data-k="x">' + optionList(columns, spec.x) + '</select>');
+      html += field('数值字段', '<select class="tb-select" data-k="scalar">' + optionList(mapMetrics, (spec.y || [])[0]) + '</select>');
       html += '<p class="viz-muted">区域值需要与所选图资包的名称或代码匹配。默认中国图资包支持“广东”“广东省”和 440000 等六位代码。请先在分析中按区域汇总数据。</p>';
     }
     if (tab === 'data' && cartesian) {
@@ -1121,47 +1123,47 @@
       if (spec.type === 'bar' || spec.type === 'area' || spec.type === 'row' || spec.type === 'line') {
         html += field('堆叠', seg('stacking', stacking, [{ value: '', label: '不堆叠' }, { value: 'stack', label: '堆叠' }, { value: 'percent', label: '百分比' }]));
       }
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="legend_on"' + (legendOn(spec, 1) ? ' checked' : '') + '> 显示图例</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="legend_on"' + (legendOn(spec, 1) ? ' checked' : '') + '> 显示图例</label>';
       if (legendOn(spec, 1)) {
         html += field('图例位置', seg('legend', spec.legend || 'top', [{ value: 'top', label: '上' }, { value: 'bottom', label: '下' }, { value: 'left', label: '左' }, { value: 'right', label: '右' }]));
       }
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示数值</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示数值</label>';
       if (spec.show_labels) {
         html += field('显示哪些数值', seg('label_frequency', spec.label_frequency || 'all', [{ value: 'fit', label: '部分' }, { value: 'all', label: '全部' }]));
         html += field('数值格式', seg('value_format', spec.value_format || 'auto', [{ value: 'auto', label: '自动' }, { value: 'compact', label: '紧凑' }, { value: 'full', label: '完整' }]));
       }
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="trendline"' + (spec.trendline ? ' checked' : '') + '> 趋势线</label>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="show_goal"' + (goalOn(spec) || spec.show_goal === true ? ' checked' : '') + '> 目标线</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="trendline"' + (spec.trendline ? ' checked' : '') + '> 趋势线</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="show_goal"' + (goalOn(spec) || spec.show_goal === true ? ' checked' : '') + '> 目标线</label>';
       if (goalOn(spec) || spec.show_goal === true) {
-        html += field('目标值', '<input data-k="goal" type="number" placeholder="例如 100" value="' + (spec.goal == null ? '' : spec.goal) + '">');
-        html += field('目标标签', '<input data-k="goal_label" type="text" placeholder="目标" value="' + esc(spec.goal_label || '') + '">');
+        html += field('目标值', '<input class="tb-input" data-k="goal" type="number" placeholder="例如 100" value="' + (spec.goal == null ? '' : spec.goal) + '">');
+        html += field('目标标签', '<input class="tb-input" data-k="goal_label" type="text" placeholder="目标" value="' + esc(spec.goal_label || '') + '">');
       }
       if (spec.type === 'bar' || spec.type === 'line' || spec.type === 'area') {
-        html += '<label class="viz-toggle"><input type="checkbox" data-k="auto_split"' + (spec.auto_split !== false ? ' checked' : '') + '> 量级差过大时拆分纵轴</label>';
+        html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="auto_split"' + (spec.auto_split !== false ? ' checked' : '') + '> 量级差过大时拆分纵轴</label>';
       }
     }
 
     if (tab === 'display' && spec.type === 'pie') {
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="legend_on"' + (legendOn(spec, 1) ? ' checked' : '') + '> 显示图例</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="legend_on"' + (legendOn(spec, 1) ? ' checked' : '') + '> 显示图例</label>';
       if (legendOn(spec, 1)) {
         html += field('图例位置', seg('legend', spec.legend || 'right', [{ value: 'top', label: '上' }, { value: 'bottom', label: '下' }, { value: 'left', label: '左' }, { value: 'right', label: '右' }]));
       }
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="show_total"' + (spec.show_total !== false ? ' checked' : '') + '> 显示总计</label>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="donut"' + (spec.donut !== false ? ' checked' : '') + '> 环形图</label>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示标签</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="show_total"' + (spec.show_total !== false ? ' checked' : '') + '> 显示总计</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="donut"' + (spec.donut !== false ? ' checked' : '') + '> 环形图</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示标签</label>';
       html += field('显示百分比', seg('percent', percentMode(spec), [
         { value: 'off', label: '关闭' }, { value: 'legend', label: '图例' }, { value: 'inside', label: '图上' }, { value: 'both', label: '两者' }
       ]));
       if (percentMode(spec) !== 'off') {
-        html += field('百分比小数位', '<input data-k="decimals" type="number" min="0" max="6" placeholder="自动" value="' + (spec.decimals == null ? '' : spec.decimals) + '">');
+        html += field('百分比小数位', '<input class="tb-input" data-k="decimals" type="number" min="0" max="6" placeholder="自动" value="' + (spec.decimals == null ? '' : spec.decimals) + '">');
       }
-      html += field('最多分类', '<input data-k="max" type="number" min="2" max="40" value="' + (spec.max_categories || 8) + '">');
-      html += field('最小切片占比 %', '<input data-k="slice_threshold" type="number" min="0" max="50" step="0.5" value="' + (spec.slice_threshold == null ? '' : spec.slice_threshold) + '" placeholder="0">');
+      html += field('最多分类', '<input class="tb-input" data-k="max" type="number" min="2" max="40" value="' + (spec.max_categories || 8) + '">');
+      html += field('最小切片占比 %', '<input class="tb-input" data-k="slice_threshold" type="number" min="0" max="50" step="0.5" value="' + (spec.slice_threshold == null ? '' : spec.slice_threshold) + '" placeholder="0">');
     }
     if (tab === 'display' && spec.type === 'map') {
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="map_legend"' + (spec.map_legend !== false ? ' checked' : '') + '> 显示色阶图例</label>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示区域名称</label>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-k="map_roam"' + (spec.map_roam ? ' checked' : '') + '> 允许缩放和拖动</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="map_legend"' + (spec.map_legend !== false ? ' checked' : '') + '> 显示色阶图例</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示区域名称</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="map_roam"' + (spec.map_roam ? ' checked' : '') + '> 允许缩放和拖动</label>';
       html += '<h4>区域色阶</h4><div class="viz-map-colors">' +
         field('低值', '<input type="color" data-map-color="map_color_min" value="' + esc(spec.map_color_min || '#E6F8F4') + '">') +
         field('中值', '<input type="color" data-map-color="map_color_mid" value="' + esc(spec.map_color_mid || '#4CCFBA') + '">') +
@@ -1172,37 +1174,37 @@
       var xa = axisSpec(spec, 'x_axis');
       var ya = axisSpec(spec, 'y_axis');
       html += '<div class="viz-axis-group"><strong>横轴</strong>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-axis="x_axis" data-ak="labels"' + (xa.labels !== false ? ' checked' : '') + '> 显示轴标题</label>';
-      if (xa.labels !== false) html += field('轴标题', '<input data-axis="x_axis" data-ak="title" type="text" placeholder="默认使用字段名" value="' + esc(xa.title || spec.x_title || '') + '">');
-      html += field('刻度', '<select data-axis="x_axis" data-ak="enabled">' + optionList(
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-axis="x_axis" data-ak="labels"' + (xa.labels !== false ? ' checked' : '') + '> 显示轴标题</label>';
+      if (xa.labels !== false) html += field('轴标题', '<input class="tb-input" data-axis="x_axis" data-ak="title" type="text" placeholder="默认使用字段名" value="' + esc(xa.title || spec.x_title || '') + '">');
+      html += field('刻度', '<select class="tb-select" data-axis="x_axis" data-ak="enabled">' + optionList(
         [{ value: 'show', label: '显示' }, { value: 'compact', label: '紧凑' }, { value: 'rotate-45', label: '旋转 45°' }, { value: 'rotate-90', label: '旋转 90°' }, { value: 'hide', label: '隐藏' }],
         xa.enabled == null || xa.enabled === '' || xa.enabled === true || xa.enabled === 'true' ? 'show' : String(xa.enabled)
       ) + '</select>');
-      html += field('刻度类型', '<select data-axis="x_axis" data-ak="scale">' + optionList(
+      html += field('刻度类型', '<select class="tb-select" data-axis="x_axis" data-ak="scale">' + optionList(
         [{ value: 'ordinal', label: '分类' }, { value: 'timeseries', label: '时间' }, { value: 'linear', label: '线性' }, { value: 'histogram', label: '直方图' }],
         xScaleOf(spec, packed.labels)
       ) + '</select>');
       html += '</div><div class="viz-axis-group"><strong>纵轴</strong>';
-      html += '<label class="viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="labels"' + (ya.labels !== false ? ' checked' : '') + '> 显示轴标题</label>';
-      if (ya.labels !== false) html += field('轴标题', '<input data-axis="y_axis" data-ak="title" type="text" placeholder="默认使用字段名" value="' + esc(ya.title || spec.y_title || '') + '">');
-      html += field('刻度', '<select data-axis="y_axis" data-ak="enabled">' + optionList([{ value: 'show', label: '显示' }, { value: 'hide', label: '隐藏' }], ya.enabled === 'hide' || ya.enabled === false ? 'hide' : 'show') + '</select>');
-      html += field('刻度类型', '<select data-axis="y_axis" data-ak="scale">' + optionList([{ value: 'linear', label: '线性' }, { value: 'log', label: '对数' }, { value: 'pow', label: '幂次' }], ya.scale || 'linear') + '</select>');
-      html += '<label class="viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="auto_range"' + (ya.auto_range !== false ? ' checked' : '') + '> 自动范围</label>';
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="labels"' + (ya.labels !== false ? ' checked' : '') + '> 显示轴标题</label>';
+      if (ya.labels !== false) html += field('轴标题', '<input class="tb-input" data-axis="y_axis" data-ak="title" type="text" placeholder="默认使用字段名" value="' + esc(ya.title || spec.y_title || '') + '">');
+      html += field('刻度', '<select class="tb-select" data-axis="y_axis" data-ak="enabled">' + optionList([{ value: 'show', label: '显示' }, { value: 'hide', label: '隐藏' }], ya.enabled === 'hide' || ya.enabled === false ? 'hide' : 'show') + '</select>');
+      html += field('刻度类型', '<select class="tb-select" data-axis="y_axis" data-ak="scale">' + optionList([{ value: 'linear', label: '线性' }, { value: 'log', label: '对数' }, { value: 'pow', label: '幂次' }], ya.scale || 'linear') + '</select>');
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="auto_range"' + (ya.auto_range !== false ? ' checked' : '') + '> 自动范围</label>';
       if (ya.auto_range === false) {
-        html += '<div class="viz-range">' + field('最小值', '<input data-axis="y_axis" data-ak="min" type="number" value="' + (ya.min == null ? '' : ya.min) + '">') +
-          field('最大值', '<input data-axis="y_axis" data-ak="max" type="number" value="' + (ya.max == null ? '' : ya.max) + '">') + '</div>';
+        html += '<div class="viz-range">' + field('最小值', '<input class="tb-input" data-axis="y_axis" data-ak="min" type="number" value="' + (ya.min == null ? '' : ya.min) + '">') +
+          field('最大值', '<input class="tb-input" data-axis="y_axis" data-ak="max" type="number" value="' + (ya.max == null ? '' : ya.max) + '">') + '</div>';
       }
-      html += '<label class="viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="unpin_zero"' + (ya.unpin_zero ? ' checked' : '') + '> 脱离 0 点</label>';
-      html += field('刻度数量', '<input data-axis="y_axis" data-ak="ticks" type="number" min="2" max="20" placeholder="自动" value="' + (ya.ticks == null ? '' : ya.ticks) + '">');
+      html += '<label class="tb-check viz-toggle"><input type="checkbox" data-axis="y_axis" data-ak="unpin_zero"' + (ya.unpin_zero ? ' checked' : '') + '> 脱离 0 点</label>';
+      html += field('刻度数量', '<input class="tb-input" data-axis="y_axis" data-ak="ticks" type="number" min="2" max="20" placeholder="自动" value="' + (ya.ticks == null ? '' : ya.ticks) + '">');
       html += '</div>';
     }
 
     if (tab === 'format' && spec.type === 'scalar') {
       html += field('样式', seg('number_style', spec.number_style || 'number', [{ value: 'number', label: '数字' }, { value: 'percent', label: '百分比' }, { value: 'currency', label: '货币' }, { value: 'scientific', label: '科学计数' }]));
-      html += field('小数位', '<input data-k="decimals" type="number" min="0" max="8" placeholder="自动" value="' + (spec.decimals == null ? '' : spec.decimals) + '">');
-      html += field('前缀', '<input data-k="prefix" type="text" placeholder="例如 ¥" value="' + esc(spec.prefix || '') + '">');
-      html += field('后缀', '<input data-k="suffix" type="text" placeholder="例如 单" value="' + esc(spec.suffix || '') + '">');
-      html += field('乘以系数', '<input data-k="multiply" type="number" step="any" placeholder="1" value="' + (spec.multiply == null ? '' : spec.multiply) + '">');
+      html += field('小数位', '<input class="tb-input" data-k="decimals" type="number" min="0" max="8" placeholder="自动" value="' + (spec.decimals == null ? '' : spec.decimals) + '">');
+      html += field('前缀', '<input class="tb-input" data-k="prefix" type="text" placeholder="例如 ¥" value="' + esc(spec.prefix || '') + '">');
+      html += field('后缀', '<input class="tb-input" data-k="suffix" type="text" placeholder="例如 单" value="' + esc(spec.suffix || '') + '">');
+      html += field('乘以系数', '<input class="tb-input" data-k="multiply" type="number" step="any" placeholder="1" value="' + (spec.multiply == null ? '' : spec.multiply) + '">');
     }
     if (tab === 'color' && spec.type === 'scalar') {
       html += field('数字颜色', '<input type="color" data-k="color" value="' + esc(spec.color || '#111111') + '">');
@@ -1210,12 +1212,12 @@
       html += '<h4>条件颜色</h4><p class="viz-muted">按数值范围改颜色，区间包含两端。</p>';
       (spec.segments || []).forEach(function (segRow, i) {
         html += '<div class="viz-segment-row" data-seg="' + i + '">' +
-          '<input type="number" data-seg="' + i + '" data-sf="min" placeholder="最小" value="' + (segRow.min == null ? '' : segRow.min) + '">' +
-          '<input type="number" data-seg="' + i + '" data-sf="max" placeholder="最大" value="' + (segRow.max == null ? '' : segRow.max) + '">' +
+          '<input class="tb-input" type="number" data-seg="' + i + '" data-sf="min" placeholder="最小" value="' + (segRow.min == null ? '' : segRow.min) + '">' +
+          '<input class="tb-input" type="number" data-seg="' + i + '" data-sf="max" placeholder="最大" value="' + (segRow.max == null ? '' : segRow.max) + '">' +
           '<input type="color" data-seg="' + i + '" data-sf="color" value="' + esc(segRow.color || COLORS[i % COLORS.length]) + '">' +
-          '<button type="button" class="viz-icon" data-seg-del="' + i + '" title="删除">×</button></div>';
+          '<button type="button" class="tb-icon-trigger viz-icon" data-seg-del="' + i + '" title="删除">×</button></div>';
       });
-      html += '<button type="button" class="viz-add" data-k="add_segment">添加区间</button>';
+      html += '<button type="button" class="tb-btn tb-btn-secondary viz-add" data-k="add_segment">添加区间</button>';
     }
 
     host.innerHTML = html;
@@ -1514,8 +1516,13 @@
     if (spec.type === 'pie') packed = capSlices(packed, spec);
     else if (spec.max_categories) packed = capCategories(packed, spec);
     var compact = !!opts.compact;
-    if (spec.type === 'map') mountChart(host, null, spec, function () { return chartOption(spec, packed, compact); });
-    else mountChart(host, chartOption(spec, packed, compact), spec);
+    mountChart(host, spec, function () {
+      var option = chartOption(spec, packed, compact);
+      if (opts.dashboardOnly && option.backgroundColor == null) {
+        option.backgroundColor = spec.backgroundColor == null ? 'transparent' : spec.backgroundColor;
+      }
+      return option;
+    });
     return spec;
   }
 

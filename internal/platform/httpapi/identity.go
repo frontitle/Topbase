@@ -114,8 +114,12 @@ func (s *server) authOptions(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	visible := []map[string]string{}
+	selected := map[string]bool{}
+	for _, id := range settings.EnabledProviderIDs {
+		selected[id] = true
+	}
 	for _, provider := range providers {
-		if (provider.Type == "google" || provider.Type == "wechat") && provider.Enabled && provider.ClientID != "" && provider.ClientSecret != "" {
+		if selected[provider.ID] && (provider.Type == "google" || provider.Type == "wechat") && provider.Enabled && provider.ClientID != "" && provider.ClientSecret != "" {
 			visible = append(visible, map[string]string{"id": provider.ID, "type": provider.Type, "name": provider.Name, "login_url": "/auth/oauth/" + provider.ID + "/login"})
 		}
 	}
@@ -229,8 +233,26 @@ func (s *server) createQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getQuestion(w http.ResponseWriter, r *http.Request) {
-	_, item, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "view")
+	user, item, ok := s.requireQuestionAccess(w, r, r.PathValue("id"), "view")
 	if !ok {
+		return
+	}
+	if r.URL.Query().Get("view") == "detail" {
+		canRun := s.identity.HasCapability(user.ID, "data", "view") && (!isNativeQuestion(item) || s.identity.HasCapability(user.ID, "sql", "native"))
+		var groupName string
+		if item.CollectionID != "" {
+			group, err := s.content.Collections.ByID(item.CollectionID)
+			if err == nil {
+				groupName = group.Name
+			}
+		}
+		writeJSON(w, http.StatusOK, struct {
+			core.Question
+			CanEdit        bool   `json:"can_edit"`
+			CanRun         bool   `json:"can_run"`
+			CanMaterialize bool   `json:"can_materialize"`
+			CollectionName string `json:"collection_name,omitempty"`
+		}{item, s.canAccessQuestion(user, item, "edit"), canRun, s.identity.IsAdmin(user.ID), groupName})
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -248,8 +270,12 @@ func (s *server) listCollections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	visible := []core.Collection{}
+	required := "view"
+	if r.URL.Query().Get("access") == "edit" {
+		required = "edit"
+	}
 	for _, item := range items {
-		if s.canAccessCollection(user, item.ID, "view") {
+		if s.canAccessCollection(user, item.ID, required) {
 			if item.Kind == "personal_project" && item.PersonalOwnerUserID != user.ID {
 				item.ReadOnly = true
 				if owner, err := s.identity.Users.ByID(item.PersonalOwnerUserID); err == nil {

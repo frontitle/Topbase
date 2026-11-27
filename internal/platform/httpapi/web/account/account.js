@@ -61,18 +61,18 @@ function renderBindings() {
   const cards = [`<article class="binding-card"><span class="binding-icon">@</span><div class="binding-copy"><strong>邮箱与密码</strong><small>${esc(passwordDescription)}</small></div><span class="account-state">${profileState.password_configured ? '已设置' : '未设置'}</span></article>`];
   (profileState.providers || []).forEach(provider => {
     const meta = providerMeta(provider.type);
-    let action = '<button class="secondary binding-action" type="button" disabled>需管理员配置</button>';
+    let action = '<button class="secondary binding-action tb-btn tb-btn-secondary" type="button" disabled>需管理员配置</button>';
     let description = '该登录方式尚未完成系统配置。';
     if (provider.linked) {
       action = provider.can_unbind
-        ? `<button class="secondary binding-action linked" type="button" data-unbind="${esc(provider.id)}">已绑定 · 解除</button>`
-        : '<button class="secondary binding-action linked" type="button" disabled>唯一登录方式</button>';
+        ? `<button class="secondary binding-action linked tb-btn tb-btn-secondary" type="button" data-unbind="${esc(provider.id)}">已绑定 · 解除</button>`
+        : '<button class="secondary binding-action linked tb-btn tb-btn-secondary" type="button" disabled>唯一登录方式</button>';
       description = provider.can_unbind ? '已与当前 Topbase 账户关联，可用于识别登录身份。' : '密码登录已关闭，为避免账户被锁定，请先绑定另一种登录方式。';
     } else if (provider.self_bindable) {
-      action = `<a class="secondary binding-action" href="${esc(provider.login_url)}">立即绑定</a>`;
+      action = `<a class="secondary binding-action tb-btn tb-btn-secondary" href="${esc(provider.login_url)}">立即绑定</a>`;
       description = '完成平台授权后，即可使用该身份登录。';
     } else if (provider.enabled) {
-      action = '<button class="secondary binding-action" type="button" disabled>组织统一管理</button>';
+      action = '<button class="secondary binding-action tb-btn tb-btn-secondary" type="button" disabled>组织统一管理</button>';
       description = '该办公平台账号由管理员通过组织同步进行绑定。';
     }
     cards.push(`<article class="binding-card"><span class="binding-icon">${esc(meta.icon)}</span><div class="binding-copy"><strong>${esc(provider.name || meta.label)}</strong><small>${esc(description)}</small></div>${action}</article>`);
@@ -170,7 +170,7 @@ function renderAPIKeys(keys) {
     return;
   }
   const now = Date.now();
-  list.innerHTML = keys.map(key => { const expired = key.expires_at && new Date(key.expires_at).getTime() <= now; const expiry = key.expires_at ? `${expired ? '已过期' : '有效至'} ${new Date(key.expires_at).toLocaleDateString('zh-CN')}` : '永久有效'; return `<article class="binding-card${expired ? ' is-expired' : ''}"><span class="binding-icon">API</span><div class="binding-copy"><strong>${esc(key.name)}</strong><small>${esc(key.prefix)}•••• · 创建于 ${esc(new Date(key.created_at).toLocaleString('zh-CN'))} · <span class="${expired ? 'key-expired' : ''}">${esc(expiry)}</span></small></div><button class="secondary danger-subtle" type="button" data-revoke-key="${esc(key.id)}">撤销</button></article>`; }).join('');
+  list.innerHTML = keys.map(key => { const expired = key.expires_at && new Date(key.expires_at).getTime() <= now; const expiry = key.expires_at ? `${expired ? '已过期' : '有效至'} ${new Date(key.expires_at).toLocaleDateString('zh-CN')}` : '永久有效'; return `<article class="binding-card${expired ? ' is-expired' : ''}"><span class="binding-icon">API</span><div class="binding-copy"><strong>${esc(key.name)}</strong><small>${esc(key.prefix)}•••• · 创建于 ${esc(new Date(key.created_at).toLocaleString('zh-CN'))} · <span class="${expired ? 'key-expired' : ''}">${esc(expiry)}</span></small></div><button class="secondary danger-subtle tb-btn tb-btn-danger" type="button" data-revoke-key="${esc(key.id)}">撤销</button></article>`; }).join('');
   $$('[data-revoke-key]', list).forEach(button => {
     button.onclick = async () => {
       const approved = await confirmDialog({kicker:'API Key',title:'撤销这个 API Key？',description:'使用它的 MCP、CLI 和自动化程序会立即失去访问权限，此操作不会删除已经创建的分析。',confirmText:'撤销密钥',tone:'danger'});

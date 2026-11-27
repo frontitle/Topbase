@@ -14,8 +14,8 @@
 .picker-path { display: flex; align-items: center; gap: 8px; margin: -2px 18px 12px; color: #aaa; font-size: 12px; }
 .picker-path[hidden] { display: none; }
 .picker-path strong { color: #333; font-weight: 500; }
-.picker-back { border: 0; background: transparent; color: #555; padding: 5px 0; font: 500 12px var(--tb-font); }
-.picker-back:hover { color: #000; }
+
+
 .picker-status { padding: 15px 20px; border-top: 1px solid #ededed; color: #777; font-size: 12px; }
 .source-list { min-height: 210px; max-height: min(480px, calc(100vh - 340px)); overflow: auto; border-top: 1px solid #ededed; }
 .source-group-title { padding: 15px 20px 7px; color: #858585; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .055em; }

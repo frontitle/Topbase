@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap');
-*{box-sizing:border-box}
 body{
   margin:0;
   min-height:100vh;
@@ -7,7 +5,6 @@ body{
   place-items:center;
   background:radial-gradient(760px 420px at 72% 0,#e8efff 0,transparent 70%),#f5f7fb;
   color:#1d1d1f;
-  font-family:Geist,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;
 }
 .card{
   width:min(440px,92vw);
@@ -23,20 +20,8 @@ h1{margin:10px 0 8px;font-size:26px;letter-spacing:-.03em}
 form{display:grid;gap:14px}
 .setup-storage{display:grid;gap:7px;padding:13px;border:1px solid #dfe6d9;border-radius:9px;background:#f8fbf6}.setup-storage.is-risk{border-color:#efcf9b;background:#fff9ef}.setup-storage>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.setup-storage-label{color:#777;font-size:10px;letter-spacing:.04em}.setup-storage strong{font-size:12px}.setup-storage>p{margin:0;color:#6b6b6b;font-size:11px;line-height:1.5}.storage-risk{grid-template-columns:16px 1fr;align-items:start;margin-top:4px;padding-top:9px;border-top:1px solid #ead8b8;color:#75531e;line-height:1.5}.storage-risk[hidden]{display:none}.storage-risk input{width:14px;height:14px;margin:2px 0 0;padding:0}.storage-risk code{padding:1px 4px;border-radius:4px;background:#0000000a;font-size:10px}
 label{display:grid;gap:6px;font-size:12px;color:#333}
-input{
-  height:40px;
-  border:1px solid #dedede;
-  border-radius:8px;
-  background:#fff;
-  color:#1d1d1f;
-  padding:0 12px;
-  font:14px Geist,sans-serif;
-  outline:none;
-}
-input:focus{border-color:#3370ff;box-shadow:0 0 0 3px #3370ff1c}
-button{border:0;background:#3370ff;color:#fff;border-radius:7px;padding:12px 16px;font:500 14px Geist,sans-serif;cursor:pointer}
-button:hover{background:#2864e8}
 .error{color:#b42318;font-size:13px;margin:0}
 .hint{margin:18px 0 0;font-size:13px;color:#6b6b6b}
 .hint a{color:#3370ff;font-weight:500}
-.provider-list{display:grid;gap:10px;margin-top:14px}.provider{display:flex;align-items:center;justify-content:center;min-height:40px;border:1px solid #dcdcdc;border-radius:7px;color:#242424;text-decoration:none;font-size:13px;font-weight:500}.provider:hover{background:#f6f6f6}
+.provider-list{display:grid;gap:10px;margin-top:14px}
+form[hidden], .provider-list[hidden]{display:none}

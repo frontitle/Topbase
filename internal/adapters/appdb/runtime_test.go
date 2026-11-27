@@ -28,6 +28,12 @@ func TestProductionMigrationIntegration(t *testing.T) {
 	if err := source.Set("site_name", "Migrated Lab"); err != nil {
 		t.Fatal(err)
 	}
+	board := core.Dashboard{ID: "board", Name: "Read check", PublicUUID: "board-public",
+		CreatedAt: time.Now(), Cards: []core.DashboardCard{{ID: "card", Type: "text", Body: "example"}},
+	}
+	if err := source.CreateDashboard(board); err != nil {
+		t.Fatal(err)
+	}
 	report, err := source.MigrateSQLiteToProduction(context.Background(), Config{Engine: engine, DSN: dsn, AppVersion: "integration", ConnectTimeout: 10 * time.Second})
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +48,27 @@ func TestProductionMigrationIntegration(t *testing.T) {
 	defer target.Close()
 	if value, ok, err := target.Get("site_name"); err != nil || !ok || value != "Migrated Lab" {
 		t.Fatalf("migrated site_name = %q, %v, %v", value, ok, err)
+	}
+	got, err := target.DashboardByPublicUUID(board.PublicUUID)
+	if err != nil || got.ID != board.ID || len(got.Cards) != 1 || got.Cards[0].Body != "example" {
+		t.Fatalf("migrated dashboard: %+v, %v", got, err)
+	}
+	testWarehouseUpgradeOnProductionEngine(t, target)
+	if engine == EngineMySQL {
+		// Simulate a restart after MySQL auto-committed the first index of
+		// migration 017, but before the migration ledger was updated.
+		for _, statement := range []string{
+			"DROP INDEX dashboard_cards_by_board ON dashboard_cards",
+			"DROP INDEX dashboard_filters_by_board ON dashboard_filters",
+			"DELETE FROM schema_migrations WHERE version=17",
+		} {
+			if _, err := target.db.Exec(statement); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := applyMigrations(context.Background(), target.db, "integration"); err != nil {
+			t.Fatalf("resume partially applied indexes: %v", err)
+		}
 	}
 	if _, err := source.MigrateSQLiteToProduction(context.Background(), Config{Engine: engine, DSN: dsn, AppVersion: "integration"}); err == nil {
 		t.Fatal("second production migration unexpectedly succeeded")

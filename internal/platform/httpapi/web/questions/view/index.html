@@ -10,33 +10,35 @@
   <link rel="stylesheet" href="/viz.css">
   <link rel="stylesheet" href="/components/code/code.css">
 </head>
-<body>
+<body class="question-view">
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
-    <header class="topbar">
-      <a href="/questions/">分析</a><span>/</span><a id="group-crumb" hidden href="/questions/"></a><span id="group-crumb-separator" hidden>/</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称">加载中</button>
+    <header class="topbar analysis-topbar">
+      <a href="/questions/">分析</a><span>/</span><a id="group-crumb" hidden href="/questions/"></a><span id="group-crumb-separator" hidden>/</span><span id="read-title">加载中</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称" data-edit-action>加载中</button>
       <div class="top-actions">
-        <button class="secondary" id="edit-analysis" type="button">编辑</button>
-        <a class="secondary" id="materialize" href="/warehouse/">沉淀数据</a>
-        <button class="secondary" id="move" type="button">移动到分组</button>
-        <button class="secondary" id="archive" type="button">删除</button>
+        <button class="secondary tb-btn tb-btn-secondary" id="edit-analysis" type="button" data-edit-action>编辑</button>
+        <span id="export-action" hidden><button class="secondary tb-btn tb-btn-secondary" id="export-csv" type="button" title="重新运行已保存的分析并下载原始结果">导出 CSV</button></span>
+        <span id="warehouse-action" hidden><a class="secondary tb-btn tb-btn-secondary" id="materialize" href="/warehouse/">沉淀数据</a></span>
+        <button class="secondary tb-btn tb-btn-secondary" id="move" type="button" data-edit-action>移动到分组</button>
+        <button class="secondary tb-btn tb-btn-secondary" id="archive" type="button" data-edit-action>删除</button>
       </div>
     </header>
     <main>
       <div class="page-head">
         <div>
-          <h1 id="heading" class="editable-analysis-name" tabindex="0" role="button" title="点击修改名称">分析</h1>
+          <h1 id="heading">分析</h1>
           <p id="meta">正在加载这条分析。</p>
         </div>
       </div>
       <div id="filter-bar"></div>
+      <div id="native-controls" hidden><button class="secondary tb-btn tb-btn-secondary" id="native-parameters" type="button">查询参数</button></div>
       <div id="error" class="viz-error" hidden></div>
       <div class="viz-workspace">
         <div class="viz-main">
-          <div id="viz-types" class="viz-types"></div>
+          <div id="viz-types" class="viz-types" data-edit-action></div>
           <div id="viz-stage" class="viz-stage"></div>
         </div>
-        <aside id="viz-settings" class="viz-settings"></aside>
+        <aside id="viz-settings" class="viz-settings" data-edit-action></aside>
       </div>
       <details id="query-debug" class="query-debug">
         <summary>查看查询</summary>

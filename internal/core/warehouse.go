@@ -2,10 +2,40 @@ package core
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/topbase/topbase/internal/core/queryir"
 )
 
+var ErrWarehouseTargetInUse = errors.New("已有沉淀计划或数据表使用此目标，请更换保存表名")
+var ErrWarehouseCommitUnknown = errors.New("目标库提交结果未确认")
+
+func ParseWarehouseTarget(raw string) (schema, table string, err error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", fmt.Errorf("materialize_to is required")
+	}
+	schema, table = "warehouse", raw
+	if i := strings.LastIndex(raw, "."); i >= 0 {
+		schema, table = raw[:i], raw[i+1:]
+	}
+	if !strings.HasPrefix(table, "wh_") {
+		table = "wh_" + table
+	}
+	if err := queryir.CheckIdent("schema", schema); err != nil {
+		return "", "", err
+	}
+	if err := queryir.CheckIdent("table", table); err != nil {
+		return "", "", err
+	}
+	return schema, table, nil
+}
+
 type Schedule struct {
+	ClaimedTarget      bool       `json:"-"`
 	ID                 string     `json:"id"`
 	Name               string     `json:"name"`
 	QuestionID         string     `json:"question_id,omitempty"`
@@ -21,6 +51,12 @@ type Schedule struct {
 	LastRunAt          *time.Time `json:"last_run_at,omitempty"`
 	CreatedBy          string     `json:"created_by,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
+}
+
+type ScheduleSummary struct {
+	Schedule
+	LastStatus string `json:"last_status,omitempty"`
+	LastError  string `json:"last_error,omitempty"`
 }
 
 type Run struct {
@@ -68,13 +104,14 @@ type ScheduleProposal struct {
 }
 
 type MaterializeSpec struct {
-	DatabaseID     string
-	Schema         string
-	Table          string
-	Strategy       string
-	SQL            string
-	Args           []any
-	WatermarkField string
+	RequireNewTarget bool
+	DatabaseID       string
+	Schema           string
+	Table            string
+	Strategy         string
+	SQL              string
+	Args             []any
+	WatermarkField   string
 }
 
 type MaterializeResult struct {
@@ -97,6 +134,12 @@ type RunStore interface {
 	Create(Run) error
 	Update(Run) error
 	List(scheduleID string) ([]Run, error)
+	Unconfirmed(scheduleID string) (Run, *MaterializedTable, error)
+	// Finish commits the final run, schedule timestamp and (when supplied)
+	// materialization metadata and lineage together.
+	Finish(Run, *MaterializedTable) error
+	// MarkUncertain may only change a run whose external write is pending.
+	MarkUncertain(Run, *MaterializedTable) error
 }
 
 type MaterializedTableStore interface {

@@ -1,11 +1,60 @@
 package appdb
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/topbase/topbase/internal/core"
 )
+
+// Old and new uploads store the sheet as a JSON array. Read a bounded
+// prefix so opening a preview never transfers the full sheet to the server.
+func (s *Store) PreviewUploadedTable(ctx context.Context, id string) (core.UploadedTablePreview, error) {
+	const byteLimit = 128 << 10
+	const rowLimit = 50
+	preview := core.UploadedTablePreview{Rows: [][]string{}}
+	var prefix string
+	err := s.db.QueryRowContext(ctx, `SELECT row_count, SUBSTR(data_json, 1, ?) FROM uploaded_tables WHERE id=?`, byteLimit+1, id).
+		Scan(&preview.TotalRows, &prefix)
+	if err != nil || preview.TotalRows == 0 {
+		return preview, err
+	}
+	// SUBSTR counts characters across supported engines. Apply the byte limit
+	// before decoding, including for sheets with multibyte cell contents.
+	clipped := len(prefix) > byteLimit
+	if clipped {
+		prefix = prefix[:byteLimit]
+	}
+	decoder := json.NewDecoder(strings.NewReader(prefix))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('[') {
+		return preview, fmt.Errorf("invalid uploaded table data")
+	}
+	for len(preview.Rows) < min(preview.TotalRows, rowLimit) {
+		if !decoder.More() {
+			if clipped {
+				preview.ByteLimited = true
+				break
+			}
+			return preview, fmt.Errorf("uploaded table is missing rows")
+		}
+		var row []string
+		if err := decoder.Decode(&row); err != nil {
+			if clipped && (errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)) {
+				preview.ByteLimited = true
+				break
+			}
+			return preview, err
+		}
+		preview.Rows = append(preview.Rows, row)
+	}
+	return preview, nil
+}
 
 func (s *Store) SaveUploadedTable(item core.UploadedTable, rows [][]string) error {
 	columns, err := json.Marshal(item.Columns)

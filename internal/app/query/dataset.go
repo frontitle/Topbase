@@ -25,6 +25,20 @@ type DatasetService struct {
 	Expand  *Expander
 }
 
+// RunNativeQuestion binds the saved parameter definitions before using the
+// same read-only executor and result limits as the query editor.
+func (s DatasetService) RunNativeQuestion(ctx context.Context, question core.Question, values map[string]any) (DatasetResult, error) {
+	statement, args, err := queryir.ApplyNative(question.NativeSQL, question.Parameters, values)
+	if err != nil {
+		return DatasetResult{}, err
+	}
+	result, err := s.Queries.RunArgs(ctx, question.DatabaseID, statement, args)
+	if err != nil {
+		return DatasetResult{}, err
+	}
+	return DatasetResult{SQL: statement, Columns: result.Columns, Rows: result.Rows, Meta: result.Meta, ChartSpec: core.ChartSpec{Type: "table"}}, nil
+}
+
 func (s DatasetService) Run(ctx context.Context, q queryir.Query) (DatasetResult, error) {
 	if q.Version == 0 {
 		q.Version = 1

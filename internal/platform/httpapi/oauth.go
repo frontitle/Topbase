@@ -25,13 +25,32 @@ func (s *server) oauthLogin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	intent := r.URL.Query().Get("intent")
+	if intent == "" {
+		settings, err := s.identity.AuthSettings()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		enabled := false
+		for _, id := range settings.EnabledProviderIDs {
+			if id == provider.ID {
+				enabled = true
+				break
+			}
+		}
+		if !enabled {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "this login method is disabled"})
+			return
+		}
+	}
 	state, err := newOAuthState()
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: oauthStateCookie, Value: state, Path: "/auth/oauth/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secureCookieRequest(r), MaxAge: 600})
-	if r.URL.Query().Get("intent") == "bind" {
+	if intent == "bind" {
 		user, signedIn := s.currentSessionUser(r)
 		if !signedIn {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in before linking an account"})

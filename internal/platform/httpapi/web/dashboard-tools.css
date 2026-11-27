@@ -1,0 +1,68 @@
+.editor-tools {
+  grid-area: tools;
+  position: relative;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  color: #29374a;
+}
+.editor-tools[hidden], .insert-panel[hidden] { display: none; }
+.insert-anchor, .outline-anchor { position: relative; }
+.editor-tool { padding-inline: 10px; }
+.editor-tool:is([aria-expanded="true"], [aria-pressed="true"]) {
+  background: var(--tb-action-soft);
+  color: var(--tb-action-hover);
+}
+.editor-tool svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.65; }
+.insert-toggle { color: var(--tb-action); }
+.insert-plus { font: 500 18px/1 var(--tb-font); }
+.tool-chevron { width: 6px; height: 6px; margin: -3px 2px 0; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.insert-toggle[aria-expanded="true"] .tool-chevron { transform: rotate(225deg); margin-top: 3px; }
+
+.insert-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  width: min(340px, calc(100vw - 40px), calc(100cqw - 16px));
+  max-height: min(535px, 68dvh);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.insert-panel.palette-in-flight { opacity: 0; pointer-events: none; }
+.insert-panel .palette-tabs { margin: 0; padding: 4px 12px 0; flex: none; border-bottom: 1px solid #e0e6ee; }
+.insert-panel .palette-tabs > button { color: #58677a; }
+.insert-panel .palette-tabs > button.active { color: #235bc8; border-bottom-color: #356bd2; }
+.insert-panel .palette-content {
+  padding: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 0 0 11px 11px;
+  background: white;
+  box-shadow: none;
+}
+.insert-panel :is(.tb-input,.tb-select) { display: block; width: 100%; margin: 0 0 8px; }
+.insert-panel .palette-item {
+  margin-bottom: 4px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  background: #fff;
+  color: #263446;
+  box-shadow: none;
+  transition: none;
+}
+.insert-panel .palette-item b { font-weight: 550; }
+.insert-panel .palette-item small { color: #627184; }
+.insert-panel .palette-item:hover:not(:disabled), .insert-panel .widget-tile:hover {
+  border-color: #c4d6f9; background: #f0f5ff; color: #2456b0; transform: none;
+}
+.insert-panel .palette-item:disabled { color: #627184; opacity: .7; }
+.insert-panel .widget-group h3 { margin: 14px 0 7px; color: #596679; font: 550 12px/1.4 var(--tb-font); }
+.insert-panel .widget-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.insert-panel .widget-symbol { background: #edf2fa; color: #42618f; }
+.insert-panel .plugin-doc-link { color: #2f60b7; }

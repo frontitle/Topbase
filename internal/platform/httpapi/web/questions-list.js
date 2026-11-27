@@ -13,7 +13,7 @@ function renderAnalyses(){
 }
 function renderGroups(){
   $('#group-count').textContent=collections.length?'('+collections.length+')':'';
-  $('#group-list').innerHTML=collections.map(collection=>{const shared=!!collection.read_only;return `<article class="analysis-group-card ${shared?'shared':''}"><div><b>${esc(collection.name)}</b><small>${collectionKind(collection)} · ${analysisCount(collection.id)} 条分析 · ${childCount(collection.id)} 个子分组</small></div><footer><span>${shared?'共享分组仅可查看':'在详情中整理、移动或共享内容'}</span><a class="secondary" href="/collections/${encodeURIComponent(collection.id)}/">${shared?'查看分组':'配置分组'}</a></footer></article>`}).join('')||emptyHTML({icon:'☰',title:'还没有分组',body:'创建个人分组或企业项目后，可以把相关分析整理在一起。'});
+  $('#group-list').innerHTML=collections.map(collection=>{const shared=!!collection.read_only;return `<article class="analysis-group-card ${shared?'shared':''}"><div><b>${esc(collection.name)}</b><small>${collectionKind(collection)} · ${analysisCount(collection.id)} 条分析 · ${childCount(collection.id)} 个子分组</small></div><footer><span>${shared?'共享分组仅可查看':'在详情中整理、移动或共享内容'}</span><a class="secondary tb-btn tb-btn-secondary" href="/collections/${encodeURIComponent(collection.id)}/">${shared?'查看分组':'配置分组'}</a></footer></article>`}).join('')||emptyHTML({icon:'☰',title:'还没有分组',body:'创建个人分组或企业项目后，可以把相关分析整理在一起。'});
 }
 async function createGroup(){
   const admin=!!(user&&user.is_admin);

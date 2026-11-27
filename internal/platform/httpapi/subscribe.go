@@ -233,6 +233,141 @@ func (s *server) saveIdentityProviders(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, items)
 }
+
+func (s *server) validateIdentityProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var item core.IdentityProvider
+	if !decodeJSON(w, r, &item) {
+		return
+	}
+	item.ID, item.Type, item.Name = strings.TrimSpace(item.ID), strings.TrimSpace(item.Type), strings.TrimSpace(item.Name)
+	item.ClientID, item.ClientSecret = strings.TrimSpace(item.ClientID), strings.TrimSpace(item.ClientSecret)
+	if item.ID == "" || item.Name == "" || item.ClientID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请完整填写接入名称和 App ID / Client ID"})
+		return
+	}
+	if item.ClientSecret == "" {
+		existing, _ := s.identity.IdentityProviders()
+		for _, old := range existing {
+			if old.ID == item.ID {
+				item.ClientSecret = old.ClientSecret
+				break
+			}
+		}
+	}
+	if item.ClientSecret == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请填写 App Secret / Client Secret"})
+		return
+	}
+	switch item.Type {
+	case "feishu", "dingtalk", "wecom", "wechat", "google":
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "暂不支持该账号平台"})
+		return
+	}
+	item.Enabled = true
+	item.Configured = true
+	item.ClientSecret = ""
+	writeJSON(w, http.StatusOK, map[string]any{"valid": true, "provider": item})
+}
+
+func (s *server) saveIdentityProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	var item core.IdentityProvider
+	if !decodeJSON(w, r, &item) {
+		return
+	}
+	item.ID = r.PathValue("id")
+	providers, err := s.identity.IdentityProviders()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	found := false
+	for i := range providers {
+		if providers[i].ID != item.ID {
+			continue
+		}
+		found = true
+		if strings.TrimSpace(item.ClientSecret) == "" {
+			item.ClientSecret = providers[i].ClientSecret
+		}
+		providers[i] = item
+		break
+	}
+	if !found {
+		providers = append(providers, item)
+	}
+	item.Enabled = true
+	for i := range providers {
+		if providers[i].ID == item.ID {
+			providers[i].Enabled = true
+			item = providers[i]
+			break
+		}
+	}
+	if strings.TrimSpace(item.ClientID) == "" || strings.TrimSpace(item.ClientSecret) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请先验证完整的应用凭据"})
+		return
+	}
+	if err := s.identity.SaveIdentityProviders(providers); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	item.Configured = true
+	item.ClientSecret = ""
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *server) deleteIdentityProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	providers, err := s.identity.IdentityProviders()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	id := r.PathValue("id")
+	found := false
+	kept := make([]core.IdentityProvider, 0, len(providers))
+	for _, provider := range providers {
+		if provider.ID == id {
+			found = true
+			continue
+		}
+		kept = append(kept, provider)
+	}
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "账号接入不存在"})
+		return
+	}
+	settings, err := s.identity.AuthSettings()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	selected := make([]string, 0, len(settings.EnabledProviderIDs))
+	for _, providerID := range settings.EnabledProviderIDs {
+		if providerID != id {
+			selected = append(selected, providerID)
+		}
+	}
+	settings.EnabledProviderIDs = selected
+	if err := s.identity.SaveAuthSettings(settings); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := s.identity.SaveIdentityProviders(kept); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 func (s *server) listWebhooks(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return

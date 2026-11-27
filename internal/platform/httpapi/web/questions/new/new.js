@@ -18,7 +18,7 @@ function renderDatabases() {
   $('#picker-path').hidden = true;
   setStatus(`${items.length} 个可用数据源`);
   $('#source-list').innerHTML = items.map(db => row('▣', db.name, `${db.engine || 'PostgreSQL'} · ${db.table_count || 0} 张数据表`, `data-database="${esc(db.id)}"`)).join('') ||
-    empty(databases.length ? '没有匹配的数据源' : '还没有可用数据源', databases.length ? '换一个名称、主机或数据库类型搜索。' : '管理员连接数据库并同步结构后，数据表会显示在这里。', '<a class="secondary" href="/admin/">前往数据源管理</a>');
+    empty(databases.length ? '没有匹配的数据源' : '还没有可用数据源', databases.length ? '换一个名称、主机或数据库类型搜索。' : '管理员连接数据库并同步结构后，数据表会显示在这里。', '<a class="secondary tb-btn tb-btn-secondary" href="/admin/">前往数据源管理</a>');
   $$('#source-list [data-database]').forEach(button => button.onclick = () => openDatabase(button.dataset.database));
 }
 function renderTables() {
@@ -60,7 +60,7 @@ async function openDatabase(id) {
   } catch (error) {
     tables = [];
     setStatus('数据表读取失败');
-    $('#source-list').innerHTML = empty('暂时无法读取数据表', error.message, '<a class="secondary" href="/admin/?id=' + encodeURIComponent(id) + '">检查数据源连接</a>');
+    $('#source-list').innerHTML = empty('暂时无法读取数据表', error.message, '<a class="secondary tb-btn tb-btn-secondary" href="/admin/?id=' + encodeURIComponent(id) + '">检查数据源连接</a>');
   }
 }
 async function boot() {

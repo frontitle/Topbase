@@ -60,12 +60,12 @@ async function openTable(table){
     const semantic=f.semantic_type||(c.primary_key?'EntityKey':(c.foreign_key?'ForeignKey':''));
     return `<tr data-field="${esc(c.name)}" data-source-fk-schema="${esc(c.foreign_key&&c.foreign_key.schema||'')}">
       <td><b>${esc(c.name)}</b>${c.primary_key?'<small class="field-badge">主键</small>':''}</td>
-      <td><input data-k="display_name" placeholder="别称" value="${esc(f.display_name||'')}"></td>
+      <td><input class="tb-input" data-k="display_name" placeholder="别称" value="${esc(f.display_name||'')}"></td>
       <td><span>${esc(c.data_type||'')}</span>${c.default_value?`<small class="field-default" title="${esc(c.default_value)}">默认：${esc(c.default_value)}</small>`:''}</td>
-      <td><input data-k="description" placeholder="数据库注释或业务说明" value="${esc(description)}"></td>
-      <td><select data-k="semantic">${typeOpts}</select></td>
-      <td><input data-k="fk_table" placeholder="users" value="${esc(foreign.table||'')}"></td>
-      <td><input data-k="fk_field" placeholder="id" value="${esc(foreign.name||'')}"></td>
+      <td><input class="tb-input" data-k="description" placeholder="数据库注释或业务说明" value="${esc(description)}"></td>
+      <td><select class="tb-select" data-k="semantic">${typeOpts}</select></td>
+      <td><input class="tb-input" data-k="fk_table" placeholder="users" value="${esc(foreign.table||'')}"></td>
+      <td><input class="tb-input" data-k="fk_field" placeholder="id" value="${esc(foreign.name||'')}"></td>
       <td><button class="field-visibility-icon ${f.visibility==='hidden'?'is-hidden':''}" data-k="visibility" type="button" title="${f.visibility==='hidden'?'在前台显示':'在前台隐藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>${f.visibility==='hidden'?'<path d="M4 4 20 20"></path>':''}</svg></button></td>
     </tr>`;
   }).join('');

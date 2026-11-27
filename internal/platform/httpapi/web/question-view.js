@@ -1,11 +1,13 @@
 const id = location.pathname.split('/').filter(Boolean)[1];
 let question = null, collections = [], filterBar = null, lastResult = null, spec = null, saveTimer = 0;
 let nameSaving = false;
+let temporaryFilters = false;
+let canEdit = false, canRun = false, nativeParameters = null;
 
 async function run(queryir) {
   if (queryir) return api('/api/dataset', 'POST', queryir);
-  if (question.query_type === 'native' && question.native_sql) {
-    return api('/api/queries/run', 'POST', { database_id: question.database_id, sql: question.native_sql });
+  if (question.query_type === 'native' || (!question.queryir && question.native_sql)) {
+    return api('/api/questions/' + encodeURIComponent(id) + '/native-preview', 'POST', {parameters: nativeParameters || {}});
   }
   if (question.queryir) return api('/api/dataset', 'POST', question.queryir);
   throw Error('这条分析没有可运行的查询');
@@ -34,6 +36,7 @@ function showError(err) {
 }
 
 function saveView(state) {
+  if (!canEdit) return;
   const columns = Object.assign({}, spec.columns || {});
   ((lastResult && lastResult.columns) || []).forEach(name => {
     const prev = Object.assign({}, columns[name] || {});
@@ -60,7 +63,7 @@ function paint() {
   const view = spec.type === 'table'
     ? { columns: d.columns || [], rows: d.rows || [] }
     : TopbaseViz.project(d.columns || [], d.rows || [], spec);
-  TopbaseViz.renderTypes($('#viz-types'), spec, type => applySpec(Object.assign({}, spec, { type })));
+  if (canEdit) TopbaseViz.renderTypes($('#viz-types'), spec, type => applySpec(Object.assign({}, spec, { type })));
   TopbaseViz.render($('#viz-stage'), {
     columns: d.columns || [],
     rows: d.rows || [],
@@ -68,12 +71,13 @@ function paint() {
     queryir: question.queryir,
     semanticTypes: d.meta && d.meta.semantic_types || {},
     tableFilters: false,
-    onViewChange: spec.type === 'table' ? saveView : null
+    onViewChange: canEdit && spec.type === 'table' ? saveView : null
   });
-  TopbaseViz.renderSettings($('#viz-settings'), view.columns, view.rows, spec, applySpec);
+  if (canEdit) TopbaseViz.renderSettings($('#viz-settings'), view.columns, view.rows, spec, applySpec);
 }
 
 function applySpec(next) {
+  if (!canEdit) return;
   spec = TopbaseViz.merge(next, spec, (lastResult && lastResult.columns) || [], (lastResult && lastResult.rows) || []);
   question.chartspec = spec;
   paint();
@@ -86,7 +90,7 @@ function scheduleSave() {
 }
 
 async function saveSpec() {
-  if (!question || !spec) return;
+  if (!canEdit || !question || !spec) return;
   try {
     question = await api('/api/questions/' + id, 'PUT', {
       name: question.name,
@@ -119,6 +123,7 @@ function mountFilter(d) {
       return (res.rows || []).map(r => r[0]).filter(v => v !== null && v !== undefined);
     },
     onChange: async filters => {
+      temporaryFilters = true;
       question.queryir = Object.assign({}, question.queryir, { filters, limit: question.queryir.limit || 2000 });
       await loadResult();
     }
@@ -139,8 +144,9 @@ function setMeta() {
     if (col) { groupCrumb.textContent = col.name; groupCrumb.href = '/collections/' + encodeURIComponent(col.id) + '/'; }
   }
   $('#title').textContent = question.name;
+  $('#read-title').textContent = question.name;
   $('#heading').textContent = question.name;
-  $('#meta').textContent = kind + ' · ' + (col ? col.name : '我的分析') + ' · ' + freshness + ' · ' + n + ' 行' + (limited ? ' · ' + limited : '') + (updated ? ' · 更新于 ' + updated : '');
+  $('#meta').textContent = [kind, col ? col.name : '我的分析', canEdit ? '' : '只读', lastResult ? freshness + ' · ' + n + ' 行' : '', limited, updated ? '更新于 ' + updated : ''].filter(Boolean).join(' · ');
   const isSQL = !!(question.native_sql || (lastResult && lastResult.sql));
   TopbaseCode.setCode('#query-json', queryPreview(), {
     language: isSQL ? 'sql' : 'json',
@@ -149,6 +155,7 @@ function setMeta() {
 }
 
 async function saveName(name) {
+  if (!canEdit) return;
   const nextName = String(name || '').trim();
   if (!nextName) {
     toast('分析名称不能为空');
@@ -176,7 +183,7 @@ async function saveName(name) {
 }
 
 function editName() {
-  if (!question || nameSaving || $('#heading input')) return;
+  if (!canEdit || !question || nameSaving || $('#heading input')) return;
   const heading = $('#heading');
   const input = document.createElement('input');
   input.className = 'analysis-name-input';
@@ -197,6 +204,14 @@ function editName() {
 
 async function loadResult() {
   showError('');
+  if (!canRun) {
+    $('#viz-stage').innerHTML = '<div class="viz-empty"><b>当前账号无法运行此查询</b><p>请联系管理员检查数据查看权限和 SQL 执行权限。</p></div>';
+    return;
+  }
+  if (nativeParameters === null && nativeParameterFields(question).some(field => field.required)) {
+    $('#viz-stage').innerHTML = '<div class="viz-empty"><b>等待查询参数</b><p>点击「查询参数」填写必填项后运行。</p></div>';
+    return;
+  }
   $('#viz-stage').innerHTML = '<div class="viz-empty"><b>正在运行</b><p>正在拉取这条分析的结果。</p></div>';
   try {
     lastResult = await run();
@@ -209,22 +224,38 @@ async function loadResult() {
     } catch (renderError) {
       showError('数据查询成功，但可视化渲染失败：' + renderError.message);
       $('#viz-stage').innerHTML = '<div class="viz-empty"><b>数据已查询成功</b><p>图表暂时无法渲染，请切换为表格或重新运行。</p></div>';
-      TopbaseViz.renderTypes($('#viz-types'), spec || { type: 'table' }, type => applySpec(Object.assign({}, spec, { type })));
+      if (canEdit) TopbaseViz.renderTypes($('#viz-types'), spec || { type: 'table' }, type => applySpec(Object.assign({}, spec, { type })));
       $('#viz-settings').innerHTML = '<h3>设置</h3><p class="viz-muted">可视化组件发生错误，原始查询结果没有丢失。</p>';
     }
   } catch (e) {
-    lastResult = { columns: [], rows: [], sql: question.native_sql || '' };
+    lastResult = null;
     setMeta();
     showError(e.message);
     $('#viz-stage').innerHTML = '<div class="viz-empty"><b>结果不可见</b><p>' + esc(e.message) + '</p></div>';
-    TopbaseViz.renderTypes($('#viz-types'), spec || { type: 'table' }, () => {});
+    if (canEdit) TopbaseViz.renderTypes($('#viz-types'), spec || { type: 'table' }, () => {});
     $('#viz-settings').innerHTML = '<h3>设置</h3><p class="viz-muted">查询成功后，可以在这里更改图表类型、横轴和纵轴。</p>';
   }
 }
 
 async function boot() {
-  question = await api('/api/questions/' + id);
-  collections = await api('/api/collections');
+  question = await api('/api/questions/' + id + '?view=detail');
+  canEdit = question.can_edit === true;
+  canRun = question.can_run === true;
+  document.body.toggleAttribute('data-can-edit', canEdit);
+  $('#read-title').hidden = canEdit;
+  if (canEdit) {
+    const heading = $('#heading');
+    heading.classList.add('editable-analysis-name');
+    heading.setAttribute('role', 'button');
+    heading.tabIndex = 0;
+    heading.title = '点击修改名称';
+  }
+  $('#export-action').hidden = !canRun || !question.id || !!question.archived_at || !(question.queryir || question.native_sql);
+  $('#warehouse-action').hidden = !question.can_materialize;
+  const fields = nativeParameterFields(question);
+  $('#native-controls').hidden = !canRun || !fields.length;
+  if (!fields.some(field => field.required)) nativeParameters = {};
+  collections = question.collection_name ? [{id:question.collection_id, name:question.collection_name}] : [];
   $('#materialize').href = '/warehouse/?question=' + encodeURIComponent(question.id) + '#create-materialization';
   spec = question.chartspec || { type: 'table' };
   setMeta();
@@ -234,6 +265,7 @@ async function boot() {
 boot().catch(e => {
   showError(e.message);
   if ($('#title')) $('#title').textContent = '无法打开';
+  if ($('#read-title')) $('#read-title').textContent = '无法打开';
   if ($('#heading')) $('#heading').textContent = '无法打开分析';
   if ($('#meta')) $('#meta').textContent = e.message;
 });
@@ -242,11 +274,102 @@ function on(id, fn) {
   const el = document.getElementById(id);
   if (el) el.onclick = fn;
 }
-on('edit-analysis', () => { location.href = '/data/?edit=' + encodeURIComponent(id); });
+function nativeParameterFields(saved) {
+  const sql = saved.query_type === 'native' || !saved.queryir ? saved.native_sql || '' : '';
+  const token = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+  const names = [...new Set(Array.from(sql.matchAll(token), match => match[1]))];
+  const requiredNames = new Set(Array.from(sql.replace(/\[\[[\s\S]*?\]\]/g, '').matchAll(token), match => match[1]));
+  return names.map((name, i) => {
+    const parameter = (saved.parameters || []).find(item => item.name === name) || {};
+    const required = requiredNames.has(name) && !parameter.field && parameter.type !== 'field';
+    return {name: 'p' + i, label: name, required, type: parameter.type === 'date' ? 'date' : 'text', value: nativeParameters?.[name] ?? ''};
+  });
+}
+
+async function chooseNativeParameters(confirmText) {
+  const fields = nativeParameterFields(question);
+  if (!fields.length) return {};
+  const input = await formDialog({title: '查询参数', description: '预览和导出使用相同的参数。可选项留空时跳过对应条件。', fields, confirmText});
+  if (!input) return null;
+  return Object.fromEntries(fields.flatMap(field => {
+    const value = input[field.name];
+    return value === '' ? [] : [[field.label, value]];
+  }));
+}
+
+on('native-parameters', async () => {
+  const button = $('#native-parameters');
+  if (!canRun || button.disabled) return;
+  button.disabled = true;
+  try {
+    const values = await chooseNativeParameters('运行分析');
+    if (values === null) return;
+    nativeParameters = values;
+    await loadResult();
+  } finally {
+    button.disabled = false;
+  }
+});
+async function exportSavedCSV() {
+  const button = $('#export-csv');
+  if (!canRun || !question?.id || button.disabled) return;
+  button.disabled = true;
+  let denied = false;
+  try {
+    if (temporaryFilters && !await confirmDialog({
+      title: '导出已保存的查询结果？', description: '这次导出将使用分析中保存的筛选条件。当前页面的临时筛选只影响预览。', confirmText: '导出已保存结果'
+    })) return;
+    const parameters = nativeParameters ?? await chooseNativeParameters('导出');
+    if (parameters === null) return;
+    nativeParameters = parameters;
+    button.textContent = '正在导出…';
+    const headers = {'Content-Type': 'application/json'};
+    const csrf = document.cookie.match(/(?:^|; )topbase_csrf=([^;]+)/);
+    if (csrf) headers['X-Topbase-CSRF'] = decodeURIComponent(csrf[1]);
+    const response = await fetch('/api/questions/' + encodeURIComponent(id) + '/export', {
+      method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify({parameters})
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      let message = body;
+      try { message = JSON.parse(body).error || body; } catch {}
+      denied = response.status === 403 && !/csrf|origin/i.test(message);
+      if (response.status === 401) message = '登录已过期，请重新登录后导出。';
+      if (denied) message = '当前账号缺少导出这条分析所需的权限。';
+      throw Error(message || '导出失败，请重试。');
+    }
+    const blob = await response.blob();
+    if (!blob.type.startsWith('text/csv')) throw Error('登录状态已变化，请刷新页面后重试。');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = (question.name || id).replace(/[\\/:*?"<>|]/g, '_') + '.csv';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('CSV 已开始下载');
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = denied;
+    button.textContent = denied ? '无导出权限' : '导出 CSV';
+    if (denied) button.title = '需要数据查看权限，原生 SQL 分析还需要 SQL 执行权限。';
+  }
+}
+on('export-csv', exportSavedCSV);
+on('edit-analysis', () => { if (canEdit) location.href = '/data/?edit=' + encodeURIComponent(id); });
 on('title', editName);
 on('heading', editName);
 $('#heading').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); editName(); } };
 on('move', async () => {
+  if (!canEdit) return;
+  try {
+    collections = await api('/api/collections?access=edit');
+  } catch (error) {
+    toast(error.message);
+    return;
+  }
   const collection_id = await choiceDialog({
     kicker: '分析分组',
     title: '移动到分组',
@@ -267,6 +390,7 @@ on('move', async () => {
   setMeta();
 });
 on('archive', async () => {
+  if (!canEdit) return;
   if (!await confirmDialog({ kicker: '删除分析', title: '删除这条分析？', description: '分析会从列表和数据组中移除，之后仍可在回收站恢复。', confirmText: '删除', tone: 'danger' })) return;
   await api('/api/questions/' + id, 'DELETE');
   location.href = '/questions/';

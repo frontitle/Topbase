@@ -60,8 +60,24 @@ func (s *server) createDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getDashboard(w http.ResponseWriter, r *http.Request) {
-	_, item, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view")
+	user, item, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "view")
 	if !ok {
+		return
+	}
+	if r.URL.Query().Get("view") == "sharing" {
+		settings, err := s.identity.AdminSettings()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取分享设置失败"})
+			return
+		}
+		admin := s.identity.IsAdmin(user.ID)
+		w.Header().Set("Cache-Control", "private, no-store")
+		writeJSON(w, http.StatusOK, map[string]any{
+			"can_manage": admin || s.canAccessDashboard(user, item, "manage"),
+			"is_admin":   admin, "allow_public": settings.PublicSharingEnabled,
+			"allow_embed": settings.EmbeddingEnabled, "public_uuid": item.PublicUUID,
+			"public_embed_enabled": item.PublicEmbedEnabled, "base_url": s.publicBaseURL(r),
+		})
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -261,10 +277,12 @@ func (s *server) setDashboardEmbedding(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	settings, err := s.identity.AdminSettings()
-	if err != nil || !settings.EmbeddingEnabled {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "embedding is disabled by the administrator"})
-		return
+	if input.Enabled {
+		settings, err := s.identity.AdminSettings()
+		if err != nil || !settings.PublicSharingEnabled || !settings.EmbeddingEnabled {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "工作区尚未同时允许公开链接与外部嵌入"})
+			return
+		}
 	}
 	saved, err := s.content.SetDashboardEmbedding(r.PathValue("id"), input.Enabled, user.ID)
 	if err != nil {
@@ -301,6 +319,7 @@ func (s *server) publicLinkPayload(r *http.Request, d core.Dashboard) map[string
 }
 
 func (s *server) getPublicDashboard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	settings, err := s.identity.AdminSettings()
 	if err != nil || !settings.PublicSharingEnabled {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "public sharing is disabled by the administrator"})
@@ -355,17 +374,18 @@ func (s *server) runPublicDashboardCard(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *server) servePublicDashboard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	isEmbed := strings.HasPrefix(r.URL.Path, "/embed/")
 	settings, err := s.identity.AdminSettings()
-	if err != nil || !settings.PublicSharingEnabled || (strings.HasPrefix(r.URL.Path, "/embed/") && !settings.EmbeddingEnabled) {
-		http.NotFound(w, r)
+	available := false
+	if err == nil && settings.PublicSharingEnabled && (!isEmbed || settings.EmbeddingEnabled) {
+		available, err = s.store.PublicDashboardPageAvailable(r.Context(), r.PathValue("uuid"), isEmbed)
+	}
+	if err != nil || !available {
+		s.serveHTMLStatus(w, r, "embed/unavailable.html", http.StatusNotFound)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/embed/") {
-		board, err := s.content.GetDashboardByPublicUUID(r.PathValue("uuid"))
-		if err != nil || !board.PublicEmbedEnabled {
-			http.NotFound(w, r)
-			return
-		}
+	if isEmbed {
 		w.Header().Set("Content-Security-Policy", "frame-ancestors *")
 	} else {
 		// Published pages remain visitable links, but cannot be repurposed as an
@@ -394,11 +414,16 @@ func (s *server) serveCollectionView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) serveHTML(w http.ResponseWriter, r *http.Request, name string) {
+	s.serveHTMLStatus(w, r, name, http.StatusOK)
+}
+
+func (s *server) serveHTMLStatus(w http.ResponseWriter, r *http.Request, name string, status int) {
 	data, err := fs.ReadFile(s.static, name)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
 	_, _ = w.Write(data)
 }
