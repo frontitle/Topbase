@@ -1,15 +1,42 @@
-# Filter, summarize and join data
+# Build a visual analysis
 
-Start in Analyses → New analysis. Choose a table or a saved analysis. Inspect a few rows before selecting fields. Keep an identifier in the result while checking the level of detail.
+How much did each channel earn from paid orders? Use the visual query editor to answer that question, check the total, and save a reusable analysis. Follow along with the six-row orders table from [Getting started](getting-started.html).
 
-## Filter and summarize
+## Calculate paid sales by channel
 
-For paid sales by channel, first filter the status to paid and limit the order date. Choose sum of amount and group by channel. Sort the total descending. A row count measures volume, while a sum measures revenue. Run once without grouping to check that the channel totals add up.
+1. Open **Source data**, select the sample database, then select `orders`. The work area opens on **Visual query**. The first preview shows individual orders.
+2. Under **Filter**, add a condition on `status`, choose equality and select or enter `paid`. Under **Summarize → Calculate**, choose **Sum** and select `amount`. Leave **Group** empty and click **Run and preview**. The single value should be **680**.
+3. Set **Group** to `channel`. Open **Sort**, select the aggregated result `sum` and choose **Descending**. Run the query again. Each row now represents one channel.
 
-## Join or calculate a field
+| Channel | Sum of paid order amounts |
+| --- | ---: |
+| Web | 300 |
+| Partner | 200 |
+| Store | 180 |
 
-Join orders to a customer table using customer ID to break down sales by customer segment. Check that each customer ID occurs once in the customer table. Compare totals before and after joining. For line items, calculate quantity times unit price in a custom column before summing the result.
+4. Click **Save analysis**, enter **Sales by channel**, pick a group you can write to, and confirm. The saved analysis opens. Use **Edit** to change its query later. Run the query after changing the visual steps and before saving so the saved definition includes those changes.
 
-## Save and reuse
+<figure><a href="../assets/guide-images/visual-query-en.jpg"><img src="../assets/guide-images/visual-query-en.jpg" alt="The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving." width="754" height="885" loading="lazy"></a><figcaption>The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving.</figcaption></figure>
 
-Run the analysis, give it a descriptive name and select its group. For a SQL analysis, select the database and use the SQL editor with native query permission. Check the returned field names before adding the result to a dashboard.
+## Choose what one row represents
+
+| Question | Calculate | Group |
+| --- | --- | --- |
+| Which orders were paid? | No aggregation. Select the desired columns under **Data**. | Leave empty |
+| How many orders were paid? | Row count, with the paid filter. The example returns 5. | Leave empty |
+| How many channels had a paid order? | Distinct count of `channel`. The example returns 3. | Leave empty |
+| How did sales change over time? | Sum of `amount` with the paid filter | Choose a date-typed `order_date`, then select Day, Week, Month, Quarter or Year |
+
+**Average**, **Minimum** and **Maximum** also require a field. **Row limit** controls how many result rows come back, from 1 to 10,000, with a default of 1,000. For the top two channels, keep the descending sort and set the limit to 2. Remove that limit before reconciling the grand total.
+
+## Join a lookup table
+
+Suppose your database also contains a `channels` table with one row per channel and an `owner` column. Open **Join data**, choose `channels`, and match `orders.channel` to `channels.channel`. Select **Keep all rows from the current table** to retain orders with a missing owner, or **Keep matching rows only** to omit unmatched orders. Choose `owner` under **Include fields from the joined table** and run with **No aggregation** to inspect the pairs. A known foreign key can preselect the match.
+
+If order IDs repeat after the join, look for duplicate keys in the lookup table. Two matching owners create two copies of an order and can inflate a sum.
+
+## Calculate a value for each record
+
+With **No aggregation** selected, open **Custom field**. Name the field `amount_cents`, set the left operand to `amount`, select **Multiply**, and enter `100` as the right operand. Run the query to see the extra column beside each order. The editor also supports addition, subtraction, division and concatenation with a field or a constant. To summarize the result of a calculation in the same query, use the [SQL editor](sql.html).
+
+To turn the saved channel totals into a chart, follow [Choose and configure a chart](charts.html).
