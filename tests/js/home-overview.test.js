@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
+const workspaceLocale = require('./helpers/workspace-locale');
 
 const shell = fs.readFileSync('internal/platform/httpapi/web/shell.js', 'utf8');
 const home = fs.readFileSync('internal/platform/httpapi/web/index.html', 'utf8');
@@ -22,6 +23,7 @@ test('home shortcut and sidebar show warehouse management only to authorized use
     let mount;
     const menus = [];
     const context = vm.createContext({
+      TopbaseLocale: workspaceLocale(),
       TopbaseUI: { popover: (trigger, panel) => menus.push([trigger, panel]) },
       window: { matchMedia: () => ({ matches: false, addEventListener() {} }) },
       document: {
@@ -40,6 +42,13 @@ test('home shortcut and sidebar show warehouse management only to authorized use
     vm.runInContext(shell, context);
     await mount();
     await vm.runInContext(app, context);
+    context.TopbaseLocale = workspaceLocale('en');
+    assert.equal(context.notificationText({alert_id:'a',title:'仪表盘订阅',body:'查询返回 42 行'}).title, '仪表盘订阅');
+    assert.equal(context.notificationText({alert_id:'a',title:'查询',body:'查询返回 42 行'}).body, 'Rows returned: 42');
+    const delivery = context.notificationText({title:'仪表盘订阅',body:'分析：成功 3 张卡，失败 0，共 42 行'});
+    assert.equal(delivery.title, 'Dashboard subscription');
+    assert.equal(delivery.body, '分析: 3 cards succeeded, 0 failed. Rows: 42.');
+    assert.equal(context.notificationText({title:'toString',body:'查询返回 42 行'}).body, '查询返回 42 行');
     assert.deepEqual(menus, [[element('.sidebar-profile'), element('.account-menu')], [element('#home-create'), element('#home-create-menu')]]);
     assert.equal(element('[data-shell]').innerHTML.includes('href="/warehouse/"'), isAdmin);
     assert.equal(element('#warehouse-link').hidden, !isAdmin);

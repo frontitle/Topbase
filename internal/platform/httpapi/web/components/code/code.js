@@ -29,7 +29,7 @@
     button.type = 'button';
     button.className = 'tb-code-copy';
     button.textContent = '复制代码';
-    button.setAttribute('aria-label', '复制' + (label || '代码'));
+    button.setAttribute('aria-label', (global.TopbaseLocale?.t('复制 {label}', {label:global.TopbaseLocale.t(label || '代码')}) || '复制' + (label || '代码')));
     button.onclick = async () => {
       if (!code()) return;
       const original = button.textContent;
@@ -39,7 +39,7 @@
         button.classList.add('is-copied');
         if (typeof global.toast === 'function') global.toast('代码已复制');
       } catch (error) {
-        if (typeof global.toast === 'function') global.toast('复制失败：' + error.message);
+        if (typeof global.toast === 'function') global.toast(global.TopbaseLocale?.t('复制失败：{reason}', {reason:global.TopbaseLocale.errorText(error.message)}) || ('复制失败：' + error.message));
       } finally {
         setTimeout(() => {
           button.textContent = original;

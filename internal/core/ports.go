@@ -77,6 +77,9 @@ type DashboardStore interface {
 	Update(Dashboard) error
 	ByID(id string) (Dashboard, error)
 	ByPublicUUID(uuid string) (Dashboard, error)
+	SetPublicLink(id, publishUUID string, setExpiry bool, expiresAt *time.Time, passwordHash *string) error
+	ClearPublicLink(id string) error
+	SetEmbedding(id string, enabled bool) error
 	List(includeArchived bool) ([]Dashboard, error)
 	SetArchived(id string, archivedAt *time.Time) error
 }
@@ -103,6 +106,7 @@ type AlertStore interface {
 type NotificationStore interface {
 	Create(Notification) error
 	List(userID string) ([]Notification, error)
+	ListAllNotifications() ([]Notification, error)
 }
 
 type SearchStore interface {

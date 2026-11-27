@@ -804,10 +804,25 @@ func (s Service) Webhooks() ([]core.WebhookEndpoint, error) {
 	return readSettingsJSON[core.WebhookEndpoint](s.Settings, "webhooks")
 }
 func (s Service) SaveWebhooks(items []core.WebhookEndpoint) error {
+	seen := make(map[string]bool, len(items))
 	for i := range items {
 		items[i].ID, items[i].Name, items[i].Provider = strings.TrimSpace(items[i].ID), strings.TrimSpace(items[i].Name), strings.TrimSpace(items[i].Provider)
-		if items[i].ID == "" || items[i].Name == "" || items[i].Provider == "" || strings.TrimSpace(items[i].URL) == "" {
-			return fmt.Errorf("webhook id, name, provider and url are required")
+		items[i].URL = strings.TrimSpace(items[i].URL)
+		if items[i].ID == "" || items[i].Name == "" || items[i].Provider == "" || items[i].URL == "" {
+			return fmt.Errorf("请完整填写 Webhook 通道标识、名称、平台和地址")
+		}
+		if seen[items[i].ID] {
+			return fmt.Errorf("Webhook 通道标识重复")
+		}
+		seen[items[i].ID] = true
+		if err := core.ValidateWebhookURL(items[i].Provider, items[i].URL); err != nil {
+			return err
+		}
+		if items[i].TemplateType == "custom" {
+			template := strings.TrimSpace(items[i].Template)
+			if !strings.HasPrefix(template, "{") || !json.Valid([]byte(template)) {
+				return fmt.Errorf("自定义消息模板必须是有效的 JSON 对象")
+			}
 		}
 		if items[i].CreatedAt.IsZero() {
 			items[i].CreatedAt = time.Now().UTC()

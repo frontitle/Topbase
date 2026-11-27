@@ -20,6 +20,7 @@ const publicFiles = [
   'docs/releases/0.2.2.md',
   'docs/releases/0.2.3.md',
   'docs/releases/0.2.4.md',
+  'docs/releases/0.2.5.md',
   'docs/upgrading.md',
 ];
 

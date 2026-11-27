@@ -25,7 +25,7 @@ function queryPreview() {
   if (question.native_sql) return question.native_sql;
   if (lastResult && lastResult.sql) return lastResult.sql;
   if (question.queryir) return JSON.stringify(question.queryir, null, 2);
-  return '这条分析还没有查询定义。';
+  return TopbaseLocale.t('这条分析还没有查询定义。');
 }
 
 function showError(err) {
@@ -136,17 +136,22 @@ function setMeta() {
   const n = lastResult ? (lastResult.rows || []).length : 0;
   const resultMeta = (lastResult && lastResult.meta) || {};
   const freshness = resultMeta.execution === 'direct' && resultMeta.cache_hit === false ? '实时直连' : '查询结果';
-  const updated = resultMeta.executed_at ? new Date(resultMeta.executed_at).toLocaleTimeString('zh-CN') : '';
+  const updated = resultMeta.executed_at ? new Date(resultMeta.executed_at).toLocaleTimeString(TopbaseLocale.locale()) : '';
   const limited = queryLimitMessage(resultMeta);
   const groupCrumb = $('#group-crumb'), groupSeparator = $('#group-crumb-separator');
   if (groupCrumb && groupSeparator) {
     groupCrumb.hidden = groupSeparator.hidden = !col;
     if (col) { groupCrumb.textContent = col.name; groupCrumb.href = '/collections/' + encodeURIComponent(col.id) + '/'; }
   }
+  $('#title').translate = false;
+  $('#title').title = TopbaseLocale.t('点击修改名称');
+  $('#read-title').translate = false;
+  $('#heading').translate = false;
   $('#title').textContent = question.name;
   $('#read-title').textContent = question.name;
   $('#heading').textContent = question.name;
-  $('#meta').textContent = [kind, col ? col.name : '我的分析', canEdit ? '' : '只读', lastResult ? freshness + ' · ' + n + ' 行' : '', limited, updated ? '更新于 ' + updated : ''].filter(Boolean).join(' · ');
+  $('#meta').translate = false;
+  $('#meta').textContent = [TopbaseLocale.t(kind), col ? col.name : TopbaseLocale.t('我的分析'), canEdit ? '' : TopbaseLocale.t('只读'), lastResult ? TopbaseLocale.t(freshness) + ' · ' + TopbaseLocale.t('{n} 行',{n}) : '', limited, updated ? TopbaseLocale.t('更新于 {time}',{time:updated}) : ''].filter(Boolean).join(' · ');
   const isSQL = !!(question.native_sql || (lastResult && lastResult.sql));
   TopbaseCode.setCode('#query-json', queryPreview(), {
     language: isSQL ? 'sql' : 'json',
@@ -188,7 +193,7 @@ function editName() {
   const input = document.createElement('input');
   input.className = 'analysis-name-input';
   input.value = question.name;
-  input.setAttribute('aria-label', '分析名称');
+  input.setAttribute('aria-label', TopbaseLocale.t('分析名称'));
   heading.textContent = '';
   heading.append(input);
   input.focus();
@@ -212,7 +217,7 @@ async function loadResult() {
     $('#viz-stage').innerHTML = '<div class="viz-empty"><b>等待查询参数</b><p>点击「查询参数」填写必填项后运行。</p></div>';
     return;
   }
-  $('#viz-stage').innerHTML = '<div class="viz-empty"><b>正在运行</b><p>正在拉取这条分析的结果。</p></div>';
+  $('#viz-stage').innerHTML = '<div class="viz-empty"><b>正在运行</b><p>正在查询数据。</p></div>';
   try {
     lastResult = await run();
     spec = TopbaseViz.merge(question.chartspec || lastResult.chartspec, TopbaseViz.infer((lastResult.columns || []), (lastResult.rows || []), question.queryir), lastResult.columns || [], lastResult.rows || []);
@@ -222,10 +227,10 @@ async function loadResult() {
     try {
       paint();
     } catch (renderError) {
-      showError('数据查询成功，但可视化渲染失败：' + renderError.message);
+      showError(TopbaseLocale.t('图表渲染失败：{error}',{error:renderError.message}));
       $('#viz-stage').innerHTML = '<div class="viz-empty"><b>数据已查询成功</b><p>图表暂时无法渲染，请切换为表格或重新运行。</p></div>';
       if (canEdit) TopbaseViz.renderTypes($('#viz-types'), spec || { type: 'table' }, type => applySpec(Object.assign({}, spec, { type })));
-      $('#viz-settings').innerHTML = '<h3>设置</h3><p class="viz-muted">可视化组件发生错误，原始查询结果没有丢失。</p>';
+      $('#viz-settings').innerHTML = '<h3>设置</h3><p class="viz-muted">可切换到表格查看查询结果。</p>';
     }
   } catch (e) {
     lastResult = null;
@@ -248,7 +253,7 @@ async function boot() {
     heading.classList.add('editable-analysis-name');
     heading.setAttribute('role', 'button');
     heading.tabIndex = 0;
-    heading.title = '点击修改名称';
+    heading.title = TopbaseLocale.t('点击修改名称');
   }
   $('#export-action').hidden = !canRun || !question.id || !!question.archived_at || !(question.queryir || question.native_sql);
   $('#warehouse-action').hidden = !question.can_materialize;
@@ -264,9 +269,9 @@ async function boot() {
 
 boot().catch(e => {
   showError(e.message);
-  if ($('#title')) $('#title').textContent = '无法打开';
-  if ($('#read-title')) $('#read-title').textContent = '无法打开';
-  if ($('#heading')) $('#heading').textContent = '无法打开分析';
+  if ($('#title')) $('#title').textContent = TopbaseLocale.t('无法打开');
+  if ($('#read-title')) $('#read-title').textContent = TopbaseLocale.t('无法打开');
+  if ($('#heading')) $('#heading').textContent = TopbaseLocale.t('无法打开分析');
   if ($('#meta')) $('#meta').textContent = e.message;
 });
 
@@ -282,7 +287,7 @@ function nativeParameterFields(saved) {
   return names.map((name, i) => {
     const parameter = (saved.parameters || []).find(item => item.name === name) || {};
     const required = requiredNames.has(name) && !parameter.field && parameter.type !== 'field';
-    return {name: 'p' + i, label: name, required, type: parameter.type === 'date' ? 'date' : 'text', value: nativeParameters?.[name] ?? ''};
+    return {name: 'p' + i, label: name, translateLabel: false, required, type: parameter.type === 'date' ? 'date' : 'text', value: nativeParameters?.[name] ?? ''};
   });
 }
 
@@ -317,7 +322,7 @@ async function exportSavedCSV() {
   let denied = false;
   try {
     if (temporaryFilters && !await confirmDialog({
-      title: '导出已保存的查询结果？', description: '这次导出将使用分析中保存的筛选条件。当前页面的临时筛选只影响预览。', confirmText: '导出已保存结果'
+      title: '导出已保存的查询结果？', description: '导出使用已保存的筛选条件。临时筛选仅用于预览。', confirmText: '导出已保存结果'
     })) return;
     const parameters = nativeParameters ?? await chooseNativeParameters('导出');
     if (parameters === null) return;
@@ -373,11 +378,11 @@ on('move', async () => {
   const collection_id = await choiceDialog({
     kicker: '分析分组',
     title: '移动到分组',
-    description: '选择分析的新位置。移动不会影响查询或仪表盘中的引用。',
+    description: '选择目标分组。仪表盘可继续引用此分析。',
     label: '目标位置',
     value: question.collection_id || '',
     confirmText: '移动分析',
-    options: [{ value: '', label: '我的分析', description: '保存到你的默认个人分组' }].concat(collections.filter(c=>!c.read_only).map(c => ({ value: c.id, label: c.name, description: c.kind === 'personal_project' ? '个人分组' : '企业项目' })))
+    options: [{ value: '', label: '我的分析', description: '保存到你的默认个人分组' }].concat(collections.filter(c=>!c.read_only).map(c => ({ value: c.id, label: c.name, translate:false, description: TopbaseLocale.t(c.kind === 'personal_project' ? '个人分组' : '企业项目') })))
   });
   if (collection_id === null) return;
   question = await api('/api/questions/' + id, 'PUT', {
@@ -391,7 +396,7 @@ on('move', async () => {
 });
 on('archive', async () => {
   if (!canEdit) return;
-  if (!await confirmDialog({ kicker: '删除分析', title: '删除这条分析？', description: '分析会从列表和数据组中移除，之后仍可在回收站恢复。', confirmText: '删除', tone: 'danger' })) return;
+  if (!await confirmDialog({ kicker: '删除分析', title: '删除这条分析？', description: '删除后可在回收站恢复。', confirmText: '删除', tone: 'danger' })) return;
   await api('/api/questions/' + id, 'DELETE');
   location.href = '/questions/';
 });

@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/admin.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据沉淀</title>
   <link rel="stylesheet" href="/ui.css">
@@ -10,22 +13,21 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="warehouse"></aside>
   <div class="page">
-    <header class="topbar"><strong>数据沉淀</strong></header>
     <main>
       <div class="page-head">
         <div>
           <h1>数据沉淀</h1>
-          <p>把一条分析按周期计算并保存下来；后续查询只读取沉淀结果，减少源库压力。</p>
+          <p>定时保存分析结果，后续查询直接读取已存数据。</p>
         </div>
         <button class="primary tb-btn tb-btn-primary" id="create-materialization" type="button">新建数据沉淀</button>
       </div>
       <aside class="warehouse-role-note" aria-label="数据沉淀说明">
         <span>本地保存 · 按计划更新</span>
-        <div><b>这是 Topbase 管理的数据</b><p>首次会从源数据计算并落库；之后可按水位仅处理变化数据，并像普通数据表一样再次分析。</p></div>
-        <a href="/data/">想看实时原始内容？前往源数据 →</a>
+        <div><b>这是 Topbase 管理的数据</b><p>首次保存全部结果，增量更新仅读取水位之后的数据。保存的表可继续分析。</p></div>
+        <a href="/data/">查看实时源数据 →</a>
       </aside>
       <section class="section-block">
-        <div class="section-row"><div><h2>沉淀数据列表</h2><p class="section-note">每一行对应一份本地数据及其更新计划；可以立即更新或继续创建分析。</p></div><span id="materialization-count"></span></div>
+        <div class="section-row"><div><h2>沉淀数据列表</h2><p class="section-note">查看更新计划，刷新数据或创建分析。</p></div><span id="materialization-count"></span></div>
         <div class="warehouse-table-shell">
           <table class="warehouse-table">
             <thead><tr><th>沉淀数据</th><th>来源分析</th><th>更新计划</th><th>保存方式</th><th>最近运行</th><th>状态</th><th>操作</th></tr></thead>
@@ -38,6 +40,6 @@
   <div id="toast"></div>
   <script src="/ui.js"></script>
   <script src="/shell.js"></script>
-  <script src="/warehouse/warehouse.js"></script>
+  <script src="/warehouse/messages.js"></script><script src="/warehouse/warehouse.js"></script>
 </body>
 </html>

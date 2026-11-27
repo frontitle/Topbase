@@ -14,7 +14,7 @@ type Service struct {
 	Content       content.Service
 	Dataset       appquery.DatasetService
 	Subscriptions core.SubscriptionStore
-	Deliver       func(title, body, channel string)
+	Deliver       func(ctx context.Context, title, body, channel, dashboardID string) error
 }
 
 func (s Service) RunAlert(ctx context.Context, alertID string) (core.Notification, error) {

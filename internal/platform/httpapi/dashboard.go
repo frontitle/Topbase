@@ -76,6 +76,7 @@ func (s *server) getDashboard(w http.ResponseWriter, r *http.Request) {
 			"can_manage": admin || s.canAccessDashboard(user, item, "manage"),
 			"is_admin":   admin, "allow_public": settings.PublicSharingEnabled,
 			"allow_embed": settings.EmbeddingEnabled, "public_uuid": item.PublicUUID,
+			"expires_at": item.PublicExpiresAt, "password_required": item.PublicPasswordHash != "",
 			"public_embed_enabled": item.PublicEmbedEnabled, "base_url": s.publicBaseURL(r),
 		})
 		return
@@ -235,24 +236,6 @@ func (s *server) listNotifications(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-func (s *server) enableDashboardPublicLink(w http.ResponseWriter, r *http.Request) {
-	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "manage")
-	if !ok {
-		return
-	}
-	settings, err := s.identity.AdminSettings()
-	if err != nil || !settings.PublicSharingEnabled {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "public sharing is disabled by the administrator"})
-		return
-	}
-	saved, err := s.content.EnableDashboardPublicLink(r.PathValue("id"), user.ID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, s.publicLinkPayload(r, saved))
-}
-
 func (s *server) disableDashboardPublicLink(w http.ResponseWriter, r *http.Request) {
 	user, _, ok := s.requireDashboardAccess(w, r, r.PathValue("id"), "manage")
 	if !ok {
@@ -310,7 +293,8 @@ func (s *server) publicLinkPayload(r *http.Request, d core.Dashboard) map[string
 	publicURL := origin + "/public/dashboard/" + d.PublicUUID + "/"
 	embedURL := origin + "/embed/dashboard/" + d.PublicUUID + "/"
 	return map[string]any{
-		"dashboard":   d,
+		"dashboard":  d,
+		"expires_at": d.PublicExpiresAt, "password_required": d.PublicPasswordHash != "",
 		"public_uuid": d.PublicUUID,
 		"public_url":  publicURL,
 		"embed_url":   embedURL,
@@ -319,15 +303,8 @@ func (s *server) publicLinkPayload(r *http.Request, d core.Dashboard) map[string
 }
 
 func (s *server) getPublicDashboard(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	settings, err := s.identity.AdminSettings()
-	if err != nil || !settings.PublicSharingEnabled {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "public sharing is disabled by the administrator"})
-		return
-	}
-	board, err := s.content.GetDashboardByPublicUUID(r.PathValue("uuid"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "公开链接不存在或已关闭"})
+	board, ok := s.authorizePublicDashboard(w, r)
+	if !ok {
 		return
 	}
 	questions := []core.Question{}
@@ -348,14 +325,8 @@ func (s *server) getPublicDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runPublicDashboardCard(w http.ResponseWriter, r *http.Request) {
-	settings, err := s.identity.AdminSettings()
-	if err != nil || !settings.PublicSharingEnabled {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "public sharing is disabled by the administrator"})
-		return
-	}
-	board, err := s.content.GetDashboardByPublicUUID(r.PathValue("uuid"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "公开链接不存在或已关闭"})
+	board, ok := s.authorizePublicDashboard(w, r)
+	if !ok {
 		return
 	}
 	var input struct {
@@ -366,6 +337,10 @@ func (s *server) runPublicDashboardCard(w http.ResponseWriter, r *http.Request) 
 		input.Filters = map[string]any{}
 	}
 	result, err := s.dataset.RunDashboardCard(r.Context(), board, r.PathValue("cardId"), input.Filters, s.content.Questions)
+	// A running source query may outlast its share or a password change.
+	if !s.authorizePublicPolicy(w, r) {
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return

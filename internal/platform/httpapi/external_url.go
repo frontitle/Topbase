@@ -3,9 +3,12 @@ package httpapi
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/topbase/topbase/internal/core"
 )
 
 func requestScheme(r *http.Request) string {
@@ -71,6 +74,28 @@ func (s *server) publicBaseURL(r *http.Request) string {
 
 func (s *server) externalURL(r *http.Request, path string) string {
 	return s.publicBaseURL(r) + "/" + strings.TrimLeft(path, "/")
+}
+
+// Scheduled deliveries have no browser request from which to infer an origin.
+// Use the administrator's workspace domain and the authenticated dashboard route.
+func (s *server) subscriptionDashboardURL(hook core.WebhookEndpoint, dashboardID string) string {
+	switch hook.Provider {
+	case "slack", "teams", "google_chat":
+	default:
+		return ""
+	}
+	if dashboardID == "" {
+		return ""
+	}
+	settings, err := s.identity.AdminSettings()
+	if err != nil || settings.CustomDomain == "" {
+		return ""
+	}
+	scheme := settings.PublicScheme
+	if scheme == "auto" || scheme == "" {
+		scheme = "https"
+	}
+	return scheme + "://" + hostWithPort(settings.CustomDomain, settings.PublicPort) + "/dashboard/" + url.PathEscape(dashboardID) + "/"
 }
 
 func secureCookieRequest(r *http.Request) bool {

@@ -15,7 +15,7 @@ const engineProfiles={
 };
 function profile(){return engineProfiles[$('#engine').value]||engineProfiles.postgres}
 function engineLabel(id){return (engineProfiles[id]||{}).label||id||'数据库'}
-function normalizeLabels(){$$('.form-grid label').forEach(label=>{const control=label.querySelector('input,select,textarea');if(!control||label.querySelector('.field-label'))return;const title=document.createElement('span');title.className='field-label';while(label.firstChild!==control)title.append(label.firstChild);control.classList.add('field-control');label.prepend(title)});['#port','#password','#ssl','#dsn','#ssh-port','#ssh-key-password','#ssh-fingerprint'].forEach(id=>$(id)?.closest('label')?.querySelector('em')?.remove());const sshHelp=$$('[data-panel="ssh"] .panel-help')[0];if(sshHelp)sshHelp.textContent='建议填写 SHA256 主机密钥指纹以验证跳板机身份；留空时仍可连接，但不会进行该身份校验。'}
+function normalizeLabels(){$$('.form-grid label').forEach(label=>{const control=label.querySelector('input,select,textarea');if(!control||label.querySelector('.field-label'))return;const title=document.createElement('span');title.className='field-label';while(label.firstChild!==control)title.append(label.firstChild);control.classList.add('field-control');label.prepend(title)});['#port','#password','#ssl','#dsn','#ssh-port','#ssh-key-password','#ssh-fingerprint'].forEach(id=>$(id)?.closest('label')?.querySelector('em')?.remove());const sshHelp=$$('[data-panel="ssh"] .panel-help')[0];if(sshHelp)sshHelp.textContent='填写 SHA256 指纹可验证跳板机身份；留空则跳过验证。'}
 normalizeLabels();
 function labelText(control,text){const title=$(control)?.closest('label')?.querySelector('.field-label');if(title&&title.firstChild)title.firstChild.textContent=text+' '}
 function applyEngineUI(resetPort){
@@ -29,10 +29,10 @@ function applyEngineUI(resetPort){
   if(resetPort||!$('#port').value)$('#port').value=p.port||'';
   if(p.defaultUser&&!$('#username').value)$('#username').value=p.defaultUser;
   $('#dsn').placeholder=editingId?'留空则保持原连接字符串':p.dsn;
-  $('#wizard-title').textContent=(editingId?'修改 ':'连接 ')+p.label;
-  $('#wizard-help').textContent=(editingId?'修改完成后重新测试并保存。':'按需填写连接与网络设置，然后测试并保存。')+' '+p.hint;
+  $('#wizard-title').textContent=TopbaseLocale.t(editingId?'修改 {engine}':'连接 {engine}', {engine:p.label});
+  $('#wizard-help').textContent=TopbaseLocale.t(editingId?'修改完成后重新测试并保存。':'按需填写连接与网络设置，然后测试并保存。')+' '+TopbaseLocale.t(p.hint);
   const connectionHelp=$$('[data-panel="connection"] .panel-help')[0];if(connectionHelp)connectionHelp.textContent=p.network?'建议使用只读账号，只授予需要分析的数据表权限。':p.hint;
-  const securityHelp=$$('[data-panel="security"] .panel-help')[0];if(securityHelp)securityHelp.textContent=p.network?'连接字符串会覆盖主机、端口、数据库及账号字段。':'可在连接信息中填写文件路径，也可在这里填写 SQLite DSN。';
+  const securityHelp=$$('[data-panel="security"] .panel-help')[0];if(securityHelp)securityHelp.textContent=p.network?'连接字符串会覆盖主机、端口、数据库及账号字段。':'填写文件路径或 SQLite DSN。';
 }
 function setStatus(kind,message){const e=$('#connection-status');e.className='connection-status '+kind;e.textContent=message}
 function resetTest(){testPassed=false;$('#save').disabled=true;setStatus('', editingId?'修改连接后请先测试，再保存。':'尚未测试连接')}
@@ -94,7 +94,7 @@ function validate(data){
   const p=engineProfiles[data.engine]||engineProfiles.postgres;
   if(data.engine==='sqlite'&&!data.database.trim()&&!data.dsn.trim())return '请填写 SQLite 数据库文件路径。';
   const complete=p.network&&!data.dsn.trim()&&(!data.host.trim()||!data.database.trim()||(p.username&&!data.username.trim()));
-  if(!editingId&&complete)return '请完整填写服务器、数据库和账号，或提供连接字符串。';
+  if(!editingId&&complete)return '填写服务器、数据库和账号，或提供连接字符串。';
   if(editingId&&p.network&&data.host.trim()&&(!data.database.trim()||(p.username&&!data.username.trim()))&&!data.dsn.trim())return '请完整填写数据库和账号，或提供连接字符串。';
   if(data.ssh){
     if(!data.ssh.host.trim()||!data.ssh.username.trim())return '启用 SSH 后，请填写跳板机主机和用户名。';
@@ -111,30 +111,30 @@ async function showEditWizard(from){
   if(!current)return;
   setWizardMode(current.id);
   let conn=catalogHint(current);
-  try{conn=Object.assign(conn, await api('/api/databases/'+current.id+'/connection'))}catch(e){toast('未找到已存凭据，请核对连接。'+e.message)}
+  try{conn=Object.assign(conn, await api('/api/databases/'+current.id+'/connection'))}catch(e){toast(TopbaseLocale.t('未找到已存凭据，请核对连接。{error}', {error:e.message}))}
   fillWizard(conn);
   resetTest();
   wizardDialog.open({from});
 }
 function showList(){current=null;activeTable=null;$('#list-view').hidden=false;$('#detail-view').hidden=true;history.replaceState({},'', '/admin/')}
-function syncedText(db){return db.last_synced_at?('上次扫描 '+new Date(db.last_synced_at).toLocaleString('zh-CN')+' · '+(db.table_count||0)+' 张表'):'尚未扫描结构'}
-function statusLabel(db){return '已连接'}
+function syncedText(db){return db.last_synced_at?TopbaseLocale.t('上次扫描 {date} · {count} 张表', {date:new Date(db.last_synced_at).toLocaleString(TopbaseLocale.locale()), count:db.table_count||0}):TopbaseLocale.t('尚未扫描结构')}
+function statusLabel(db){return TopbaseLocale.t('已连接')}
 function renderDetailMeta(){
   if(!current)return;
   $('#detail-meta').textContent=statusLabel(current)+' · '+engineLabel(current.engine||'postgres')+' · '+(current.host||'')+' · '+syncedText(current);
 }
 function renderTables(){
   $('#table-count').textContent=tables.length;
-  $('#table-list').innerHTML=tables.map(t=>`<button class="table-item ${activeTable&&activeTable.schema===t.schema&&activeTable.name===t.name?'active':''}" data-schema="${t.schema}" data-name="${t.name}"><b>${t.display_name||t.name}</b><small>${t.schema}.${t.name} · ${(t.columns||[]).length} 个字段</small></button>`).join('')||'<p>还没有表。请先确认连接可用，再点击「同步全部结构」。</p>';
+  $('#table-list').innerHTML=tables.map(t=>`<button class="table-item ${activeTable&&activeTable.schema===t.schema&&activeTable.name===t.name?'active':''}" data-schema="${esc(t.schema)}" data-name="${esc(t.name)}"><b translate="no">${esc(t.display_name||t.name)}</b><small><span translate="no">${esc(t.schema)}.${esc(t.name)}</span> · ${TopbaseLocale.t('{count} 个字段', {count: (t.columns||[]).length})}</small></button>`).join('')||'<p>暂无数据表。检查连接后同步结构。</p>';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>t.schema===b.dataset.schema&&t.name===b.dataset.name)));
 }
 function openTable(table){
   activeTable=table;
   renderTables();
   $('#table-title').textContent=table.schema+'.'+table.name;
-  $('#table-sub').textContent=(table.columns||[]).length+' 个字段';
+  $('#table-sub').textContent=TopbaseLocale.t('{count} 个字段', {count: (table.columns||[]).length});
   $('#rescan-table').hidden=false;
-  $('#field-table').innerHTML=`<table class="fields-table"><thead><tr><th>字段</th><th>类型</th><th>可空</th><th>说明</th></tr></thead><tbody>${(table.columns||[]).map(c=>`<tr><td>${c.name}${c.primary_key?' <small>主键</small>':''}</td><td>${c.data_type}</td><td>${c.nullable?'是':'否'}</td><td>${c.description||'—'}</td></tr>`).join('')}</tbody></table>`;
+  $('#field-table').innerHTML=`<table class="fields-table"><thead><tr><th>字段</th><th>类型</th><th>可空</th><th>说明</th></tr></thead><tbody>${(table.columns||[]).map(c=>`<tr><td><span translate="no">${esc(c.name)}</span>${c.primary_key?' <small>主键</small>':''}</td><td translate="no">${esc(c.data_type)}</td><td>${c.nullable?'是':'否'}</td><td translate="no">${esc(c.description||'—')}</td></tr>`).join('')}</tbody></table>`;
 }
 async function openDatabase(id){
   const payload=await api('/api/databases/'+id);
@@ -145,7 +145,7 @@ async function openDatabase(id){
   $('#detail-name').textContent=current.name;
   renderDetailMeta();
   $('#rescan-table').hidden=true;
-  $('#table-title').textContent='选择一张表';
+  $('#table-title').textContent=TopbaseLocale.t('选择一张表');
   $('#table-sub').textContent='查看字段类型，或重新扫描这一张表。';
   $('#field-table').innerHTML='';
   activeTable=null;
@@ -159,8 +159,8 @@ async function load(){
     const items=databases.filter(d=>(d.name+' '+(d.host||'')+' '+engineLabel(d.engine)).toLowerCase().includes(q));
     $('#empty').style.display=databases.length?'none':'block';
     $('#list').style.display=databases.length?'block':'none';
-    $('#count').textContent=databases.length+' 个数据库';
-    $('#cards').innerHTML=items.map(d=>`<article class="db-card" data-open="${d.id}"><div class="db-name"><span class="db-symbol">▣</span><div><b>${d.name}</b><small>${engineLabel(d.engine)} · ${d.host||''} · ${syncedText(d)}</small></div></div><div><span class="db-status ${d.connected===false?'off':''}">${d.connected===false?'连接中断':'已连接'}</span></div></article>`).join('');
+    $('#count').textContent=TopbaseLocale.t('{count} 个数据库', {count: databases.length});
+    $('#cards').innerHTML=items.map(d=>`<article class="db-card" data-open="${d.id}"><div class="db-name"><span class="db-symbol">▣</span><div><b translate="no">${esc(d.name)}</b><small>${esc(engineLabel(d.engine))} · ${esc(d.host||'')} · ${esc(syncedText(d))}</small></div></div><div><span class="db-status ${d.connected===false?'off':''}">${d.connected===false?'连接中断':'已连接'}</span></div></article>`).join('');
     $$('[data-open]').forEach(card=>card.onclick=()=>openDatabase(card.dataset.open).catch(e=>toast(e.message)));
     const id=new URLSearchParams(location.search).get('id');
     if(id && databases.some(d=>d.id===id)) await openDatabase(id);
@@ -169,11 +169,11 @@ async function load(){
 async function loadUploads(){
   const result=await Promise.all([api('/api/warehouse/uploads'),api('/api/warehouse/tables')]);
   uploadedTables=result[0]; const materialized=result[1];
-  const uploadCards=uploadedTables.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">X</span><div><b>${esc(item.name)}</b><small>${esc(item.file_name)} · ${esc(item.sheet_name)} · ${item.row_count} 行 · ${(item.columns||[]).length} 个字段</small></div></div><div class="upload-actions"><button class="secondary tb-btn tb-btn-secondary" data-preview-upload="${esc(item.id)}" type="button">预览记录</button><button class="remove tb-btn tb-btn-danger" data-delete-upload="${esc(item.id)}" type="button">删除</button></div></article>`).join('');
-  const materializedCards=materialized.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">◫</span><div><b>${esc(item.name)}</b><small>${esc(item.schema)} · ${item.row_count||0} 行 · ${item.last_status==='succeeded'?'更新成功':'等待更新'}</small></div></div><a class="secondary tb-btn tb-btn-secondary" href="/warehouse/">管理</a></article>`).join('');
+  const uploadCards=uploadedTables.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">X</span><div><b translate="no">${esc(item.name)}</b><small>${esc(item.file_name)} · ${esc(item.sheet_name)} · ${TopbaseLocale.t('{rows} 行 · {fields} 个字段', {rows:item.row_count, fields:(item.columns||[]).length})}</small></div></div><div class="upload-actions"><button class="secondary tb-btn tb-btn-secondary" data-preview-upload="${esc(item.id)}" type="button">预览记录</button><button class="remove tb-btn tb-btn-danger" data-delete-upload="${esc(item.id)}" type="button">删除</button></div></article>`).join('');
+  const materializedCards=materialized.map(item=>`<article class="db-card"><div class="db-name"><span class="db-symbol">◫</span><div><b translate="no">${esc(item.name)}</b><small>${esc(item.schema)} · ${TopbaseLocale.t('{count} 行', {count: item.row_count||0})} · ${TopbaseLocale.t(item.last_status==='succeeded'?'更新成功':'等待更新')}</small></div></div><a class="secondary tb-btn tb-btn-secondary" href="/warehouse/">管理</a></article>`).join('');
   $('#upload-list').innerHTML=uploadCards+materializedCards||emptyHTML({title:'还没有本地数据',body:'上传 Excel，或在工作台把分析配置为按计划沉淀。'});
   $$('[data-preview-upload]').forEach(button=>button.onclick=()=>previewUpload(uploadedTables.find(item=>item.id===button.dataset.previewUpload), button));
-  $$('[data-delete-upload]').forEach(button=>button.onclick=async()=>{if(!await confirmDialog({kicker:'本地数仓',title:'删除这个上传数据集？',description:'只会删除 Topbase 保存的 Excel 数据，不会影响原始文件。',confirmText:'删除数据集',tone:'danger'}))return;await api('/api/warehouse/uploads/'+encodeURIComponent(button.dataset.deleteUpload),'DELETE');toast('本地数据集已删除');loadUploads().catch(e=>toast(e.message))});
+  $$('[data-delete-upload]').forEach(button=>button.onclick=async()=>{if(!await confirmDialog({kicker:'本地数仓',title:'删除这个上传数据集？',description:'仅删除导入的数据，原始文件会保留。',confirmText:'删除数据集',tone:'danger'}))return;await api('/api/warehouse/uploads/'+encodeURIComponent(button.dataset.deleteUpload),'DELETE');toast('本地数据集已删除');loadUploads().catch(e=>toast(e.message))});
 }
 const uploadPreviewDialog = TopbaseUI.modal('#upload-preview', { onClose() {
   uploadPreviewRequest?.abort();
@@ -194,10 +194,10 @@ async function previewUpload(item, from) {
     const data = await api('/api/warehouse/uploads/'+encodeURIComponent(item.id)+'/preview', 'GET', null, {signal:controller.signal});
     if (controller.signal.aborted) return;
     const fields = (item.columns||[]).slice(0,50);
-    const parts = [data.total_rows ? `显示前 ${data.rows.length} 条完整记录，共 ${data.total_rows} 条` : '没有数据记录'];
+    const parts = [data.total_rows ? TopbaseLocale.t('显示前 {shown} 条完整记录，共 {total} 条', {shown:data.rows.length,total:data.total_rows}) : '没有数据记录'];
     if (data.byte_limited) parts.push('已达预览大小上限');
     if (fields.length < item.columns.length) parts.push('显示前 50 个字段');
-    status.textContent = parts.join(' · ');
+    status.textContent = parts.map(part=>TopbaseLocale.t(part)).join(' · ');
     if (!data.rows.length) return;
     const header = fields.map(field=>`<th scope="col">${esc(field.name)}</th>`).join('');
     const body = data.rows.map(row=>'<tr>'+fields.map((_,i)=>`<td>${esc(row[i]??'')}</td>`).join('')+'</tr>').join('');
@@ -209,17 +209,17 @@ async function previewUpload(item, from) {
 $('#show-form').onclick=showWizard;$('#empty-add').onclick=showWizard;
 TopbaseTabs.mount('.data-admin-tabs',{tabSelector:'[data-data-tab]',tabValue:tab=>tab.dataset.dataTab,panelSelector:'#remote-data,#local-warehouse',panels:document,panelValue:panel=>panel.id==='local-warehouse'?'local':'remote',onChange:tab=>{if(tab==='local')loadUploads().catch(e=>toast(e.message))}});
 $('#upload-excel').onclick=()=>$('#excel-file').click();
-$('#excel-file').onchange=async event=>{const file=event.target.files&&event.target.files[0];if(!file)return;const form=new FormData();form.append('file',file);try{$('#upload-excel').disabled=true;$('#upload-excel').textContent='正在导入…';const response=await fetch('/api/warehouse/uploads',{method:'POST',body:form,credentials:'same-origin',headers:{'X-Topbase-CSRF':(document.cookie.match(/(?:^|; )topbase_csrf=([^;]+)/)||[])[1]||''}});const payload=await response.json().catch(()=>({}));if(!response.ok)throw Error(payload.error||'上传失败');toast('已导入 '+payload.row_count+' 行到本地数仓');await loadUploads()}catch(error){toast(error.message)}finally{$('#upload-excel').disabled=false;$('#upload-excel').textContent='上传 Excel';event.target.value=''}};
+$('#excel-file').onchange=async event=>{const file=event.target.files&&event.target.files[0];if(!file)return;const form=new FormData();form.append('file',file);try{$('#upload-excel').disabled=true;$('#upload-excel').textContent='正在导入…';const response=await fetch('/api/warehouse/uploads',{method:'POST',body:form,credentials:'same-origin',headers:{'X-Topbase-CSRF':(document.cookie.match(/(?:^|; )topbase_csrf=([^;]+)/)||[])[1]||''}});const payload=await response.json().catch(()=>({}));if(!response.ok)throw Error(payload.error||'上传失败');toast(TopbaseLocale.t('已导入 {count} 行到本地数仓', {count: payload.row_count}));await loadUploads()}catch(error){toast(error.message)}finally{$('#upload-excel').disabled=false;$('#upload-excel').textContent='上传 Excel';event.target.value=''}};
 $('#search').oninput=load;
 $('#back-list').onclick=()=>{showList();load()};
 $('#edit-connection').onclick=event=>showEditWizard(event.currentTarget).catch(e=>toast(e.message));
-$('#sync-schema').onclick=async()=>{if(!current)return;try{$('#sync-schema').disabled=true;const snap=await api('/api/databases/'+current.id+'/sync','POST',{});tables=snap.tables||[];current.last_synced_at=snap.synced_at;current.table_count=tables.length;current.connected=true;renderDetailMeta();activeTable=null;renderTables();toast('已扫描 '+tables.length+' 张表')}catch(e){toast(e.message+'  可点「编辑连接」修正主机、库名、账号、SSL 或 SSH 后再同步。')}finally{$('#sync-schema').disabled=false}};
-$('#rescan-table').onclick=async()=>{if(!current||!activeTable)return;try{const snap=await api(`/api/databases/${current.id}/tables/${encodeURIComponent(activeTable.schema)}/${encodeURIComponent(activeTable.name)}/rescan`,'POST',{});tables=snap.tables||[];const next=tables.find(t=>t.schema===activeTable.schema&&t.name===activeTable.name);if(next)openTable(next);toast('已重新扫描 '+activeTable.schema+'.'+activeTable.name)}catch(e){toast(e.message)}};
-$('#remove-db').onclick=async()=>{if(!current||!await confirmDialog({kicker:'数据源管理',title:'移除“'+current.name+'”？',description:'只会删除 Topbase 中保存的连接和元数据，不会删除源数据库中的任何数据。',confirmText:'移除数据源',tone:'danger'}))return;try{await api('/api/databases/'+current.id,'DELETE');toast('已移除数据源');showList();load()}catch(e){toast(e.message)}};
+$('#sync-schema').onclick=async()=>{if(!current)return;try{$('#sync-schema').disabled=true;const snap=await api('/api/databases/'+current.id+'/sync','POST',{});tables=snap.tables||[];current.last_synced_at=snap.synced_at;current.table_count=tables.length;current.connected=true;renderDetailMeta();activeTable=null;renderTables();toast(TopbaseLocale.t('已扫描 {count} 张表', {count: tables.length}))}catch(e){toast(TopbaseLocale.t('{error}。请检查连接设置后重新同步。', {error:e.message}))}finally{$('#sync-schema').disabled=false}};
+$('#rescan-table').onclick=async()=>{if(!current||!activeTable)return;try{const snap=await api(`/api/databases/${current.id}/tables/${encodeURIComponent(activeTable.schema)}/${encodeURIComponent(activeTable.name)}/rescan`,'POST',{});tables=snap.tables||[];const next=tables.find(t=>t.schema===activeTable.schema&&t.name===activeTable.name);if(next)openTable(next);toast(TopbaseLocale.t('已重新扫描 {name}', {name:activeTable.schema+'.'+activeTable.name}))}catch(e){toast(e.message)}};
+$('#remove-db').onclick=async()=>{if(!current||!await confirmDialog({kicker:'数据源管理',title:TopbaseLocale.t('移除“{name}”？', {name:current.name}),description:'仅移除连接和元数据，源库数据会保留。',confirmText:'移除数据源',tone:'danger'}))return;try{await api('/api/databases/'+current.id,'DELETE');toast('已移除数据源');showList();load()}catch(e){toast(e.message)}};
 wizardTabs=TopbaseTabs.mount('.tabbar',{onChange:tab=>{$$('.panel').forEach(panel=>panel.classList.toggle('active',panel.dataset.panel===tab))}});
 $('#ssh-auth').onchange=()=>{syncSSHAuth();resetTest()};syncSSHAuth();
 $$('#wizard input,#wizard select,#wizard textarea').forEach(e=>{e.addEventListener('input',resetTest);e.addEventListener('change',resetTest)});
 $('#engine').addEventListener('change',()=>applyEngineUI(true));
-$('#test').onclick=async()=>{const b=$('#test'),data=connectionData(),message=validate(data);if(message){setStatus('error',message);return}try{b.disabled=true;b.textContent='测试中…';setStatus('testing','正在验证网络、SSH 隧道和数据库权限…');const path=editingId?'/api/databases/'+editingId+'/test':'/api/databases/test';await api(path,'POST',data);testPassed=true;$('#save').disabled=false;setStatus('success','连接验证成功。现在可以保存。')}catch(err){testPassed=false;$('#save').disabled=true;setStatus('error','连接失败：'+err.message)}finally{b.disabled=false;b.textContent='测试连接'}};
-$('#save').onclick=async e=>{e.preventDefault();if(!testPassed){setStatus('error','请先测试连接成功，再保存。');return}const b=$('#save'),updating=!!editingId;try{b.disabled=true;b.textContent=updating?'正在保存并扫描…':'正在保存…';const saved=updating?await api('/api/databases/'+editingId,'PUT',connectionData()):await api('/api/databases','POST',connectionData());wizardDialog.close();toast(updating?('连接已更新'+(saved.table_count?`，已扫描 ${saved.table_count} 张表`:'，请再点同步结构')):('数据库已保存'+(saved.table_count?`，已扫描 ${saved.table_count} 张表`:'，正在等待同步')));await load();if(saved.id) await openDatabase(saved.id)}catch(err){setStatus('error','保存失败：'+err.message);b.disabled=false;b.textContent=updating?'保存并重新扫描':'保存数据库'}};
+$('#test').onclick=async()=>{const b=$('#test'),data=connectionData(),message=validate(data);if(message){setStatus('error',message);return}try{b.disabled=true;b.textContent='测试中…';setStatus('testing','正在验证网络、SSH 隧道和数据库权限…');const path=editingId?'/api/databases/'+editingId+'/test':'/api/databases/test';await api(path,'POST',data);testPassed=true;$('#save').disabled=false;setStatus('success','连接验证成功。现在可以保存。')}catch(err){testPassed=false;$('#save').disabled=true;setStatus('error',TopbaseLocale.t('连接失败：{error}', {error:err.message}))}finally{b.disabled=false;b.textContent='测试连接'}};
+$('#save').onclick=async e=>{e.preventDefault();if(!testPassed){setStatus('error','请先测试连接成功，再保存。');return}const b=$('#save'),updating=!!editingId;try{b.disabled=true;b.textContent=updating?'正在保存并扫描…':'正在保存…';const saved=updating?await api('/api/databases/'+editingId,'PUT',connectionData()):await api('/api/databases','POST',connectionData());wizardDialog.close();toast(TopbaseLocale.t(updating?'连接已更新':'数据库已保存')+' · '+(saved.table_count?TopbaseLocale.t('已扫描 {count} 张表',{count:saved.table_count}):TopbaseLocale.t('等待同步结构')));await load();if(saved.id) await openDatabase(saved.id)}catch(err){setStatus('error',TopbaseLocale.t('保存失败：{error}', {error:err.message}));b.disabled=false;b.textContent=updating?'保存并重新扫描':'保存数据库'}};
 load();

@@ -68,25 +68,25 @@ body.sidebar-collapsed .sidebar-version b {
 }
 
 @media (max-width: 780px) {
-  .topbar.analysis-topbar {
+  .context-bar.analysis-context-bar {
     height: auto;
     flex-wrap: wrap;
     padding: 8px 16px;
     gap: 6px;
   }
 
-  .analysis-topbar a,
-  .analysis-topbar .secondary {
+  .analysis-context-bar a,
+  .analysis-context-bar .secondary {
     white-space: nowrap;
   }
 
-  .analysis-topbar #group-crumb {
+  .analysis-context-bar #group-crumb {
     max-width: 32%;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .analysis-topbar .top-actions {
+  .analysis-context-bar .top-actions {
     width: 100%;
     flex-wrap: wrap;
   }

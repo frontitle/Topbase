@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS dashboards (
   appearance TEXT,
   public_uuid TEXT,
   public_embed_enabled INTEGER NOT NULL DEFAULT 0,
+  public_expires_at BIGINT,
+  public_password_hash VARCHAR(255),
   archived_at TEXT,
   created_by TEXT,
   created_at TEXT NOT NULL

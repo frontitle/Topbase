@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
+const workspaceLocale = require('./helpers/workspace-locale');
 
 const script = fs.readFileSync('internal/platform/httpapi/web/data/data.js', 'utf8');
 const tables = ['orders', 'customers'].map(name => ({
@@ -12,7 +13,7 @@ function deferred() {
   const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
   return { promise, resolve, reject };
 }
-async function page(respond, user = {}) {
+async function page(respond, user = {}, language = 'zh-CN') {
   const elements = new Map(), grids = [], messages = [], requests = [];
   function element(selector) {
     if (selector.endsWith('.table-item.active')) return null;
@@ -20,6 +21,7 @@ async function page(respond, user = {}) {
     return elements.get(selector);
   }
   const context = vm.createContext({
+    TopbaseLocale: workspaceLocale(language),
     $: element, $$: () => [], esc: String, AbortController, URLSearchParams,
     location: { search: '' }, history: { replaceState() {} },
     document: { addEventListener() {} }, toast: text => messages.push(text),
@@ -44,6 +46,23 @@ async function page(respond, user = {}) {
   return { context, element, grids, messages, requests };
 }
 const result = name => ({ columns: ['id'], rows: [[name]] });
+
+test('English query feedback preserves Chinese table aliases, fields, and row values', async () => {
+  const table = {schema:'public', name:'orders', display_name:'排序', columns:[{name:'筛选'}]};
+  const p = await page(path => {
+    if (path.endsWith('/tables')) return [table];
+    if (path.endsWith('/annotation')) return {display_name:'排序', user_note:'查看查询'};
+    if (path === '/api/dataset') return {columns:['筛选'], rows:[['删除']]};
+  }, {}, 'en');
+  await p.context.openDatabase('db');
+  await p.context.openTable(table);
+  assert.equal(p.element('#grid-status').textContent, 'Rows returned: 1');
+  assert.equal(p.element('#table-name').textContent, '排序');
+  assert.equal(p.element('#table-description').textContent, '查看查询');
+  assert.match(p.element('#fields').innerHTML, /translate="no"[^>]*>.*筛选/);
+  assert.equal(p.grids[0].columns[0], '筛选');
+  assert.equal(p.grids[0].rows[0][0], '删除');
+});
 
 test('source browser gates warehouse management and keeps materialized tables queryable', async () => {
   const saved = { schema: 'warehouse', name: 'wh_orders', warehouse: true, columns: tables[0].columns };

@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据工作台</title>
   <link rel="stylesheet" href="/ui.css">
@@ -9,13 +12,10 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="home"></aside>
   <div class="page">
-    <header class="topbar"><strong>首页</strong></header>
     <main class="home-overview">
       <div class="page-head home-head">
         <div>
-          <span class="home-kicker">工作台概览</span>
           <h1 id="welcome">欢迎回来</h1>
-          <p>查询源数据、打开分析和仪表盘，持续掌握业务指标。</p>
         </div>
         <div class="home-head-actions">
           <a class="secondary" href="/data/">查看源数据</a>
@@ -38,17 +38,17 @@
         <a class="home-stat" href="/questions/">
           <span><i class="stat-mark">◇</i>分析</span>
           <strong id="stat-questions">—</strong>
-          <small>可复用的数据分析</small>
+          <small>已保存的查询</small>
         </a>
         <a class="home-stat" href="/dashboard/">
           <span><i class="stat-mark">☷</i>仪表盘</span>
           <strong id="stat-dashboards">—</strong>
-          <small>持续观测业务指标</small>
+          <small>已创建的仪表盘</small>
         </a>
         <a class="home-stat" href="/questions/?view=groups">
           <span><i class="stat-mark">☰</i>分析分组</span>
           <strong id="stat-collections">—</strong>
-          <small>个人与团队数据资产</small>
+          <small>个人与团队分组</small>
         </a>
       </section>
 
@@ -56,17 +56,17 @@
         <div class="home-main-column">
           <section class="home-section">
             <div class="home-section-head">
-              <div><h2>快捷开始</h2><p>选择下一步要完成的工作</p></div>
+              <div><h2>快捷开始</h2></div>
             </div>
             <div class="home-quick-grid">
               <a class="home-quick" href="/questions/new/">
-                <i>＋</i><span><strong>创建分析</strong><small>通过可视化步骤获取指标</small></span><b>→</b>
+                <i>＋</i><span><strong>创建分析</strong><small>用字段和筛选构建查询</small></span><b>→</b>
               </a>
               <a class="home-quick" href="/data/">
-                <i>▦</i><span><strong>查看源数据</strong><small>实时读取远程数据库，默认只读</small></span><b>→</b>
+                <i>▦</i><span><strong>查看源数据</strong><small>只读查询已连接的数据库</small></span><b>→</b>
               </a>
               <button class="home-quick" id="create-dashboard" type="button">
-                <i>☷</i><span><strong>新建仪表盘</strong><small>汇总分析并持续观测</small></span><b>→</b>
+                <i>☷</i><span><strong>新建仪表盘</strong><small>把分析放在同一页</small></span><b>→</b>
               </button>
               <a class="home-quick" href="/questions/?view=groups">
                 <i>☰</i><span><strong>管理分析分组</strong><small>组织个人与团队分析</small></span><b>→</b>
@@ -82,7 +82,7 @@
 
           <section class="home-section">
             <div class="home-section-head">
-              <div><h2>最近内容</h2><p>继续处理最近创建的数据资产</p></div>
+              <div><h2>最近内容</h2></div>
               <a href="/questions/">查看全部</a>
             </div>
             <div id="recent-content" class="home-recent-list">
@@ -94,7 +94,7 @@
         <div class="home-side-column">
           <section class="home-section home-health">
             <div class="home-section-head">
-              <div><h2>数据连接</h2><p>当前可用数据源状态</p></div>
+              <div><h2>数据连接</h2></div>
               <span id="ready-badge" class="home-status">检查中</span>
             </div>
             <div id="database-health" class="home-health-list">

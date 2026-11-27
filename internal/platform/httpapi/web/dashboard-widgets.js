@@ -36,9 +36,10 @@
 
   function list(query = '') {
     const term = query.trim().toLowerCase();
-    return [...widgets.values()]
-      .filter(({ label, group, id }) => (label + ' ' + groups[group] + ' ' + id).toLowerCase().includes(term))
-      .map(({ id, label, group, symbol }) => ({ id, label, group: groups[group], symbol }));
+    const text = label => globalThis.TopbaseLocale?.t(label) ?? label;
+    return [...widgets.values()].map(item => ({...item, label: item.defaults.type === 'plugin' && item.id !== 'plugin' ? item.label : text(item.label)}))
+      .filter(({ label, group, id }) => (label + ' ' + text(groups[group]) + ' ' + id).toLowerCase().includes(term))
+      .map(({ id, label, group, symbol }) => ({ id, label, group: text(groups[group]), symbol }));
   }
 
   function size(id) {
@@ -48,7 +49,13 @@
 
   function create(id) {
     const item = widgets.get(id);
-    return item && JSON.parse(JSON.stringify(item.defaults));
+    if (!item) return;
+    const card = JSON.parse(JSON.stringify(item.defaults));
+    if (card.type !== 'plugin' || id === 'plugin') {
+      if (card.title) card.title = globalThis.TopbaseLocale?.t(card.title) ?? card.title;
+      if (card.body && card.type === 'text') card.body = globalThis.TopbaseLocale?.t(card.body) ?? card.body;
+    }
+    return card;
   }
 
   window.TopbaseDashboardWidgets = Object.freeze({ registerPlugin, list, size, create });

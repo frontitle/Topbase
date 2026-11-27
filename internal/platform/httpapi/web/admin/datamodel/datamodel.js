@@ -10,7 +10,7 @@ function setURL(){
 }
 function renderTables(items){
   $('#table-count').textContent=items.length;
-  $('#table-list').innerHTML=items.map(t=>`<div class="table-item-row ${active&&key(active)===key(t)?'active':''}"><button class="table-item" data-key="${esc(key(t))}" title="${esc(t.display_name||t.name)}"><b>${esc(t.display_name||t.name)}</b><small title="${esc(t.user_note||t.description||'')}">${esc(t.user_note||t.description||'暂无说明')}</small></button><button class="table-visibility-icon ${t.hidden?'is-hidden':''}" data-toggle-hidden="${esc(key(t))}" type="button" title="${t.hidden?'在前台显示':'在前台隐藏'}" aria-label="${t.hidden?'在前台显示':'在前台隐藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>${t.hidden?'<path d="M4 4 20 20"></path>':''}</svg></button></div>`).join('')||'<p>没有表。请先在数据源里同步结构。</p>';
+  $('#table-list').innerHTML=items.map(t=>`<div class="table-item-row ${active&&key(active)===key(t)?'active':''}"><button class="table-item" data-key="${esc(key(t))}" translate="no" title="${esc(t.display_name||t.name)}"><b translate="no">${esc(t.display_name||t.name)}</b><small translate="no" title="${esc(t.user_note||t.description||'')}">${esc(t.user_note||t.description||TopbaseLocale.t('暂无说明'))}</small></button><button class="table-visibility-icon ${t.hidden?'is-hidden':''}" data-toggle-hidden="${esc(key(t))}" type="button" title="${t.hidden?'在前台显示':'在前台隐藏'}" aria-label="${t.hidden?'在前台显示':'在前台隐藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle>${t.hidden?'<path d="M4 4 20 20"></path>':''}</svg></button></div>`).join('')||'<p>没有表。请先在数据源里同步结构。</p>';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>key(t)===b.dataset.key)).catch(e=>toast(e.message)));
   $$('[data-toggle-hidden]').forEach(b=>b.onclick=async event=>{event.stopPropagation();const table=tables.find(t=>key(t)===b.dataset.toggleHidden);if(!table)return;await saveAnnotation(table,!table.hidden);});
 }
@@ -21,7 +21,7 @@ async function loadTables(){
   if(!id){$('#table-list').textContent='先选择数据源。';return}
   if(modelSource==='local'){
     const item=localDatasets.find(dataset=>dataset.id===id);
-    tables=item?[{schema:'local',name:item.id,display_name:item.name,description:'Excel · '+item.file_name+' · 工作表 '+item.sheet_name,user_note:'',hidden:false,columns:item.columns||[]}]:[];
+    tables=item?[{schema:'local',name:item.id,display_name:item.name,description:TopbaseLocale.t('Excel · {file} · 工作表 {sheet}', {file:item.file_name,sheet:item.sheet_name}),user_note:'',hidden:false,columns:item.columns||[]}]:[];
   }else try{tables=await api('/api/databases/'+id+'/tables')}catch(_){
     try{tables=await api('/api/databases/'+id+'/tables?cached=1')}catch(e){toast(e.message);tables=[]}
   }
@@ -49,19 +49,19 @@ async function openTable(table){
   ]);
   $('#display-name').value=note.display_name||'';
   table.hidden=!!note.hidden;setEditorVisibility();
-  $('#source-description').textContent=table.description||'数据源没有提供表注释';$('#source-description').title=table.description||'数据源没有提供表注释';
+  $('#source-description').textContent=table.description||TopbaseLocale.t('数据源没有提供表注释');$('#source-description').title=table.description||TopbaseLocale.t('数据源没有提供表注释');
   $('#description').value=note.user_note||'';
   const byName=Object.fromEntries((saved||[]).map(f=>[f.name,f]));
-  const typeOpts='<option value="">未设置</option>'+types.map(item=>{const t=typeof item==='string'?{value:item,label:item}:item;return `<option value="${esc(t.value)}">${esc(t.label)}${t.sensitive?'（默认脱敏）':''}</option>`}).join('');
+  const typeOpts='<option value="">未设置</option>'+types.map(item=>{const t=typeof item==='string'?{value:item,label:item}:item;return `<option value="${esc(t.value)}">${esc(TopbaseLocale.t(t.label))}${t.sensitive?TopbaseLocale.t('（默认脱敏）'):''}</option>`}).join('');
   $('#field-body').innerHTML=(table.columns||[]).map(c=>{
     const f=byName[c.name]||{};
     const foreign=f.fk_target||c.foreign_key||{};
     const description=f.description||c.description||'';
     const semantic=f.semantic_type||(c.primary_key?'EntityKey':(c.foreign_key?'ForeignKey':''));
     return `<tr data-field="${esc(c.name)}" data-source-fk-schema="${esc(c.foreign_key&&c.foreign_key.schema||'')}">
-      <td><b>${esc(c.name)}</b>${c.primary_key?'<small class="field-badge">主键</small>':''}</td>
+      <td><b translate="no">${esc(c.name)}</b>${c.primary_key?'<small class="field-badge">主键</small>':''}</td>
       <td><input class="tb-input" data-k="display_name" placeholder="别称" value="${esc(f.display_name||'')}"></td>
-      <td><span>${esc(c.data_type||'')}</span>${c.default_value?`<small class="field-default" title="${esc(c.default_value)}">默认：${esc(c.default_value)}</small>`:''}</td>
+      <td><span translate="no">${esc(c.data_type||'')}</span>${c.default_value?`<small class="field-default" title="${esc(c.default_value)}">${esc(TopbaseLocale.t('默认：{value}', {value:c.default_value}))}</small>`:''}</td>
       <td><input class="tb-input" data-k="description" placeholder="数据库注释或业务说明" value="${esc(description)}"></td>
       <td><select class="tb-select" data-k="semantic">${typeOpts}</select></td>
       <td><input class="tb-input" data-k="fk_table" placeholder="users" value="${esc(foreign.table||'')}"></td>
@@ -119,7 +119,7 @@ async function boot(){
 function fillModelSources(){
   const items=modelSource==='local'?localDatasets:remoteDatabases;
   const selected=modelSource==='local'?(items[0]&&items[0].id):topbasePickDatabase(items,params().get('db')||'');
-  $('#database').innerHTML=items.length?items.map(item=>`<option value="${esc(item.id)}">${esc(item.name)}</option>`).join(''):`<option value="">暂无${modelSource==='local'?'本地数据集':'数据源'}</option>`;
+  $('#database').innerHTML=items.length?items.map(item=>`<option translate="no" value="${esc(item.id)}">${esc(item.name)}</option>`).join(''):`<option value="">${modelSource==='local'?'暂无本地数据集':'暂无数据源'}</option>`;
   if(selected)$('#database').value=selected;
 }
 TopbaseTabs.mount('.model-source-tabs',{tabSelector:'[data-model-source]',tabValue:tab=>tab.dataset.modelSource,onChange:async source=>{modelSource=source;if(source==='local')localDatasets=await api('/api/warehouse/uploads');fillModelSources();await loadTables();}});

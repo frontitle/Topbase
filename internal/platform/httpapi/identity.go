@@ -82,7 +82,18 @@ func (s *server) completeSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, session.ID, session.ExpiresAt)
+	setLocaleCookie(w, r, user.Locale)
 	writeJSON(w, http.StatusCreated, s.identity.WithRole(user))
+}
+
+// The non-sensitive language cookie lets embedded HTML select the account
+// language before its first render, including immediately after OAuth sign-in.
+func setLocaleCookie(w http.ResponseWriter, r *http.Request, locale string) {
+	if locale != "en" && locale != "zh-CN" {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: "topbase_locale", Value: locale, Path: "/", MaxAge: 365 * 24 * 60 * 60,
+		Secure: secureCookieRequest(r), SameSite: http.SameSiteLaxMode})
 }
 
 func (s *server) createSession(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +110,7 @@ func (s *server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, session.ID, session.ExpiresAt)
+	setLocaleCookie(w, r, user.Locale)
 	writeJSON(w, http.StatusOK, s.identity.WithRole(user))
 }
 

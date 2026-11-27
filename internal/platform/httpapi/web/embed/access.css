@@ -1,0 +1,33 @@
+.share-access {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: 16px;
+  background: #f4f6f9;
+}
+.share-access-card {
+  width: min(350px, 100%);
+  box-sizing: border-box;
+  padding: clamp(18px, 4vw, 28px);
+  border: 1px solid var(--tb-control-line);
+  border-radius: 12px;
+  background: var(--tb-control-surface);
+  color: var(--tb-control-text);
+}
+.share-access-icon {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--tb-action);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.share-access-card h1 { margin: 12px 0 6px; font-size: 20px; }
+.share-access-card p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--tb-control-muted); }
+.share-access-card p:empty { display: none; }
+#share-access-form { display: grid; gap: 6px; margin-top: 18px; }
+#share-access-form .tb-btn, #share-access-retry { margin-top: 9px; }
+#share-access-error { color: var(--tb-danger); }

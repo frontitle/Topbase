@@ -102,6 +102,32 @@ test('application shell uses the vendored icon system instead of text glyphs', (
   assert.doesNotMatch(shell, /icon:\s*'[▦◇☷▣▤⌫☺⚿◴⚙]'/);
 });
 
+test('page chrome reserves the context bar for object workflows', () => {
+  const uiCSS = read('internal/platform/httpapi/web/ui.css');
+  const contextPages = [
+    'internal/platform/httpapi/web/questions/new/index.html',
+    'internal/platform/httpapi/web/questions/view/index.html',
+    'internal/platform/httpapi/web/collections/view/index.html',
+    'internal/platform/httpapi/web/dashboard/view/index.html',
+  ];
+  const topLevelPages = [
+    'internal/platform/httpapi/web/index.html',
+    'internal/platform/httpapi/web/questions/index.html',
+    'internal/platform/httpapi/web/dashboard/index.html',
+    'internal/platform/httpapi/web/data/index.html',
+    'internal/platform/httpapi/web/warehouse/index.html',
+    'internal/platform/httpapi/web/trash/index.html',
+    'internal/platform/httpapi/web/account/index.html',
+    'internal/platform/httpapi/web/admin/index.html',
+    'internal/platform/httpapi/web/admin/settings/index.html',
+  ];
+  for (const file of contextPages) assert.match(read(file), /class="context-bar(?:\s|")/, file);
+  for (const file of topLevelPages) assert.doesNotMatch(read(file), /class="(?:topbar|context-bar)/, file);
+  assert.match(uiCSS, /\.context-bar\s*\{/);
+  assert.doesNotMatch(uiCSS, /\.topbar(?:\s|\{|>|\.)/);
+  assert.doesNotMatch(dataJS, /section-title|\$\('#crumb'\)/);
+});
+
 test('account access separates organization sync from personal login in one layer', () => {
   assert.match(peopleHTML, /企业组织接入/);
   assert.match(peopleHTML, /个人第三方登录/);

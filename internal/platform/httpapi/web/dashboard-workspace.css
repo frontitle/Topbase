@@ -1,4 +1,4 @@
-.page.board-page > .topbar {
+.page.board-page > .context-bar {
   position: sticky;
   z-index: 18;
   top: 0;
@@ -6,17 +6,17 @@
   background: #fff;
   border-color: #dee3ea;
 }
-.board-page > .topbar #title {
+.board-page > .context-bar #title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.board-page > .topbar .top-actions { flex-shrink: 0; --tb-control-height: 32px; }
+.board-page > .context-bar .top-actions { flex-shrink: 0; --tb-control-height: 32px; }
 .page.board-page main { padding: 16px clamp(12px, 2vw, 30px) 36px; }
 #editor-tools {
   position: sticky;
-  top: 56px;
+  top: 48px;
   padding: 5px 0;
   background: #edf0f4;
 }
@@ -117,8 +117,8 @@
   .outline-popover { left: -76px; width: min(286px, calc(100cqi - 8px)); }
 }
 @media (max-width: 600px) {
-  .board-page > .topbar { flex-wrap: wrap; height: auto; min-height: 48px; padding: 8px 10px; gap: 5px; }
-  .board-page > .topbar #title { max-width: 38vw; }
+  .board-page > .context-bar { flex-wrap: wrap; height: auto; min-height: 48px; padding: 8px 10px; gap: 5px; }
+  .board-page > .context-bar #title { max-width: 38vw; }
   .board-page .top-actions, .board-page #view-actions { gap: 4px; }
   .board-page .top-actions button { padding: 3px 7px; font-size: 12px; }
   #editor-tools { position: relative; top: auto; }

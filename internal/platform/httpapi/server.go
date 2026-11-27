@@ -31,21 +31,22 @@ var web embed.FS
 const sessionCookie = "topbase_session"
 
 type server struct {
-	queries    core.QueryService
-	ai         core.AIProvider
-	catalog    core.CatalogService
-	metadata   core.MetadataStore
-	identity   identity.Service
-	content    content.Service
-	dataset    appquery.DatasetService
-	warehouse  *appwarehouse.Service
-	notify     notify.Service
-	static     fs.FS
-	store      *appdb.Store
-	connector  *adapters.SQLConnector
-	instanceID string
-	cancel     context.CancelFunc
-	workers    sync.WaitGroup
+	queries     core.QueryService
+	ai          core.AIProvider
+	catalog     core.CatalogService
+	metadata    core.MetadataStore
+	identity    identity.Service
+	content     content.Service
+	dataset     appquery.DatasetService
+	warehouse   *appwarehouse.Service
+	notify      notify.Service
+	static      fs.FS
+	store       *appdb.Store
+	connector   *adapters.SQLConnector
+	instanceID  string
+	shareAccess *dashboardShareAccess
+	cancel      context.CancelFunc
+	workers     sync.WaitGroup
 }
 
 type runtimeHandler struct {
@@ -148,15 +149,8 @@ func NewServer() http.Handler {
 		warehouse: wh,
 		notify: notify.Service{
 			Content: contentSvc, Dataset: dataset, Subscriptions: store.Subscriptions(),
-			Deliver: func(title, body, channel string) {
-				if channel == "feishu" {
-					if err := feishu.NotifyCard(title, body); err != nil {
-						log.Printf("topbase: feishu notify: %v", err)
-					}
-				}
-			},
 		},
-		store: store, connector: connector, instanceID: runtimeInstanceID(), cancel: cancelWorkers,
+		store: store, connector: connector, shareAccess: newDashboardShareAccess(masterKey), instanceID: runtimeInstanceID(), cancel: cancelWorkers,
 	}
 	s.notify.Deliver = s.deliverNotification
 	wh.Notify = func(title, body string) {
@@ -246,11 +240,13 @@ func NewServer() http.Handler {
 	mux.HandleFunc("DELETE /api/dashboards/{id}", s.archiveDashboard)
 	mux.HandleFunc("POST /api/dashboards/{id}/cards/{cardId}/dataset", s.runDashboardCard)
 	mux.HandleFunc("POST /api/embed/validate", s.validateEmbedURL)
-	mux.HandleFunc("POST /api/dashboards/{id}/public-link", s.enableDashboardPublicLink)
+	mux.HandleFunc("POST /api/dashboards/{id}/public-link", s.saveDashboardPublicLink)
+	mux.HandleFunc("PUT /api/dashboards/{id}/public-link", s.saveDashboardPublicLink)
 	mux.HandleFunc("DELETE /api/dashboards/{id}/public-link", s.disableDashboardPublicLink)
 	mux.HandleFunc("PUT /api/dashboards/{id}/embedding", s.setDashboardEmbedding)
 	mux.HandleFunc("POST /api/dashboards/{id}/copy", s.copyDashboard)
 	mux.HandleFunc("GET /api/public/dashboard/{uuid}", s.getPublicDashboard)
+	mux.HandleFunc("POST /api/public/dashboard/{uuid}/verify", s.verifyDashboardPassword)
 	mux.HandleFunc("POST /api/public/dashboard/{uuid}/cards/{cardId}/dataset", s.runPublicDashboardCard)
 	mux.HandleFunc("POST /api/dataset/export", s.exportDataset)
 	mux.HandleFunc("GET /api/search", s.search)
@@ -314,6 +310,7 @@ func NewServer() http.Handler {
 	mux.HandleFunc("GET /api/webhooks", s.listWebhooks)
 	mux.HandleFunc("GET /api/subscription-channels", s.listSubscriptionChannels)
 	mux.HandleFunc("PUT /api/webhooks", s.saveWebhooks)
+	mux.HandleFunc("POST /api/webhooks/{id}/test", s.testWebhook)
 	mux.HandleFunc("GET /api/subscriptions", s.listAllSubscriptions)
 	mux.HandleFunc("POST /api/feishu/departments/sync", s.syncFeishuDepartments)
 	mux.HandleFunc("GET /api/dashboards/{id}/subscriptions", s.listSubscriptions)

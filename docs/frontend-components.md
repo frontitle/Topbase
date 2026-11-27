@@ -7,6 +7,7 @@
 | 组件 | 源码 | 全局入口 | 主要使用页面 | 状态 |
 | --- | --- | --- | --- | --- |
 | 应用外壳 | `web/shell.js` | 页面上的 `data-shell` | 全部登录后页面 | 稳定 |
+| 上下文操作栏 | `web/ui.css` | `.context-bar` | 分析、仪表盘、分组等详情与编辑页 | 稳定 |
 | 基础控件 | `web/ui.js`、`web/components/ui-controls.css` | `TopbaseUI` | 所有交互页面 | 稳定 |
 | 菜单与弹层 | `web/ui.js` | `TopbaseUI.popover`、`TopbaseUI.modal`、`TopbaseUI.formDialog` | 应用侧栏、仪表盘、筛选、数据管理 | 稳定 |
 | 页签切换 | `web/ui.js`、`web/ui.css` | `TopbaseTabs.mount`、`.tb-tabs` | 通知与订阅、人员与组、个人中心、新建分析、数据源连接 | 稳定 |
@@ -146,6 +147,8 @@ const editor = TopbaseCode.mountEditor('#sql-editor', {
 ### 应用外壳与 UI 基础设施
 
 - 应用外壳统一生成侧栏、用户入口、活动菜单与管理权限入口。
+- 一级列表页和后台配置页直接从 `.page-head` 开始，不增加重复标题栏。只有承载面包屑、状态或对象级操作的详情与编辑页使用 `.context-bar`。
+- `.context-bar` 是紧凑的上下文操作区，不用于重复当前侧栏名称；其移动端操作必须允许换行，并保留可见焦点与明确的 `aria-label`。
 - 菜单图标统一使用随应用发布的 Lucide 线性图标精简集，不依赖网络字体或运行时 CDN。
 - 所有 HTTP 请求通过 `api`，核心动作通过 `toast` 反馈。
 - 需要输入、选择或确认时使用 Topbase 对话框组件，禁止 `alert`、`confirm`、`prompt`。

@@ -1,5 +1,9 @@
 (function (global) {
   const ui = global.TopbaseUI || (global.TopbaseUI = {});
+  function tr(key, values) {
+    if (global.TopbaseLocale) return global.TopbaseLocale.t(key, values);
+    return values ? key.replace(/\{(\w+)\}/g, (token, name) => values[name] ?? token) : key;
+  }
   function $(sel, root) {
     return (root || document).querySelector(sel);
   }
@@ -55,7 +59,7 @@
   function select({ label, options = [], value, attrs = {}, help }) {
     const selected = new Set((Array.isArray(value) ? value : [value]).filter(item => item != null).map(String));
     const html = options.map(option => '<option value="' + esc(option.value) + '"' +
-      (selected.has(String(option.value)) ? ' selected' : '') + (option.disabled ? ' disabled' : '') + '>' + esc(option.label) + '</option>').join('');
+      (option.translate === false ? ' translate="no"' : '') + (selected.has(String(option.value)) ? ' selected' : '') + (option.disabled ? ' disabled' : '') + '>' + esc(option.label) + '</option>').join('');
     return field(label, '<select class="tb-select"' + attributes(attrs) + '>' + html + '</select>', help);
   }
   function checkbox({ label, checked, attrs }) {
@@ -96,12 +100,12 @@
         '</div>' + iconButton({ icon: 'x', label: '关闭', className: 'tb-dialog-close' }) + '</header>' +
         '<form class="tb-dialog-form"><div class="tb-dialog-body">' +
           (options.details && options.details.length ? '<dl class="tb-dialog-details">' + options.details.map(function (item) {
-            return '<div><dt>' + esc(item.label) + '</dt><dd>' + esc(item.value) + '</dd></div>';
+            return '<div><dt>' + esc(item.label) + '</dt><dd' + (item.translate === false ? ' translate="no"' : '') + '>' + esc(item.value) + '</dd></div>';
           }).join('') + '</dl>' : '') +
           fields.map(function (field) {
             var name = esc(field.name);
             var fieldAttrs = { name: field.name, required: field.required, placeholder: field.placeholder, autocomplete: 'off' };
-            var label = '<span>' + esc(field.label || '') + (field.required ? ' <em>*</em>' : '') + '</span>';
+            var label = (field.translateLabel === false ? '<span translate="no">' : '<span>') + esc(field.label || '') + (field.required ? ' <em>*</em>' : '') + '</span>';
             var help = field.help ? '<small>' + esc(field.help) + '</small>' : '';
             if (field.type === 'select') {
               return '<label class="tb-dialog-field">' + label + select({ value: field.value ?? '', options: field.options, attrs: fieldAttrs }) + help + '</label>';
@@ -110,14 +114,14 @@
               return '<fieldset class="tb-dialog-field tb-dialog-choice"><legend>' + label + '</legend>' +
                 (field.options || []).map(function (option, index) {
                   var checked = String(option.value) === String(field.value ?? '') || (!field.value && index === 0);
-                  return '<label><input type="radio" name="' + name + '" value="' + esc(option.value) + '"' + (checked ? ' checked' : '') + '><span><b>' + esc(option.label) + '</b>' + (option.description ? '<small>' + esc(option.description) + '</small>' : '') + '</span></label>';
+                  return '<label><input type="radio" name="' + name + '" value="' + esc(option.value) + '"' + (checked ? ' checked' : '') + '><span' + (option.translate === false ? ' translate="no"' : '') + '><b>' + esc(option.label) + '</b>' + (option.description ? '<small>' + esc(option.description) + '</small>' : '') + '</span></label>';
                 }).join('') + help + '</fieldset>';
             }
             if (field.type === 'multichoice') {
               var selected = Array.isArray(field.value) ? field.value.map(String) : [];
               return '<fieldset class="tb-dialog-field tb-dialog-choice tb-dialog-multichoice"><legend>' + label + '</legend>' +
                 (field.options || []).map(function (option) {
-                  return '<label><input type="checkbox" name="' + name + '" value="' + esc(option.value) + '"' + (selected.includes(String(option.value)) ? ' checked' : '') + '><span><b>' + esc(option.label) + '</b>' + (option.description ? '<small>' + esc(option.description) + '</small>' : '') + '</span></label>';
+                  return '<label><input type="checkbox" name="' + name + '" value="' + esc(option.value) + '"' + (selected.includes(String(option.value)) ? ' checked' : '') + '><span' + (option.translate === false ? ' translate="no"' : '') + '><b>' + esc(option.label) + '</b>' + (option.description ? '<small>' + esc(option.description) + '</small>' : '') + '</span></label>';
                 }).join('') + help + '</fieldset>';
             }
             return '<label class="tb-dialog-field">' + label + input({ value: field.value, type: field.type, attrs: fieldAttrs }) + help + '</label>';
@@ -232,16 +236,16 @@
     });
     if (res.status === 204) return null;
     var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw Error(data.error || '请求失败');
+    if (!res.ok) throw Error(global.TopbaseLocale?.errorText(data.error || '请求失败') || data.error || '请求失败');
     return data;
   }
   function queryLimitMessage(meta) {
     meta = meta || {};
     if (!meta.truncated) return '';
-    if (meta.truncation_reason === 'result_byte_limit') return '结果体积较大，仅展示已安全加载的部分数据';
-    if (meta.truncation_reason === 'cell_byte_limit') return '部分超大字段已截断显示';
-    if (meta.truncation_reason === 'row_limit') return '结果已达到 ' + (meta.row_limit || 1000) + ' 行展示上限';
-    return '当前展示的是部分查询结果';
+    if (meta.truncation_reason === 'result_byte_limit') return tr('结果较大，仅显示部分数据');
+    if (meta.truncation_reason === 'cell_byte_limit') return tr('部分字段过长，已截断');
+    if (meta.truncation_reason === 'row_limit') return tr('最多显示 {count} 行', {count:meta.row_limit || 1000});
+    return tr('仅显示部分结果');
   }
   function emptyHTML(opts) {
     opts = opts || {};
@@ -256,8 +260,8 @@
     // `footer` remains a backwards-compatible alias for action. It is useful
     // for admin status cards whose primary operation belongs at the bottom.
     if (opts.footer && !opts.action) opts.action = opts.footer;
-    var inner = '<b>' + esc(opts.title || '') + '</b>' +
-      (opts.meta ? '<small>' + esc(opts.meta) + '</small>' : '') +
+    var inner = (opts.titleTranslate === true ? '<b>' : '<b translate="no">') + esc(opts.title || '') + '</b>' +
+      (opts.meta ? (opts.metaTranslate === false ? '<small translate="no">' : '<small>') + esc(opts.meta) + '</small>' : '') +
       (opts.action ? '<div class="card-foot">' + opts.action + '</div>' : '');
     if (opts.href) return '<a class="db-card" href="' + esc(opts.href) + '">' + inner + '</a>';
     return '<article class="db-card">' + inner + '</article>';

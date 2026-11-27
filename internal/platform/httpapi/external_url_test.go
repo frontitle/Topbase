@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	identityapp "github.com/topbase/topbase/internal/app/identity"
+	"github.com/topbase/topbase/internal/core"
 )
 
 type externalURLSettings map[string]string
@@ -37,5 +38,21 @@ func TestPublicBaseURLUsesConfiguredDomainAndPort(t *testing.T) {
 	request := httptest.NewRequest("GET", "http://internal:8080/", nil)
 	if got := server.publicBaseURL(request); got != "https://bi.example.com:8443" {
 		t.Fatalf("unexpected public base URL: %q", got)
+	}
+}
+
+func TestSubscriptionDashboardURL(t *testing.T) {
+	settings := externalURLSettings{}
+	s := server{identity: identityapp.Service{Settings: settings}}
+	hook := core.WebhookEndpoint{Provider: "slack"}
+	if got := s.subscriptionDashboardURL(hook, "board"); got != "" {
+		t.Fatalf("unexpected unconfigured dashboard URL %q", got)
+	}
+	settings["admin_settings"] = `{"custom_domain":"bi.example.com","public_port":8443,"public_scheme":"auto","public_sharing_enabled":false}`
+	for _, provider := range []string{"slack", "teams", "google_chat"} {
+		hook.Provider = provider
+		if got := s.subscriptionDashboardURL(hook, "sales"); got != "https://bi.example.com:8443/dashboard/sales/" {
+			t.Errorf("%s dashboard URL: %q", provider, got)
+		}
 	}
 }

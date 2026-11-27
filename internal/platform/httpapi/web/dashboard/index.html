@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 仪表盘</title>
   <link rel="stylesheet" href="/ui.css">
@@ -10,12 +13,11 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="dashboards"></aside>
   <div class="page">
-    <header class="topbar"><strong>仪表盘</strong></header>
     <main>
       <div class="page-head">
         <div>
           <h1>仪表盘</h1>
-          <p>集中查看所有仪表盘；新建后可直接添加分析并编排布局。</p>
+          <p>添加分析或小组件，自定义仪表盘布局。</p>
         </div>
         <button class="primary" id="show-create" type="button">新建仪表盘</button>
       </div>
@@ -23,7 +25,7 @@
     </main>
   </div>
   <div id="toast"></div>
-  <script src="/ui.js"></script>
+  <script src="/ui.js"></script><script src="/dashboard-share-status.js"></script>
   <script src="/shell.js"></script>
   <script src="/dashboard-list.js"></script>
 </body>

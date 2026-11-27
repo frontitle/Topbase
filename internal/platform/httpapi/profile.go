@@ -101,6 +101,7 @@ func (s *server) updateUserProfile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	setLocaleCookie(w, r, updated.Locale)
 	writeJSON(w, http.StatusOK, updated)
 }
 

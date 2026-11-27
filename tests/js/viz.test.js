@@ -307,3 +307,36 @@ test('table settings do not duplicate page-level filters', () => {
   assert.doesNotMatch(element.innerHTML, /data-k="search"/);
   assert.match(element.innerHTML, /页面顶部的筛选器/);
 });
+
+test('English canvas labels retain saved series and user-provided names', () => {
+  const vm = require('node:vm');
+  const fs = require('node:fs');
+  const options = [];
+  const chartElement = {};
+  const context = vm.createContext({
+    navigator:{language:'en'}, ResizeObserver:class {observe() {} disconnect() {}},
+    echarts:{init(_el, _theme, settings) {
+      assert.equal(settings.locale, 'EN');
+      return {setOption:option => options.push(option), dispose() {}};
+    }}
+  });
+  context.window = context;
+  for (const file of ['locale.js', 'locales/analytics.js', 'viz.js']) {
+    vm.runInContext(fs.readFileSync(path.resolve('internal/platform/httpapi/web',file),'utf8'), context);
+  }
+  const element = {innerHTML:'',querySelector:() => chartElement};
+  const rows = [['标题', 100000], ['其他', 3000], ['分组', 20]];
+  context.TopbaseViz.render(element, {columns:['字段', '销售额'], rows, spec:{
+    type:'line', x:'字段', y:['销售额'], goal:100000, trendline:true
+  }});
+  assert.equal(options[0].series[0].name, '销售额');
+  assert.equal(options[0].series[0].markLine.label.formatter, 'Target 100K');
+  assert.equal(options[0].series[1].name, '销售额 · Trend');
+  assert.ok(options[0].xAxis.data.includes('标题'));
+  context.TopbaseViz.render(element, {columns:['字段', '销售额'], rows, spec:{type:'pie', x:'字段', y:['销售额'], slice_threshold:5}});
+  const pie = options[1];
+  assert.equal(pie.series[0].data[0].name, '标题');
+  assert.equal(pie.series[0].data.at(-1).name, 'Other');
+  assert.match(pie.graphic[0].style.text, /Total/);
+  assert.equal(pie.tooltip.formatter({name:'标题',value:1,percent:1}), '标题<br/>1 (1.0%)');
+});

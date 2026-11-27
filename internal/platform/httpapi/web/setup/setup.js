@@ -9,10 +9,14 @@ let storageMode = 'development';
     const storage = status.application_database || {};
     storageMode = storage.mode || 'development';
     const development = storageMode === 'development';
-    document.querySelector('#storage-title').textContent = development ? 'SQLite · 开发体验模式' : `${storage.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'} · 生产正式模式`;
-    document.querySelector('#storage-description').textContent = development
-      ? '无需额外数据库即可快速体验；数据保存在当前服务器的本地目录。'
-      : '项目数据保存在独立应用数据库，可用于持续升级、RDS 和多节点部署。';
+    function renderStorage() {
+      document.querySelector('#storage-title').textContent = development ? 'SQLite · 开发体验模式' : window.TopbaseLocale.t('{engine} · 生产模式', {engine:storage.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'});
+      document.querySelector('#storage-description').textContent = development
+        ? '数据保存在本机。生产环境请迁移至 PostgreSQL 或 MySQL。'
+        : '工作区数据保存在独立的应用数据库中。';
+    }
+    renderStorage();
+    window.addEventListener('topbase:localechange', renderStorage);
     document.querySelector('#storage-mode').classList.toggle('is-risk', development);
     document.querySelector('#storage-risk').hidden = !development;
     document.querySelector('#accept_storage_risk').required = development;
@@ -27,12 +31,12 @@ form.onsubmit = async (event) => {
   errorEl.hidden = true;
   if (storageMode === 'development' && !document.querySelector('#accept_storage_risk').checked) {
     errorEl.hidden = false;
-    errorEl.textContent = '请先确认开发体验模式的数据持久化风险。';
+    errorEl.textContent = '请先确认存储风险。';
     return;
   }
   try {
     await api('/api/setup', 'POST', {
-      language: 'zh-CN',
+      language: window.TopbaseLocale.locale(),
       site_name: document.querySelector('#site_name').value,
       admin_name: document.querySelector('#admin_name').value,
       admin_email: document.querySelector('#admin_email').value,

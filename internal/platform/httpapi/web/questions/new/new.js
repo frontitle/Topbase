@@ -3,7 +3,7 @@ let databases = [], analyses = [], activeDatabase = null, activeTab = 'tables', 
 function normalize(value) { return String(value || '').toLowerCase(); }
 function matches(value, query) { return !query || normalize(value).includes(query); }
 function row(icon, title, meta, attrs) {
-  return `<button class="source-row" type="button" ${attrs}><span class="source-symbol">${icon}</span><span class="source-copy"><b>${esc(title)}</b><small>${esc(meta)}</small></span><span class="source-arrow">›</span></button>`;
+  return `<button class="source-row" type="button" ${attrs}><span class="source-symbol">${icon}</span><span class="source-copy"><b translate="no">${esc(title)}</b><small translate="no">${esc(meta)}</small></span><span class="source-arrow">›</span></button>`;
 }
 function empty(title, body, action) {
   return `<div class="source-empty"><b>${esc(title)}</b><p>${esc(body)}</p>${action || ''}</div>`;
@@ -16,9 +16,9 @@ function renderDatabases() {
   const query = normalize($('#source-search').value);
   const items = databases.filter(db => matches(`${db.name} ${db.host || ''} ${db.engine || ''}`, query));
   $('#picker-path').hidden = true;
-  setStatus(`${items.length} 个可用数据源`);
-  $('#source-list').innerHTML = items.map(db => row('▣', db.name, `${db.engine || 'PostgreSQL'} · ${db.table_count || 0} 张数据表`, `data-database="${esc(db.id)}"`)).join('') ||
-    empty(databases.length ? '没有匹配的数据源' : '还没有可用数据源', databases.length ? '换一个名称、主机或数据库类型搜索。' : '管理员连接数据库并同步结构后，数据表会显示在这里。', '<a class="secondary tb-btn tb-btn-secondary" href="/admin/">前往数据源管理</a>');
+  setStatus(TopbaseLocale.t('可用数据源：{n}',{n:items.length}));
+  $('#source-list').innerHTML = items.map(db => row('▣', db.name, TopbaseLocale.t('{engine} · {count} 张表',{engine:db.engine || 'PostgreSQL',count:db.table_count || 0}), `data-database="${esc(db.id)}"`)).join('') ||
+    empty(databases.length ? '没有匹配的数据源' : '还没有可用数据源', databases.length ? '换一个名称、主机或数据库类型搜索。' : '请联系管理员连接数据源。', '<a class="secondary tb-btn tb-btn-secondary" href="/admin/">前往数据源管理</a>');
   $$('#source-list [data-database]').forEach(button => button.onclick = () => openDatabase(button.dataset.database));
 }
 function renderTables() {
@@ -26,10 +26,10 @@ function renderTables() {
   const items = tables.filter(table => !table.hidden && matches(`${table.schema} ${table.display_name || ''} ${table.name} ${table.description || ''} ${(table.columns || []).map(column => `${column.name} ${column.description || ''}`).join(' ')}`, query));
   $('#picker-path').hidden = false;
   $('#picker-current').textContent = activeDatabase.name;
-  setStatus(`${items.length} 张可分析的数据表`);
+  setStatus(TopbaseLocale.t('可分析的表：{n}',{n:items.length}));
   const groups = {};
   items.forEach(table => (groups[table.schema] || (groups[table.schema] = [])).push(table));
-  $('#source-list').innerHTML = Object.keys(groups).sort().map(schema => `<div class="source-group-title">${esc(schema)}</div>` + groups[schema].map(table => row('▦', table.display_name || table.name, table.display_name ? `${schema}.${table.name}${table.description ? ' · '+table.description : ''}` : (table.description || `${(table.columns || []).length} 个字段 · ${schema}`), `data-schema="${esc(table.schema)}" data-table="${esc(table.name)}"`)).join('')).join('') || empty('没有匹配的数据表', '可以搜索表别称、表名、Schema、字段名或数据库注释。');
+  $('#source-list').innerHTML = Object.keys(groups).sort().map(schema => `<div class="source-group-title" translate="no">${esc(schema)}</div>` + groups[schema].map(table => row('▦', table.display_name || table.name, table.display_name ? `${schema}.${table.name}${table.description ? ' · '+table.description : ''}` : (table.description || TopbaseLocale.t('{n} 个字段 · {schema}',{n:(table.columns || []).length,schema})), `data-schema="${esc(table.schema)}" data-table="${esc(table.name)}"`)).join('')).join('') || empty('没有匹配的数据表', '试试表名、别称、Schema、字段名或注释。');
   $$('#source-list [data-table]').forEach(button => button.onclick = () => {
     const params = new URLSearchParams({ db: activeDatabase.id, schema: button.dataset.schema, table: button.dataset.table, from: 'new-analysis' });
     location.href = '/data/?' + params.toString();
@@ -39,8 +39,8 @@ function renderAnalyses() {
   const query = normalize($('#source-search').value);
   const items = analyses.filter(item => matches(`${item.name} ${item.description || ''} ${item.query_type || ''}`, query));
   $('#picker-path').hidden = true;
-  setStatus(`${items.length} 条已保存分析`);
-  $('#source-list').innerHTML = items.map(item => row('◇', item.name, item.query_type === 'native' ? 'SQL 分析' : '可视化分析', `data-analysis="${esc(item.id)}"`)).join('') || empty(analyses.length ? '没有匹配的分析' : '还没有已保存分析', analyses.length ? '换一个名称或描述搜索。' : '从数据表开始创建并保存后，会显示在这里。');
+  setStatus(TopbaseLocale.t('已保存分析：{n}',{n:items.length}));
+  $('#source-list').innerHTML = items.map(item => row('◇', item.name, TopbaseLocale.t(item.query_type === 'native' ? 'SQL 分析' : '可视化分析'), `data-analysis="${esc(item.id)}"`)).join('') || empty(analyses.length ? '没有匹配的分析' : '还没有已保存分析', analyses.length ? '换一个名称或描述搜索。' : '选择一张表，创建并保存分析。');
   $$('#source-list [data-analysis]').forEach(button => button.onclick = () => location.href = '/questions/' + button.dataset.analysis + '/');
 }
 function render() {

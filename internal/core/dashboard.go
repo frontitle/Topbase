@@ -66,6 +66,22 @@ type Dashboard struct {
 	CreatedAt          time.Time         `json:"created_at"`
 	PublicUUID         string            `json:"public_uuid,omitempty"`
 	PublicEmbedEnabled bool              `json:"public_embed_enabled"`
+	PublicExpiresAt    *time.Time        `json:"public_expires_at,omitempty"`
+	PublicPasswordHash string            `json:"-"`
+}
+
+// SetExpiry distinguishes an omitted expiry from an explicit return to a
+// permanent link. Password follows the same convention (nil keeps it).
+type DashboardPublicLinkUpdate struct {
+	SetExpiry bool
+	ExpiresAt *time.Time
+	Password  *string `json:"-"`
+}
+
+type DashboardPublicAccess struct {
+	ExpiresAt    *time.Time
+	PasswordHash string `json:"-"`
+	EmbedEnabled bool
 }
 
 type FilterValue map[string]any

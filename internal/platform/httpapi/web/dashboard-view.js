@@ -125,7 +125,12 @@ function applyAppearance() {
 }
 function renderPublicBadge() {
   const badge = $('#public-badge');
-  if (badge) badge.hidden = !board?.public_uuid;
+  if (!badge) return;
+  const state = dashboardShareStatus(board);
+  badge.hidden = state === 'private';
+  badge.classList.toggle('expired', state === 'expired');
+  badge.textContent = state === 'expired' ? '分享已到期' : '◉ 已公开';
+  badge.title = state === 'expired' ? '在分享设置中可以延长有效期' : '此仪表盘已公开分享';
 }
 function canvasPropertyFields() {
   const a = appearance();
@@ -177,7 +182,7 @@ function renderTabs() {
   const tabs = board.tabs || [];
   $('#tabs').hidden = tabs.length <= 1;
   $('#tabs').className = 'tb-tabs tabs';
-  $('#tabs').innerHTML = tabs.length <= 1 ? '' : tabs.map(t => `<button data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
+  $('#tabs').innerHTML = tabs.length <= 1 ? '' : tabs.map(t => `<button translate="no" data-tab="${t.id}" class="${t.id === activeTab ? 'active' : ''}">${esc(t.name)}</button>`).join('');
   $('.board-toolbar').hidden = tabs.length <= 1 && !(board.filters || []).length;
   $$('#tabs button').forEach(b => b.onclick = () => {
     activeTab = b.dataset.tab;
@@ -188,8 +193,8 @@ function renderTabs() {
 }
 function renderFilters() {
   $('#filters').innerHTML = (board.filters || []).map(f => {
-    if (f.type === 'date') return `<label>${esc(f.name)} 起<input data-filter="${f.id}" data-key="start" type="date"></label><label>止<input data-filter="${f.id}" data-key="end" type="date"></label>`;
-    return `<label>${esc(f.name)}<input data-filter="${f.id}" data-key="value"></label>`;
+    if (f.type === 'date') return `<label><span translate="no">${esc(f.name)}</span> 起<input data-filter="${f.id}" data-key="start" type="date"></label><label>止<input data-filter="${f.id}" data-key="end" type="date"></label>`;
+    return `<label><span translate="no">${esc(f.name)}</span><input data-filter="${f.id}" data-key="value"></label>`;
   }).join('');
 }
 function renderPalette() {
@@ -202,12 +207,12 @@ function renderPalette() {
   $('#palette-questions').innerHTML = shown.map(item => {
     const added=used.has(item.id);
     const group = collections.find(collection => collection.id === item.collection_id);
-    return `<button class="palette-item ${added?'added':''}" draggable="${added?'false':'true'}" data-qid="${item.id}" type="button" ${added?'disabled':''}><b>${esc(item.name)}</b><small>${group ? esc(group.name) + ' · ' : ''}${item.query_type === 'native' ? 'SQL 分析' : '可视化分析'} · ${added?'已添加':'点击添加'}</small></button>`;
+    return `<button class="palette-item ${added?'added':''}" draggable="${added?'false':'true'}" data-qid="${item.id}" type="button" ${added?'disabled':''}><b translate="no">${esc(item.name)}</b><small>${group ? `<span translate="no">${esc(group.name)}</span>` + ' · ' : ''}${dashboardText(item.query_type === 'native' ? 'SQL 分析' : '可视化分析')} · ${dashboardText(added?'已添加':'点击添加')}</small></button>`;
   }).join('') || (questions.length
     ? '<div class="palette-empty" role="status">没有匹配的分析，请调整搜索词或分组。</div>'
     : '<div class="palette-empty"><b>还没有分析</b><p>保存分析后，即可在这里添加。</p><a href="/questions/new/">创建分析</a></div>');
   $('#palette-more').hidden = items.length <= shown.length;
-  $('#palette-more').textContent = `加载更多（还有 ${items.length - shown.length} 条）`;
+  $('#palette-more').textContent = dashboardText('加载更多（剩余 {n} 条）', {n:items.length - shown.length});
   $$('#palette-questions .palette-item:not([disabled])').forEach(btn => {
     btn.ondragstart = ev => beginPaletteDrag(ev, { questionId: btn.dataset.qid });
     btn.ondragend = clearPaletteDrag;
@@ -223,7 +228,7 @@ function renderWidgetLibrary() {
     groups.get(item.group).push(item);
   }
   host.innerHTML = [...groups].map(([group, items]) => `<section class="widget-group"><h3>${esc(group)}</h3><div class="widget-tiles">${items.map(item =>
-    `<button type="button" class="widget-tile" data-add="${esc(item.id)}" draggable="${item.id !== 'image'}"><span class="widget-symbol" aria-hidden="true">${esc(item.symbol)}</span><span>${esc(item.label)}</span></button>`
+    `<button type="button" class="widget-tile" data-add="${esc(item.id)}" draggable="${item.id !== 'image'}"><span class="widget-symbol" aria-hidden="true">${esc(item.symbol)}</span><span translate="no">${esc(item.label)}</span></button>`
   ).join('')}</div></section>`).join('') || '<p class="widget-no-match" role="status">没有匹配的小组件</p>';
 }
 let insertPopover;
@@ -246,25 +251,29 @@ function renderCollectionFilter() {
   const selected = select.value;
   const counts = new Map();
   questions.forEach(question => counts.set(question.collection_id || '', (counts.get(question.collection_id || '') || 0) + 1));
-  select.innerHTML = `<option value="">全部分组（${questions.length}）</option>` + collections.filter(collection => counts.has(collection.id)).map(collection => `<option value="${esc(collection.id)}">${esc(collection.name)}（${counts.get(collection.id)}）</option>`).join('') + (counts.has('') ? `<option value="unassigned">未分组（${counts.get('')}）</option>` : '');
+  select.innerHTML = `<option value="">${dashboardText('全部分组（{n}）', {n:questions.length})}</option>` + collections.filter(collection => counts.has(collection.id)).map(collection => `<option translate="no" value="${esc(collection.id)}">${esc(collection.name)}（${counts.get(collection.id)}）</option>`).join('') + (counts.has('') ? `<option value="unassigned">${dashboardText('未分组（{n}）', {n:counts.get('')})}</option>` : '');
   select.value = selected;
+}
+
+function dashboardText(key, values = {}) {
+  return globalThis.TopbaseLocale?.t(key, values) ?? key.replace(/\{(\w+)\}/g, (token, name) => values[name] ?? token);
 }
 
 function cardTitle(card) {
   if (card.title) return card.title;
   if (card.question_id && questionMap[card.question_id]) return questionMap[card.question_id].name;
-  if (card.type === 'heading') return '标题';
-  if (card.type === 'text') return '文本';
-  if (card.type === 'link') return card.title || '链接';
-  if (card.type === 'iframe') return card.title || '网页';
-  if (card.type === 'divider') return card.title || '分隔标题';
-  if (card.type === 'metric') return card.title || '核心指标';
-  return '分析卡';
+  if (card.type === 'heading') return dashboardText('标题');
+  if (card.type === 'text') return dashboardText('文本');
+  if (card.type === 'link') return card.title || dashboardText('链接');
+  if (card.type === 'iframe') return card.title || dashboardText('网页');
+  if (card.type === 'divider') return card.title || dashboardText('分隔标题');
+  if (card.type === 'metric') return card.title || dashboardText('核心指标');
+  return dashboardText('分析卡');
 }
 function richText(card) {
   const heading = card.type === 'heading';
   const raw = heading ? card.config?.rich_title : card.config?.rich_text;
-  if (!raw) return esc(heading ? (card.title || '标题') : (card.body || ''));
+  if (!raw) return esc(heading ? (card.title || dashboardText('标题')) : (card.body || ''));
   const allowed = heading ? ['B','STRONG','I','EM','U'] : ['B','STRONG','I','EM','U','UL','OL','LI','BR','A','P','DIV'];
   const doc = new DOMParser().parseFromString(raw, 'text/html');
   doc.body.querySelectorAll('*').forEach(node => {
@@ -351,7 +360,7 @@ function presentationPanel(card) {
 
   if (card.type === 'image' && config.images?.length > 1) {
     const interval = inspectorSelect('切换间隔', { 'data-carousel': 'interval' }, Number(config.carousel_interval) || 5,
-      [3,5,8,12].map(value => [value, value + ' 秒']));
+      [3,5,8,12].map(value => [value, dashboardText('{value} 秒', {value})]));
     groups.push(section('图片播放', TopbaseUI.checkbox({ label: '自动轮播', attrs: { 'data-carousel': 'enabled' }, checked: config.carousel }) +
       (config.carousel ? grid([interval]) : '')));
   }
@@ -408,7 +417,7 @@ function renderInspector() {
   const icon = card ? 'settings-2' : 'layout-dashboard';
   const header = `<header><div class="inspector-heading"><svg aria-hidden="true"><use href="/vendor/lucide-nav.svg#${icon}"></use></svg>
     <div>${card ? `<button data-close-inspector type="button" title="返回画布设置">画布</button><span class="inspector-type"> / ${esc(inspectorType(card))}</span>` : ''}
-    <h2 tabindex="-1" title="${esc(heading)}">${esc(heading)}</h2></div></div>
+    <h2 tabindex="-1" ${card ? 'translate="no"' : ''} title="${esc(heading)}">${esc(heading)}</h2></div></div>
     <button type="button" data-inspector-dismiss aria-label="收起属性">×</button></header>`;
   syncInspectorToggle();
   if (!card) { host.innerHTML = header + canvasPropertyFields(); return; }
@@ -566,15 +575,15 @@ function cardHTML(card) {
     ${TopbaseUI.iconButton({ icon: 'trash-2', label: '删除组件', attrs: { 'data-del': card.id }, tone: 'danger' })}
   </div>` : '';
   const body = card.type === 'heading'
-    ? `<div class="heading-wrap"><h2 style="${typographyStyle(card)}"><span ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${richText(card)}</span></h2></div>`
+    ? `<div class="heading-wrap"><h2 style="${typographyStyle(card)}"><span translate="no" ${editing ? 'contenteditable="true" data-edit="title"' : ''}>${richText(card)}</span></h2></div>`
       : card.type === 'text'
-      ? `<div class="rich-text-wrap"><div class="rich-text text-effect-${editing ? 'none' : (card.config && card.config.text_effect || 'none')}" style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${richText(card)}</div></div>`
+      ? `<div class="rich-text-wrap"><div translate="no" class="rich-text text-effect-${editing ? 'none' : (card.config && card.config.text_effect || 'none')}" style="${typographyStyle(card)}" ${editing ? 'contenteditable="true" data-edit="body"' : ''}>${richText(card)}</div></div>`
       : card.type === 'link'
-        ? (editing ? `<span class="dashboard-link">${esc(card.title || '链接')}</span>` : `<a class="dashboard-link" href="${esc(card.body || '#')}" target="_blank" rel="noopener">${esc(card.title || card.body || '链接')}</a>`)
+        ? (editing ? `<span class="dashboard-link" translate="no">${esc(card.title || dashboardText('链接'))}</span>` : `<a class="dashboard-link" translate="no" href="${esc(card.body || '#')}" target="_blank" rel="noopener">${esc(card.title || card.body || dashboardText('链接'))}</a>`)
       : card.type === 'plugin' ? pluginHTML(card)
       : card.type === 'iframe' ? (!frameURL
         ? '<div class="image-placeholder">等待配置网页地址</div>'
-        : `<div class="dashboard-frame-wrap"><iframe class="dashboard-frame" title="${esc(card.title || '网页')}" src="${esc(frameURL)}"></iframe>${editing ? '' : `<a class="iframe-open" href="${esc(frameURL)}" target="_blank" rel="noopener">无法显示？新窗口打开 ↗</a>`}</div>`)
+        : `<div class="dashboard-frame-wrap"><iframe class="dashboard-frame" title="${esc(card.title || dashboardText('网页'))}" src="${esc(frameURL)}"></iframe>${editing ? '' : `<a class="iframe-open" href="${esc(frameURL)}" target="_blank" rel="noopener">无法显示？新窗口打开 ↗</a>`}</div>`)
           : card.type === 'image'
             ? imageHTML(card)
           : card.type === 'time'
@@ -583,7 +592,7 @@ function cardHTML(card) {
               ? `<div class="dashboard-divider"></div>`
           : `<div class="viz-stage" data-vizhost="${card.id}"><div class="viz-empty"><b>加载中</b><p>正在运行分析。</p></div></div>`;
   const hasTitle = card.question_id || card.type === 'divider';
-  const title = !hasTitle || p.show_header === false ? '' : `<div class="card-head" ${editing ? `data-drag="${esc(card.id)}"` : ''}><h3 ${card.type === 'divider' && editing ? 'contenteditable="true" data-edit="title"' : ''}>${card.question_id && !editing && !isPublicDashboard ? `<a href="/questions/${esc(card.question_id)}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3></div>`;
+  const title = !hasTitle || p.show_header === false ? '' : `<div class="card-head" ${editing ? `data-drag="${esc(card.id)}"` : ''}><h3 translate="no" ${card.type === 'divider' && editing ? 'contenteditable="true" data-edit="title"' : ''}>${card.question_id && !editing && !isPublicDashboard ? `<a href="/questions/${esc(card.question_id)}/">${esc(cardTitle(card))}</a>` : esc(cardTitle(card))}</h3></div>`;
   return `<article class="board-card ${editing ? 'editing' : ''} ${editing && selectedCard===card.id ? 'selected' : ''} ${card.type === 'divider' ? 'board-divider-card' : ''} card-border-${p.border} card-surface-${p.surface} card-padding-${p.padding} card-radius-${p.radius} card-shadow-${p.shadow} card-align-${p.align}" data-card="${esc(card.id)}" ${editing ? `tabindex="0" aria-label="${esc(componentName(card))}"` : ''}>
     ${tools}${title}
     <div class="card-body">${body}</div>
@@ -617,7 +626,7 @@ function renderClock(card) {
     weekday: { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
     datetime: { dateStyle: 'short', timeStyle: 'medium', hour12: false }
   };
-  const format = new Intl.DateTimeFormat('zh-CN', options[mode] || options.datetime);
+  const format = new Intl.DateTimeFormat(globalThis.TopbaseLocale?.locale() || 'zh-CN', options[mode] || options.datetime);
   const draw = () => {
     const text = format.format(new Date());
     if (target.firstElementChild.textContent === text) return;
@@ -799,9 +808,9 @@ async function validateEmbed(url, cardID) {
   status.textContent = '正在检查网站的嵌入策略…'; status.className = 'embed-validation checking';
   try {
     const result = await api('/api/embed/validate', 'POST', { url });
-    status.textContent = result.embeddable ? '✓ ' + result.reason : '无法嵌入：' + result.reason;
+    status.textContent = result.embeddable ? '✓ ' + dashboardText(result.reason) : dashboardText('无法嵌入：{reason}', {reason:dashboardText(result.reason)});
     status.className = 'embed-validation ' + (result.embeddable ? 'valid' : 'invalid');
-  } catch (error) { status.textContent = '无法校验：' + error.message; status.className = 'embed-validation invalid'; }
+  } catch (error) { status.textContent = dashboardText('无法校验：{reason}', {reason:dashboardText(error.message)}); status.className = 'embed-validation invalid'; }
 }
 
 function pluginOrigin(url) {
@@ -894,7 +903,7 @@ function onDrag(ev) {
   } else {
     draft.w = clamp(card.layout.w + dx, minWidth(card), COLS - card.layout.x);
     draft.h = clamp(card.layout.h + dy, minHeight(card), 48);
-    drag.hint.textContent = `${draft.w} × ${draft.h} 格`;
+    drag.hint.textContent = dashboardText('{w} × {h} 格', {w:draft.w,h:draft.h});
   }
   scheduleCanvasLayout();
 }
@@ -1059,7 +1068,7 @@ function bindGridDrop() {
       ghost.ariaHidden = 'true';
       grid.appendChild(ghost);
     }
-    const geometry = `X ${cell.x} · Y ${cell.y}　${cell.w} × ${cell.h} 格`;
+    const geometry = `X ${cell.x} · Y ${cell.y}　${dashboardText('{w} × {h} 格', {w:cell.w,h:cell.h})}`;
     if (ghost.title !== geometry) ghost.title = geometry;
     ghost.className = cell.x >= COLS / 2 ? 'board-ghost hint-right' : 'board-ghost';
     const r = rect(cell);
@@ -1193,15 +1202,15 @@ async function loadCards() {
       const host = document.querySelector(`[data-vizhost="${card.id}"]`);
       if (!host) continue;
       try {
-        const path = isPublicDashboard
-          ? `/api/public/dashboard/${publicUUID}/cards/${card.id}/dataset`
-          : `/api/dashboards/${board.id}/cards/${card.id}/dataset`;
-        const d = await api(path, 'POST', { filters }, { signal: controller.signal });
+        const d = isPublicDashboard
+          ? await publicAccess.requestCard(card.id, filters, controller.signal)
+          : await api(`/api/dashboards/${board.id}/cards/${card.id}/dataset`, 'POST', { filters }, { signal: controller.signal });
         if (controller.signal.aborted || sequence !== loadSequence) return;
         cardData[card.id] = d;
         paintCard(card, d);
       } catch (e) {
         if (controller.signal.aborted || e.name === 'AbortError') return;
+        if (isPublicDashboard && publicAccess.handleDenial(e)) return;
         host.innerHTML = `<div class="viz-error"><b>卡片无法显示</b><p>${esc(e.message)}</p></div>`;
       }
     }
@@ -1212,7 +1221,8 @@ async function loadCards() {
 
 async function boot() {
   if (isPublicDashboard) {
-    const payload = await api('/api/public/dashboard/' + publicUUID);
+    const payload = await publicAccess?.load();
+    if (!payload) return;
     board = payload.dashboard;
     questions = payload.questions || [];
   } else {
@@ -1327,80 +1337,202 @@ window.addEventListener('pagehide', () => {
 });
 
 const shareDialogElement = $('#modal');
+let shareExpiryTimer;
 const shareDialog = shareDialogElement && TopbaseUI.modal(shareDialogElement, {
-  onClose: () => shareDialogElement.replaceChildren()
+  onClose: () => {
+    clearTimeout(shareExpiryTimer);
+    shareDialogElement.replaceChildren();
+  }
 });
-function copyValue(value) {
-  if (!value) return;
-  navigator.clipboard.writeText(value).then(() => toast('已复制')).catch(() => toast('复制失败，请手动复制'));
+async function copyValue(value) {
+  try { await navigator.clipboard.writeText(value); toast('已复制'); }
+  catch { toast('复制失败，请手动复制'); }
 }
 function copyShareField(label, value) {
-  return `<label>${label}<div class="copy-row"><input readonly value="${esc(value)}"><button data-copy="${esc(value)}" class="secondary" type="button">复制</button></div></label>`;
+  return `<div class="share-link-field"><label>${label}<input class="tb-input" readonly value="${esc(value)}"></label>
+    <button data-copy="${esc(value)}" class="tb-btn tb-btn-secondary" aria-label="${esc(dashboardText('复制{label}', {label:dashboardText(label)}))}" type="button">复制</button></div>`;
+}
+function shareLocalTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+// Send only changed settings when editing a live link. In particular, leaving
+// the replacement password blank must keep the hash already on the server.
+function sharePolicyUpdate(policy, draft, now = Date.now()) {
+  const body = {};
+  const publish = !policy.public_uuid;
+  if (draft.expiry === 'custom') {
+    if (publish || !policy.expires_at || draft.until !== shareLocalTime(policy.expires_at)) {
+      const end = new Date(draft.until);
+      if (!Number.isFinite(end.getTime()) || end.getTime() <= now) return { field: 'share-until', error: '请选择晚于当前时间的截止时间。' };
+      body.expires_at = end.toISOString();
+    }
+  } else if (draft.expiry === 'permanent') {
+    if (publish || policy.expires_at) body.expires_at = null;
+  } else {
+    const days = Number(draft.expiry);
+    if (![1, 7, 30].includes(days)) return { field: 'share-expiry', error: '请选择有效期。' };
+    body.expires_at = new Date(now + days * 86400000).toISOString();
+  }
+  if (draft.protected && (!policy.password_required || draft.password)) {
+    const length = Array.from(draft.password).length;
+    if (length < 8 || length > 128 || !draft.password.trim()) {
+      return { field: 'share-password', error: '请输入 8 至 128 个字符的访问密码，不能全为空格。' };
+    }
+    body.password = draft.password;
+  } else if (!draft.protected && policy.password_required) {
+    body.password = '';
+  }
+  return { body };
 }
 function renderShareDialog(policy, focusId) {
+  const modal = shareDialogElement;
+  clearTimeout(shareExpiryTimer);
   const published = !!policy.public_uuid;
-  const publicActive = published && policy.allow_public;
   const canToggleLink = policy.can_manage && (published || policy.allow_public);
-  const canToggleEmbed = policy.is_admin && (policy.public_embed_enabled || (publicActive && policy.allow_embed));
-  const publicHelp = [];
-  if (!policy.allow_public) publicHelp.push(published ? '工作区已暂停公开链接，此链接当前无法访问。' : '工作区尚未允许公开链接。');
-  if (!policy.can_manage) publicHelp.push('需要此仪表盘的管理权限才能创建或撤销链接。');
-  else if (published) publicHelp.push('关闭后将撤销现有链接。');
-  else if (policy.allow_public) publicHelp.push('开启后，持有链接的人无需登录即可查看。');
-  let embedHelp = '';
-  if (!policy.is_admin) embedHelp = '仅工作区管理员可以设置嵌入。';
-  else if (!policy.allow_public || !policy.allow_embed) embedHelp = '工作区需要同时允许公开链接和外部嵌入。';
-  else if (!published) embedHelp = '先为这张仪表盘开启公开分享。';
-  const path = '/dashboard/' + encodeURIComponent(policy.public_uuid) + '/';
+  const canEditPolicy = policy.can_manage && policy.allow_public;
+  const path = '/dashboard/' + encodeURIComponent(policy.public_uuid || '') + '/';
   const publicURL = policy.base_url + '/public' + path;
   const embedURL = policy.base_url + '/embed' + path;
+  const initialExpiry = policy.expires_at ? 'custom' : 'permanent';
+  const initialTime = shareLocalTime(policy.expires_at);
+  const expiryText = policy.expires_at ? new Date(policy.expires_at).toLocaleString(globalThis.TopbaseLocale?.locale() || 'zh-CN', { dateStyle: 'medium', timeStyle: 'short' }) : '';
   const settingsLink = policy.is_admin && (!policy.allow_public || !policy.allow_embed)
     ? '<a href="/admin/settings/#access">前往管理后台设置对外访问</a>' : '';
-  const modal = $('#modal');
-  modal.innerHTML = `<header><h2 id="share-dialog-title">分享与嵌入</h2><button id="close-action" class="secondary" type="button" autofocus>关闭</button></header>
-    <label class="share-toggle"><input id="public-sharing-toggle" type="checkbox" ${published ? 'checked' : ''} ${canToggleLink ? '' : 'disabled'}>
-      <span><b>公开分享</b><small>${publicHelp.join('')}</small></span></label>
-    ${publicActive ? copyShareField('公开链接', publicURL) : ''}
-    <div class="share-section"><label class="share-toggle"><input id="embed-enabled" type="checkbox" ${policy.public_embed_enabled ? 'checked' : ''} ${canToggleEmbed ? '' : 'disabled'}>
-      <span><b>允许 iframe 嵌入</b><small>${embedHelp}</small></span></label>
-      ${policy.is_admin && publicActive && policy.allow_embed && policy.public_embed_enabled
-        ? copyShareField('嵌入地址', embedURL) + copyShareField('iframe 代码', `<iframe src="${esc(embedURL)}" width="100%" height="800" title="仪表盘"></iframe>`) : ''}
-    </div>${settingsLink}`;
-  shareDialog.open({ from: $('#share') });
-  if (focusId) {
-    const next = document.getElementById(focusId);
-    (next && !next.disabled ? next : $('#close-action')).focus({ preventScroll: true });
+  const expiryChoices = [
+    { value: 'permanent', label: '永久有效' }, { value: '1', label: '1 天' }, { value: '7', label: '7 天' },
+    { value: '30', label: '30 天' }, { value: 'custom', label: '自定义截止时间' }
+  ];
+  const publicHelp = !policy.allow_public ? '工作区已暂停公开分享。' : !policy.can_manage ? '需要仪表盘管理权限才能更改分享设置。' : '';
+  modal.innerHTML = `<header><h2 id="share-dialog-title">分享与嵌入</h2>${TopbaseUI.iconButton({icon:'x', label:'关闭', attrs:{id:'close-action'}})}</header>
+    <form id="share-policy" novalidate><fieldset id="share-controls">
+      <label class="share-toggle"><input id="public-sharing-toggle" type="checkbox" ${published ? 'checked' : ''} ${canToggleLink ? '' : 'disabled'}>
+        <span><b>公开分享</b><small id="share-status" role="status"></small></span></label>
+      ${publicHelp ? `<p class="share-help">${publicHelp}</p>` : ''}
+      ${canEditPolicy ? `<div class="share-policy-fields" id="share-fields" hidden>
+        ${TopbaseUI.select({label:'链接有效期', options:expiryChoices, value:initialExpiry, attrs:{id:'share-expiry'}})}
+        <div id="share-until-field" hidden>${TopbaseUI.input({label:'截止时间（本地时间）', type:'datetime-local', value:initialTime, attrs:{id:'share-until'}})}</div>
+        ${TopbaseUI.checkbox({label:'需要访问密码', checked:policy.password_required, attrs:{id:'share-protect'}})}
+        <div id="share-password-field" hidden>${TopbaseUI.input({label:policy.password_required ? '更换密码' : '访问密码', type:'password',
+          attrs:{id:'share-password', autocomplete:'new-password', placeholder:policy.password_required ? '留空保留现有密码' : '8 至 128 个字符'}})}</div>
+      </div>` : ''}
+      <p id="share-policy-error" class="share-error" role="alert" hidden></p>
+      <div class="share-save" id="share-save-row" hidden><button type="submit" id="share-save" class="tb-btn tb-btn-primary"></button></div>
+    </fieldset></form>
+    <div id="share-links" hidden>${published ? copyShareField('公开链接', publicURL) : ''}</div>
+    <section class="share-section"><label class="share-toggle"><input id="embed-enabled" type="checkbox" ${policy.public_embed_enabled ? 'checked' : ''}>
+      <span><b>允许 iframe 嵌入</b><small id="share-embed-help"></small></span></label>
+      <div id="share-embed-links" hidden>${policy.is_admin && published && policy.public_embed_enabled
+        ? copyShareField('嵌入地址', embedURL) + copyShareField('iframe 代码', `<iframe src="${embedURL}" width="100%" height="800" title="仪表盘"></iframe>`) : ''}</div>
+    </section>${settingsLink}`;
+  const form = $('#share-policy', modal);
+  const toggle = $('#public-sharing-toggle', form);
+  const protect = $('#share-protect', form);
+  const password = $('#share-password', form);
+  const expiry = $('#share-expiry', form);
+  const until = $('#share-until', form);
+  const save = $('#share-save', form);
+  const embed = $('#embed-enabled', modal);
+  const error = $('#share-policy-error', form);
+  let busy = false;
+  function sync() {
+    const enabled = toggle.checked;
+    const expired = published && policy.expires_at && Date.parse(policy.expires_at) <= Date.now();
+    const active = published && policy.allow_public && !expired;
+    const dirty = enabled !== published || (enabled && canEditPolicy &&
+      (expiry.value !== initialExpiry || (expiry.value === 'custom' && until.value !== initialTime) ||
+       protect.checked !== !!policy.password_required || (protect.checked && !!password.value)));
+    $('#share-status', modal).textContent = published && !enabled ? '保存后，现有链接和嵌入将停止访问。' :
+      !published ? (enabled ? '确认有效期和密码后，点击「开启分享」。' : '当前仅在工作区内可见。') :
+      (expired ? dashboardText('已于 {date} 到期', {date:expiryText}) : (expiryText ? dashboardText('有效至 {date}', {date:expiryText}) : dashboardText('永久有效'))) + ' · ' + dashboardText(policy.password_required ? '需要访问密码' : '无需访问密码');
+    if (canEditPolicy) {
+      $('#share-fields', form).hidden = !enabled;
+      $('#share-until-field', form).hidden = expiry.value !== 'custom';
+      $('#share-password-field', form).hidden = !protect.checked;
+    }
+    $('#share-links', modal).hidden = !active || !enabled;
+    $('#share-save-row', form).hidden = !dirty;
+    save.textContent = enabled ? (published ? '保存设置' : '开启分享') : '撤销链接';
+    save.classList.toggle('tb-btn-danger', !enabled);
+    save.classList.toggle('tb-btn-primary', enabled);
+    $('#share-controls', form).disabled = busy;
+    embed.disabled = busy || dirty || !policy.is_admin || (!policy.public_embed_enabled && !(active && policy.allow_embed));
+    $('#share-embed-links', modal).hidden = !(policy.is_admin && active && enabled && policy.allow_embed && policy.public_embed_enabled);
+    $('#share-embed-help', modal).textContent = !policy.is_admin ? '仅工作区管理员可以设置嵌入。' :
+      !policy.allow_public || !policy.allow_embed ? '工作区需要同时允许公开分享和外部嵌入。' :
+      !published || !enabled ? '开启公开分享后可设置嵌入。' : expired ? '续期后可继续使用嵌入。' :
+      dirty ? '保存分享设置后可更改嵌入。' : '嵌入页面使用相同的有效期和访问密码。';
   }
-  $('#close-action').onclick = () => shareDialog.close();
+  function refreshAtExpiry() {
+    sync();
+    const remaining = Date.parse(policy.expires_at) - Date.now();
+    if (remaining > 0) shareExpiryTimer = setTimeout(refreshAtExpiry, Math.min(remaining + 10, 2147483647));
+  }
+  function clearError() {
+    error.hidden = true;
+    form.querySelector('[aria-invalid="true"]')?.removeAttribute('aria-invalid');
+  }
+  function showError(message, field) {
+    error.textContent = message;
+    error.hidden = false;
+    if (field) {
+      const input = $('#' + field, form);
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', error.id);
+      input.focus();
+    }
+  }
+  form.oninput = () => { clearError(); sync(); };
+  form.onchange = () => {
+    if (protect && !protect.checked) password.value = '';
+    clearError(); sync();
+  };
+  $('#close-action', modal).onclick = () => shareDialog.close();
   $$('[data-copy]', modal).forEach(button => button.onclick = () => copyValue(button.dataset.copy));
-
-  const change = async event => {
-    const control = event.target;
-    const link = control.id === 'public-sharing-toggle';
-    const enabled = control.checked;
-    $$('.share-toggle input', modal).forEach(input => input.disabled = true);
+  async function change(resource, method, body, label, nextFocus) {
+    if (busy) return;
+    busy = true;
+    clearError(); sync();
     try {
-      const resource = link ? 'public-link' : 'embedding';
-      const method = link ? (enabled ? 'POST' : 'DELETE') : 'PUT';
-      const result = await api(`/api/dashboards/${boardId}/${resource}`, method, link ? undefined : {enabled});
+      const result = await api(`/api/dashboards/${boardId}/${resource}`, method, body);
       const updated = result.dashboard || result;
       board.public_uuid = policy.public_uuid = updated.public_uuid || '';
       board.public_embed_enabled = policy.public_embed_enabled = !!updated.public_embed_enabled;
-      renderPublicBadge();
-      if (modal.open && modal.contains(control)) renderShareDialog(policy, control.id);
-      toast(link ? (enabled ? '公开分享已开启' : '公开链接已撤销') : (enabled ? '嵌入已开启' : '嵌入已关闭'));
-    } catch (error) {
-      if (modal.open && modal.contains(control)) {
-        let refreshed = policy;
-        try { refreshed = await api(`/api/dashboards/${boardId}?view=sharing`); }
-        catch { /* Keep the last confirmed policy if refreshing also fails. */ }
-        if (modal.open && modal.contains(control)) renderShareDialog(refreshed, control.id);
+      if (resource === 'public-link') {
+        policy.expires_at = method === 'DELETE' ? null : result.expires_at;
+        policy.password_required = method !== 'DELETE' && !!result.password_required;
       }
-      toast(error.message);
+      board.public_expires_at = policy.expires_at;
+      renderPublicBadge();
+      if (modal.open && modal.contains(form)) renderShareDialog(policy, nextFocus);
+      toast(label);
+    } catch (failure) {
+      if (modal.open && modal.contains(form)) {
+        busy = false;
+        embed.checked = !!policy.public_embed_enabled;
+        sync();
+        showError(failure.message);
+      } else toast(failure.message);
     }
+  }
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (busy || !canToggleLink || $('#share-save-row', form).hidden) return;
+    if (!toggle.checked) return change('public-link', 'DELETE', undefined, '公开链接已撤销', toggle.id);
+    if (!canEditPolicy) return;
+    const result = sharePolicyUpdate(policy, { expiry: expiry.value, until: until.value, protected: protect.checked, password: password.value });
+    if (result.error) return showError(result.error, result.field);
+    return change('public-link', published ? 'PUT' : 'POST', result.body, published ? '分享设置已保存' : '公开分享已开启', toggle.id);
   };
-  $('#public-sharing-toggle').onchange = change;
-  $('#embed-enabled').onchange = change;
+  embed.onchange = () => change('embedding', 'PUT', {enabled:embed.checked}, embed.checked ? '嵌入已开启' : '嵌入已关闭', embed.id);
+  refreshAtExpiry();
+  shareDialog.open({ from: $('#share') });
+  if (focusId) {
+    const next = $('#' + focusId, modal);
+    (next && !next.disabled ? next : $('#close-action', modal)).focus({ preventScroll: true });
+  }
 }
 async function openShare() {
   if (!board) return;
@@ -1422,20 +1554,20 @@ async function createAlert(){
   const card = (board.cards || []).find(c => c.type === 'question' && c.question_id);
   if (!card) return toast('这张板没有分析卡');
   try {
-    const alert = await api('/api/alerts', 'POST', { name: board.name + ' 有结果', question_id: card.question_id, kind: 'results', channel: 'inbox' });
+    const alert = await api('/api/alerts', 'POST', { name: dashboardText('{name} 有结果', {name:board.name}), question_id: card.question_id, kind: 'results', channel: 'inbox' });
     const note = await api('/api/alerts/' + alert.id + '/run', 'POST', {});
     toast(note.title + '：' + note.body);
   } catch (e) { toast(e.message); }
 }
 async function subscribeBoard(){
-  const hooks = await api('/api/subscription-channels');
-  const channels = hooks.filter(h=>h.enabled).map(h=>({value:'webhook:'+h.id,label:h.name,description:(h.provider||'Webhook')+' · 发送到已配置群'}));
-  if(!channels.length){toast('请联系管理员先在“通知与订阅”中创建并启用 Webhook 通道');return}
-  const channel = await choiceDialog({kicker:'仪表盘订阅',title:'选择每天的推送通道',description:'订阅将在每天 09:00 执行。管理员可在“通知与订阅”统一管理。',label:'Webhook 通道',value:channels[0].value,confirmText:'创建订阅',options:channels});
-  if(channel===null)return;
   try {
-    const sub = await api(`/api/dashboards/${boardId}/subscriptions`, 'POST', { cron: '0 9 * * *', channel });
-    toast('已订阅每天 09:00（' + sub.channel + '）');
+    const hooks = await api('/api/subscription-channels');
+    const channels = hooks.map(hook => ({value: 'webhook:' + hook.id, label: hook.name}));
+    if (!channels.length) return toast('请联系管理员先在“通知与订阅”中创建并启用 Webhook 通道');
+    const channel = await choiceDialog({kicker:'仪表盘订阅',title:'选择每天的推送通道',description:'订阅将在每天 09:00 执行。管理员可在“通知与订阅”统一管理。',label:'Webhook 通道',value:channels[0].value,confirmText:'创建订阅',options:channels});
+    if (channel === null) return;
+    await api(`/api/dashboards/${boardId}/subscriptions`, 'POST', { cron: '0 9 * * *', channel });
+    toast(dashboardText('已订阅每天 09:00（{channel}）', {channel: channels.find(option => option.value === channel).label}));
   } catch (e) { toast(e.message); }
 }
 if ($('#more')) {
@@ -1449,4 +1581,18 @@ if ($('#more')) {
 }
 if ($('#fullscreen')) $('#fullscreen').onclick=()=>$('#board-canvas')?.requestFullscreen?.();
 if ($('#share')) $('#share').onclick=openShare;
+const publicAccess = isPublicDashboard && window.TopbaseSharedDashboard?.mount(publicUUID, pathParts[0] === 'embed', {
+  openDashboard: boot,
+  clearCanvas() {
+    loadController?.abort();
+    motionTimers.forEach(clearInterval);
+    motionTimers = [];
+    disposeCardVisuals();
+    for (const element of [$('#grid'), $('#tabs'), $('#filters')]) element.replaceChildren();
+    board = null;
+    cardData = {};
+    questions = [];
+    questionMap = {};
+  }
+});
 boot().catch(e => { if ($('#title')) $('#title').textContent = e.message; else toast(e.message); });

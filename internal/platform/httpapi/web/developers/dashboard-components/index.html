@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase Dashboard Components API</title>
   <link rel="stylesheet" href="/ui.css">
@@ -10,32 +13,30 @@
   </style>
 </head>
 <body>
-  <h1>仪表盘小组件开放能力</h1>
-  <p class="lead">把支持嵌入的 HTTPS 页面放进仪表盘。作者可以直接填写运行地址，也可以从小组件库选用开发者注册的预设。</p>
+  <h1>开发仪表盘小组件</h1>
+  <p class="lead">小组件是嵌入仪表盘的 HTTPS 页面，可用网址添加，也可注册为预设。</p>
 
-  <h2>接入方式</h2>
-  <ol><li>将组件页面部署到 HTTPS 地址，并允许 Topbase 所在站点通过 iframe 嵌入。</li><li>在仪表盘编辑工具栏点击“插入”，切换到“添加小组件”，选择“自定义组件”。</li><li>在选中组件的设置栏中输入完整的组件地址。</li></ol>
-  <h2>通过地址配置组件</h2>
-  <p>运行地址和网格位置随卡片保存。可以添加组件约定的查询参数，例如将倒计时组件的 <code>unit</code> 设为 <code>day</code> 或 <code>hour</code>。在组件页面中读取参数即可决定显示内容。</p>
-  <pre><code>// 倒计时组件页面内
-const params = new URLSearchParams(location.search);
-const unit = params.get('unit') === 'hour' ? '小时' : '天';
+  <h2>添加组件</h2>
+  <ol><li>部署 HTTPS 页面，并允许 Topbase 站点通过 iframe 嵌入。</li><li>在仪表盘编辑器选择「插入 → 添加小组件 → 自定义组件」。</li><li>在卡片属性中填写完整网址。</li></ol>
+  <h2>传入参数</h2>
+  <p>网址和位置随卡片保存。例如，在组件网址加上 <code>?unit=hour</code>，即可按小时显示倒计时。</p>
+  <pre><code>const params = new URLSearchParams(location.search);
+const unit = params.get('unit') === 'hour' ? 'h' : 'd';
 document.querySelector('[data-unit]').textContent = unit;</code></pre>
-  <p>下面的预设使用 <code>?unit=day</code>。作者可以在某张卡片的组件地址中将它改为 <code>?unit=hour</code>。画布每次加载这张卡片时，都使用保存的地址。</p>
 
-  <h2>在小组件库中提供预设</h2>
-  <p>维护 Topbase 部署的开发者可以在编辑器宿主页面加载 <code>dashboard-widgets.js</code> 之后运行以下代码，将示例地址替换为实际组件地址。注册后，预设出现在“添加小组件”的“嵌入与扩展”分组中，可按名称搜索、点击或拖入画布。</p>
+  <h2>注册预设</h2>
+  <p>在编辑器加载 <code>dashboard-widgets.js</code> 后注册组件，将示例网址替换为实际地址。预设会显示在「嵌入与扩展」中。</p>
   <pre><code>TopbaseDashboardWidgets.registerPlugin({
   id: 'delivery-countdown',
-  label: '交付倒计时',
+  label: 'Delivery countdown',
   url: 'https://widgets.example.com/countdown/?unit=day',
   w: 6, h: 4
 });</code></pre>
-  <p><code>id</code> 在目录中唯一，以小写字母开头，可包含小写字母、数字和连字符。<code>w</code> 和 <code>h</code> 的范围分别为 2–24 格和 2–48 格，默认尺寸为 12 × 10 格。每次插入都会生成独立卡片。查看、分享和嵌入页面直接读取卡片保存的运行地址。</p>
+  <p><code>id</code> 须唯一，以小写字母开头，仅含小写字母、数字和连字符。<code>w</code> 和 <code>h</code> 分别为 2–24 和 2–48 格，默认 12 × 10。每张卡片独立保存。</p>
 
-  <h2>适配卡片大小</h2>
-  <p>iframe 会跟随卡片缩放。在组件内部使用响应式布局，紧凑尺寸优先显示核心内容。需要重新绘图时，可使用 <code>ResizeObserver</code> 监听组件容器尺寸。</p>
-  <h2>预留的宿主通信协议</h2>
-  <p>当前版本用隔离 iframe 运行组件。浏览器将沙箱页面标记为不透明来源，而宿主要求消息匹配组件网址的来源。因此 <code>topbase.dashboard.ready</code>、<code>topbase.dashboard.context</code> 和 <code>topbase.dashboard.set-config</code> 目前仅为预留协议。注册参数中的可选 <code>config</code> 只会复制进卡片记录。组件需要读取的初始选项请放在运行地址中。</p>
+  <h2>适配尺寸</h2>
+  <p>iframe 随卡片缩放。使用响应式布局；需要重绘时，可用 <code>ResizeObserver</code> 监听尺寸。</p>
+  <h2>宿主通信</h2>
+  <p>沙箱 iframe 使用不透明来源，无法通过宿主的消息来源校验。 <code>topbase.dashboard.ready</code>、<code>topbase.dashboard.context</code> 和 <code>topbase.dashboard.set-config</code> 为预留消息。可选的 <code>config</code> 仅存入卡片；组件需要读取的初始值请放在网址参数中。</p>
 </body>
 </html>

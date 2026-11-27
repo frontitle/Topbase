@@ -2,6 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 源数据</title>
   <link rel="stylesheet" href="/ui.css">
@@ -14,18 +18,17 @@
 <body>
 <aside class="sidebar" data-shell="app" data-active="data"></aside>
 <div class="page">
-  <header class="topbar"><strong id="section-title">源数据</strong><span>/</span><strong id="crumb">选择数据库</strong></header>
   <main class="browser">
     <section id="db-view">
       <div class="page-head">
         <div>
           <h1>源数据</h1>
-          <p>实时读取已连接数据库中的原始数据，适合即时查询和探索。</p>
+          <p>浏览和查询已连接的数据库。</p>
         </div>
       </div>
       <aside class="data-role-note" aria-label="源数据说明">
         <span>实时 · 只读</span>
-        <div><b>数据仍保存在远程数据库</b><p>这里看到的是源库当前内容；Topbase 默认只读取，不会把查询结果自动保存到本地。</p></div>
+        <div><b>数据仍保存在远程数据库</b><p>查询实时读取源库。需要保留结果时可创建数据沉淀。</p></div>
         <a id="warehouse-link" href="/warehouse/" hidden>需要周期保存？前往数据沉淀 →</a>
       </aside>
       <input id="db-search" class="browse-search tb-input" placeholder="搜索数据库">
@@ -51,9 +54,9 @@
           <div id="table-workspace" hidden>
             <header class="table-head">
               <div>
-                <small id="source-name"></small>
-                <h1 id="table-name"></h1>
-                <p id="table-description"></p>
+                <small id="source-name" translate="no"></small>
+                <h1 id="table-name" translate="no"></h1>
+                <p id="table-description" translate="no"></p>
               </div>
               <div class="table-actions">
                 <button class="secondary tb-btn tb-btn-secondary" id="toggle-ask" type="button" aria-expanded="true">收起查询编辑器</button>
@@ -67,7 +70,7 @@
                   <button class="tb-query-tab active" type="button" role="tab" aria-selected="true" data-query-mode="visual">可视化查询</button>
                   <button class="tb-query-tab" type="button" role="tab" aria-selected="false" data-query-mode="sql">SQL 模式</button>
                 </div>
-                <span class="tb-query-modehint">两种模式都只读取数据，不会修改源数据库。</span>
+                <span class="tb-query-modehint">两种模式均为只读。</span>
               </div>
 
               <div data-query-panel="visual">
@@ -75,7 +78,7 @@
               <section class="builder-step step-data" data-step="data">
                 <div class="step-heading"><span>01</span><div><b>数据</b><small>当前查询的数据来源和返回字段</small></div></div>
                 <div class="step-surface data-surface">
-                  <div class="source-pill" id="builder-source" title="当前数据表"></div>
+                  <div class="source-pill" id="builder-source" translate="no" title="当前数据表"></div>
                   <details class="field-details">
                     <summary><span id="selected-field-count">全部字段</span></summary>
                     <div id="fields" class="field-checklist"></div>
@@ -130,7 +133,7 @@
               </section>
 
               <section class="step-editor" id="limit-builder" hidden>
-                <header><div><h3>行数限制</h3><p>最多返回 10,000 行；建议先用较小结果快速验证。</p></div><button type="button" class="close-step" data-close-step="limit-builder">关闭</button></header>
+                <header><div><h3>行数限制</h3><p>最多返回 10,000 行。</p></div><button type="button" class="close-step" data-close-step="limit-builder">关闭</button></header>
                 <div class="inline-editor"><label class="tb-field">返回行数<input class="tb-input" id="row-limit" type="number" min="1" max="10000" step="1" value="1000"></label></div>
               </section>
 
@@ -148,14 +151,14 @@
 
               <section class="tb-query-sql" data-query-panel="sql" hidden>
                 <header class="tb-query-sql-head">
-                  <div><h3>编写只读 SQL</h3><p>SQL 会直接在当前数据库执行。建议先限制返回行数，再逐步验证复杂查询。</p></div>
+                  <div><h3>编写只读 SQL</h3><p>SQL 在当前数据库执行。可添加 LIMIT 限制返回行数。</p></div>
                   <button class="secondary tb-btn tb-btn-secondary" type="button" data-use-generated-sql>使用可视化生成的 SQL</button>
                 </header>
                 <div data-query-sql-editor></div>
               </section>
 
               <footer class="builder-footer">
-                <div><b id="query-summary" data-query-summary>显示原始数据</b><small>运行后会在下方更新预览，不会修改数据库。</small></div>
+                <div><b id="query-summary" data-query-summary>显示原始数据</b><small>运行查询后可在下方查看结果。</small></div>
                 <button id="run-query" data-query-run class="primary tb-btn tb-btn-primary" type="button">运行并预览</button>
               </footer>
             </section>

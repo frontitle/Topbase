@@ -1,4 +1,8 @@
 (function (global) {
+  function filterText(key, values = {}) {
+    return globalThis.TopbaseLocale?.t(key, values) ?? key.replace(/\{(\w+)\}/g, (token, name) => values[name] ?? token);
+  }
+
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -16,7 +20,7 @@
   }
 
   var TEXT_OPS = [
-    { op: 'eq', label: '是', values: 'many' },
+    { op: 'eq', label: '等于', values: 'many' },
     { op: 'neq', label: '不是', values: 'many' },
     { op: 'contains', label: '包含', values: 1 },
     { op: 'not_contains', label: '不包含', values: 1 },
@@ -46,7 +50,7 @@
     { op: 'not_null', label: '不为空', values: 0 }
   ];
   var BOOL_OPS = [
-    { op: 'eq', label: '是', values: 1 },
+    { op: 'eq', label: '等于', values: 1 },
     { op: 'is_null', label: '为空', values: 0 },
     { op: 'not_null', label: '不为空', values: 0 }
   ];
@@ -145,14 +149,14 @@
   function pillText(item, col) {
     var op = findOp(kindOf(col), item.op);
     var name = colName(col);
-    if (!op || op.values === 0) return name + ' ' + (op ? op.label : item.op);
+    if (!op || op.values === 0) return name + ' ' + (op ? filterText(op.label) : item.op);
     if (item.op === 'relative') {
       var rel = RELATIVE.find(function (r) { return r.id === item.value; });
-      return name + ' ' + (rel ? rel.label : item.value);
+      return name + ' ' + (rel ? filterText(rel.label) : item.value);
     }
     var vals = asList(item.value);
-    if (item.op === 'between' && vals.length === 2) return name + ' 介于 ' + vals[0] + ' 和 ' + vals[1];
-    return name + ' ' + (op ? op.label : item.op) + ' ' + vals.join('、');
+    if (item.op === 'between' && vals.length === 2) return filterText('{name} 介于 {min} 和 {max}', {name:name, min:vals[0], max:vals[1]});
+    return name + ' ' + (op ? filterText(op.label) : item.op) + ' ' + vals.join(globalThis.TopbaseLocale?.locale() === 'en' ? ', ' : '、');
   }
 
   global.TopbaseFilter = function (host, opts) {
@@ -266,7 +270,7 @@
       return '<input class="tb-filter-search tb-input" aria-label="搜索字段" placeholder="搜索字段" value="' + esc(colQuery) + '">' +
         '<div class="tb-filter-cols">' +
         (list.length ? list.map(function (c) {
-          return '<button type="button" class="tb-filter-col" data-col="' + esc(c.name) + '"><b>' + esc(colName(c)) + '</b><small>' + esc(kindOf(c) === 'date' ? '日期' : kindOf(c) === 'number' ? '数值' : kindOf(c) === 'boolean' ? '布尔' : '文本') + '</small></button>';
+          return '<button type="button" class="tb-filter-col" data-col="' + esc(c.name) + '"><b translate="no">' + esc(colName(c)) + '</b><small>' + esc(kindOf(c) === 'date' ? '日期' : kindOf(c) === 'number' ? '数值' : kindOf(c) === 'boolean' ? '布尔' : '文本') + '</small></button>';
         }).join('') : '<div class="tb-filter-empty">没有匹配的字段。</div>') +
         '</div>';
     }
@@ -302,7 +306,7 @@
         var filtered = values.filter(function (v) { return !valueQuery || String(v).toLowerCase().includes(valueQuery.toLowerCase()); });
         body = '<input class="tb-filter-search tb-input" aria-label="搜索取值" placeholder="搜索或勾选取值" data-value-search value="' + esc(valueQuery) + '">' +
           (filtered.length ? '<div class="tb-filter-values">' + filtered.map(function (v) {
-            return '<label class="tb-check"><input type="checkbox" data-pick="' + esc(v) + '"' + (selected.indexOf(String(v)) >= 0 ? ' checked' : '') + '> ' + esc(v || '（空）') + '</label>';
+            return '<label class="tb-check"><input type="checkbox" data-pick="' + esc(v) + '"' + (selected.indexOf(String(v)) >= 0 ? ' checked' : '') + '> <span translate="no">' + esc(v || filterText('（空）')) + '</span></label>';
           }).join('') + '</div>' : '<div class="tb-filter-empty" style="padding:8px 0">没有现成取值，可在下方输入。</div>') +
           '<input class="tb-input" type="text" aria-label="其他筛选值" data-custom placeholder="输入其他值后回车">';
       } else if (kind === 'number') {
@@ -310,7 +314,7 @@
       } else {
         body = '<input class="tb-input" type="text" aria-label="筛选文本" data-single value="' + esc(asList(draft.value)[0] || '') + '" placeholder="输入文本">';
       }
-      return '<header><button type="button" class="back" data-back>' + esc(colName(col)) + '</button></header>' +
+      return '<header><button type="button" class="back" data-back translate="no">' + esc(colName(col)) + '</button></header>' +
         '<div class="tb-filter-body"><div class="tb-filter-ops"><select class="tb-select" aria-label="筛选条件" data-op>' + ops + '</select></div>' + body + '</div>' +
         '<div class="tb-filter-foot"><button type="button" class="ghost" data-add>再加一条</button><button type="button" class="apply" data-apply' + (canApply() ? '' : ' disabled') + '>' + (typeof draft.index === 'number' ? '更新筛选' : '应用筛选') + '</button></div>';
     }
@@ -322,7 +326,7 @@
       trigger.innerHTML = '筛选' + (items.length ? '<span class="count">' + items.length + '</span>' : '');
       const html = items.map(function (item, i) {
         var col = columns.find(function (c) { return c.name === item.field; }) || { name: item.field };
-        return '<span class="tb-filter-pill"><button type="button" data-edit="' + i + '" aria-haspopup="dialog" aria-controls="' + pop.id +
+        return '<span class="tb-filter-pill"><button type="button" translate="no" data-edit="' + i + '" aria-haspopup="dialog" aria-controls="' + pop.id +
           '">' + esc(pillText(item, col)) + '</button><button type="button" class="x" data-del="' + i + '" aria-label="移除">×</button></span>';
       }).join('');
       if (lastPills !== html) {

@@ -2,6 +2,24 @@
 
 Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明和可复现构建元数据。
 
+## [0.2.5] - 2026-11-27
+
+### 新增
+
+- 公开仪表盘支持永久、固定天数或指定时间到期，并可设置、更新或移除访问密码；公开页与 iframe 嵌入使用同一套服务端访问校验。
+- 新增通知 Webhook 快速绑定与消息适配能力，并为工作台和管理页面补充可复用的中文、英文语言资源。
+- 新增产品官网首版与在线文档构建器，官网复用真实产品截图，文档直接从仓库 Markdown 生成。
+
+### 调整
+
+- 优化仪表盘画布的选中、拖拽、缩放、落位预览、键盘取消、全屏与分享体验；预览和公开页面只展示画布内容。
+- 增强本地数仓运行记录、目标占用和并发恢复逻辑，并补充仪表盘子资源索引，降低重复任务和高频读取的竞争风险。
+- CI 容器持久化检查改为从迁移文件推导目标 Schema，避免版本升级后继续依赖旧的硬编码版本号。
+
+### 升级
+
+本版本新增 migrations 016–019，应用数据库 Schema 升级到版本 19。升级前必须备份应用数据库并保留原 `TOPBASE_MASTER_KEY`。完整步骤见 [0.2.5 升级说明](docs/releases/0.2.5.md)。
+
 ## [0.2.4] - 2026-08-30
 
 ### 新增
@@ -81,3 +99,4 @@ Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明�
 [0.2.2]: https://github.com/frontitle/Topbase/releases/tag/v0.2.2
 [0.2.3]: https://github.com/frontitle/Topbase/releases/tag/v0.2.3
 [0.2.4]: https://github.com/frontitle/Topbase/releases/tag/v0.2.4
+[0.2.5]: https://github.com/frontitle/Topbase/releases/tag/v0.2.5

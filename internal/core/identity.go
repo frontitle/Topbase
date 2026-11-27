@@ -55,15 +55,17 @@ type ExternalIdentityLink struct {
 }
 
 type WebhookEndpoint struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Provider     string    `json:"provider"` // feishu | dingtalk | wecom | generic
-	URL          string    `json:"url"`
-	Secret       string    `json:"secret,omitempty"`
-	TemplateType string    `json:"template_type,omitempty"` // text | post | card | custom
-	Template     string    `json:"template,omitempty"`      // JSON, supports {{title}} and {{body}}
-	Enabled      bool      `json:"enabled"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Provider      string    `json:"provider"` // feishu | dingtalk | wecom | slack | teams | google_chat | generic
+	URL           string    `json:"url"`
+	Secret        string    `json:"secret,omitempty"`
+	TemplateType  string    `json:"template_type,omitempty"` // text | post | card | custom
+	Template      string    `json:"template,omitempty"`      // custom JSON or legacy preset JSON
+	TemplateTitle string    `json:"template_title,omitempty"`
+	TemplateBody  string    `json:"template_body,omitempty"`
+	Enabled       bool      `json:"enabled"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // AdminSettings contains instance-wide switches that must be enforced by the

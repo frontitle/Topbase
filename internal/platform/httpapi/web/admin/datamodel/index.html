@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/admin.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据模型</title>
   <link rel="stylesheet" href="/admin/admin.css">
@@ -11,12 +14,11 @@
 <body>
   <aside class="sidebar" data-shell="admin" data-active="datamodel"></aside>
   <div class="page">
-    <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据模型</strong></header>
     <main>
       <div class="page-head">
         <div>
           <h1>数据模型</h1>
-          <p>为表和字段设置显示名称（别称）、说明、语义类型和外键。工作台浏览数据时会使用这些别称。</p>
+          <p>设置工作台使用的表和字段别称、说明、语义及外键。</p>
         </div>
       </div>
       <nav class="tb-tabs model-source-tabs" aria-label="数据模型范围"><button class="active" type="button" data-model-source="remote">远程数据源</button><button type="button" data-model-source="local">本地数仓</button></nav>
@@ -34,18 +36,18 @@
         <section class="schema-fields" id="editor">
           <div id="empty-editor">
             <h2>选择一张表</h2>
-            <p>在这里管理表的业务名称、字段别称和语义，不会改动源数据库。</p>
+            <p>在 Topbase 中设置表名、字段别称和语义。</p>
           </div>
           <div id="meta-editor" hidden>
             <header class="table-head">
               <div>
-                <small id="physical-name"></small>
-                <h2 class="editor-title-row"><span id="editor-title">表元数据</span><button id="editor-visibility" class="editor-eye" type="button" aria-label="切换前台可见性" title="切换前台可见性"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg></button></h2><p id="source-description" class="source-comment" title=""></p>
+                <small id="physical-name" translate="no"></small>
+                <h2 class="editor-title-row"><span id="editor-title" translate="no">表元数据</span><button id="editor-visibility" class="editor-eye" type="button" aria-label="切换前台可见性" title="切换前台可见性"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg></button></h2><p id="source-description" translate="no" class="source-comment" title=""></p>
               </div>
             </header>
             <div class="meta-grid">
               <label class="tb-field">表显示名称（别称）<input class="tb-input" id="display-name" placeholder="例如：订单明细"></label>
-              <label class="full tb-field">业务备注<textarea class="tb-input" id="description" placeholder="例如：口径说明、用途、刷新频率；填写后将优先展示给成员"></textarea><small class="metadata-hint">这是 Topbase 内的备注，可替换前台显示的源表注释。</small></label>
+              <label class="full tb-field">业务备注<textarea class="tb-input" id="description" placeholder="例如：统计口径、用途或更新频率"></textarea><small class="metadata-hint">工作台优先显示业务备注。</small></label>
             </div>
             <div class="field-heading"><h3>字段</h3><button id="toggle-field-fullscreen" class="field-fullscreen-button" type="button" aria-pressed="false" title="全屏编辑字段"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><span>全屏编辑</span><kbd>Esc</kbd></button></div>
             <div class="field-scroll">

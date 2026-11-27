@@ -1,4 +1,8 @@
 (function (global) {
+  function chartText(key, values = {}) {
+    return globalThis.TopbaseLocale?.t(key, values) ?? key.replace(/\{(\w+)\}/g, (token, name) => values[name] ?? token);
+  }
+
   var TYPES = [
     { id: 'table', label: '表格' },
     { id: 'scalar', label: '数字' },
@@ -74,16 +78,19 @@
     if (style === 'scientific') return n.toExponential(dec != null ? dec : 2);
     var compact = vf === 'compact' || (vf === 'auto' && !opts.full && Math.abs(n) >= 10000);
     var text;
-    if (compact && Math.abs(n) >= 1e8) {
+    var locale = global.TopbaseLocale?.locale() || 'zh-CN';
+    if (compact && locale.startsWith('en')) {
+      text = n.toLocaleString(locale, {notation:'compact', minimumFractionDigits:dec ?? 0, maximumFractionDigits:dec ?? 2});
+    } else if (compact && Math.abs(n) >= 1e8) {
       var yi = n / 1e8;
       text = (dec != null ? yi.toFixed(dec) : yi.toFixed(yi >= 10 ? 1 : 2)) + '亿';
     } else if (compact && Math.abs(n) >= 10000) {
       var wan = n / 10000;
       text = (dec != null ? wan.toFixed(dec) : wan.toFixed(wan >= 10 ? 1 : 2)) + '万';
     } else if (dec != null) {
-      text = n.toLocaleString('zh-CN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      text = n.toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
     } else if (Math.abs(n) >= 1000) {
-      text = n.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+      text = n.toLocaleString(locale, { maximumFractionDigits: 2 });
     } else if (Math.abs(n) < 1 && n !== 0) {
       text = String(Number(n.toPrecision(4)));
     } else {
@@ -307,7 +314,7 @@
     if (pkg.geoJSON) source = Promise.resolve(pkg.geoJSON);
     else if (!global.fetch) source = Promise.reject(new Error('当前浏览器无法加载地图边界'));
     else source = global.fetch(pkg.url, { credentials: 'same-origin' }).then(function (response) {
-      if (!response.ok) throw new Error('地图包加载失败（' + response.status + '）');
+      if (!response.ok) throw new Error(chartText('地图包加载失败（{status}）', {status:response.status}));
       return response.json();
     }).then(function (geoJSON) {
       return geoJSON;
@@ -390,7 +397,7 @@
       (rows || []).forEach(function (r) {
         var lab = r[xi] == null ? '' : String(r[xi]);
         if (labelIndex[lab] == null) { labelIndex[lab] = labels.length; labels.push(lab); }
-        var name = r[bi] == null ? '空' : String(r[bi]);
+        var name = r[bi] == null ? chartText('空') : String(r[bi]);
         if (seriesIndex[name] == null) { seriesIndex[name] = seriesNames.length; seriesNames.push(name); }
       });
       var series = seriesNames.map(function (name) {
@@ -398,7 +405,7 @@
       });
       (rows || []).forEach(function (r) {
         var lab = r[xi] == null ? '' : String(r[xi]);
-        var name = r[bi] == null ? '空' : String(r[bi]);
+        var name = r[bi] == null ? chartText('空') : String(r[bi]);
         var v = toNum(r[yi]);
         var li = labelIndex[lab], si = seriesIndex[name];
         if (Number.isFinite(series[si].data[li])) series[si].data[li] += Number.isFinite(v) ? v : 0;
@@ -419,7 +426,7 @@
     if (!max || packed.labels.length <= max) return packed;
     var keep = max - 1;
     return {
-      labels: packed.labels.slice(0, keep).concat(['其他']),
+      labels: packed.labels.slice(0, keep).concat([chartText('其他')]),
       series: packed.series.map(function (s) {
         var extra = 0;
         for (var i = keep; i < s.data.length; i++) if (Number.isFinite(s.data[i])) extra += s.data[i];
@@ -446,7 +453,7 @@
       else keep.push(it);
     });
     if (other) keep.push({ name: '其他', value: other });
-    return { labels: keep.map(function (k) { return k.name; }), series: [{ name: s.name, data: keep.map(function (k) { return k.value; }) }] };
+    return { otherIndex: other ? keep.length - 1 : -1, labels: keep.map(function (k) { return k.name; }), series: [{ name: s.name, data: keep.map(function (k) { return k.value; }) }] };
   }
   function toPercent(packed) {
     var totals = packed.labels.map(function (_, i) {
@@ -644,7 +651,7 @@
         extraCssText: 'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',
         formatter: function (params) {
           var value = params.value;
-          return esc(params.name || '未知地区') + '<br/>' + (isNum(value) ? formatNumber(value, spec) : '暂无数据');
+          return esc(params.name || chartText('未知地区')) + '<br/>' + (isNum(value) ? formatNumber(value, spec) : chartText('暂无数据'));
         }
       },
       visualMap: {
@@ -657,13 +664,13 @@
         itemWidth: 10,
         itemHeight: compact ? 70 : 110,
         calculable: false,
-        text: ['高', '低'],
+        text: [chartText('高'), chartText('低')],
         textStyle: { color: tone.muted, fontSize: 10 },
         inRange: { color: [spec.map_color_min || '#E6F8F4', spec.map_color_mid || '#4CCFBA', spec.map_color_max || '#0B66C3'] },
         outOfRange: { color: isDark(spec) ? '#173b50' : '#edf3f4' }
       },
       series: [{
-        name: titleOf(spec, (spec.y || [])[0] || '指标'),
+        name: titleOf(spec, (spec.y || [])[0] || chartText('指标')),
         type: 'map',
         map: pkg ? pkg.mapName : '',
         roam: spec.map_roam === true,
@@ -738,7 +745,7 @@
         var v = packed.series[0] ? packed.series[0].data[i] : 0;
         var name = String(label ?? '');
         return {
-          name: titleOf(spec, name) || name,
+          name: seriesStyle(spec, name).title || (i === packed.otherIndex ? chartText('其他') : name),
           value: Number.isFinite(v) ? v : 0,
           itemStyle: { color: colorOf(spec, name, i) }
         };
@@ -774,7 +781,7 @@
         color: COLORS,
         animationDuration: 700,
         animationEasing: 'cubicOut',
-        tooltip: { trigger: 'item',backgroundColor:tone.tooltipBg,borderColor:tone.tooltipBorder,borderWidth:1,textStyle:{color:tone.tooltipText},extraCssText:'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',formatter: function (p) { return esc(p.name) + '<br/>' + formatNumber(p.value, spec) + '（' + p.percent.toFixed(1) + '%）'; } },
+        tooltip: { trigger: 'item',backgroundColor:tone.tooltipBg,borderColor:tone.tooltipBorder,borderWidth:1,textStyle:{color:tone.tooltipText},extraCssText:'border-radius:10px;box-shadow:0 12px 28px rgba(4,45,70,.16);backdrop-filter:blur(10px);',formatter: function (p) { return esc(p.name) + '<br/>' + formatNumber(p.value, spec) + chartText('（{pct}%）', {pct:p.percent.toFixed(1)}); } },
         legend: legend,
         series: [{
           type: 'pie',
@@ -794,7 +801,7 @@
           top: 'middle',
           bounding: 'raw',
           style: {
-            text: formatNumber(total, spec) + '\n总计',
+            text: formatNumber(total, spec) + '\n' + chartText('总计'),
             textAlign: 'center',
             textVerticalAlign: 'middle',
             fill:tone.text,
@@ -860,7 +867,7 @@
         if (axisSpec(spec, 'y_axis').scale === 'pow') g = Math.sign(g) * Math.sqrt(Math.abs(g));
         item.markLine = {
           symbol: 'none',
-          label: { formatter: spec.goal_label || ('目标 ' + formatNumber(Number(spec.goal), spec)), color: '#EF8C8C' },
+          label: { formatter: spec.goal_label || chartText('目标 {value}', {value:formatNumber(Number(spec.goal), spec)}), color: '#EF8C8C' },
           lineStyle: { color: '#EF8C8C', type: 'dashed' },
           data: [isRow ? { xAxis: g } : { yAxis: g }]
         };
@@ -874,10 +881,10 @@
       if (!on) return;
       var trend = linearTrend(applyMissing(s.data, missingOf(spec, st)));
       if (!trend) return;
-      var fake = { name: s.name + ' · 趋势', data: trend };
+      var fake = { name: chartText('{name} · 趋势', {name:s.name}), data: trend };
       var st2 = { missing: 'interpolate', markers: 'off', line_style: 'dashed', line_size: 'S' };
       series.push({
-        name: titleOf(spec, s.name) + ' · 趋势',
+        name: chartText('{name} · 趋势', {name:titleOf(spec,s.name)}),
         type: 'line',
         data: pointData(fake, st2),
         yAxisIndex: series[si] ? series[si].yAxisIndex : 0,
@@ -924,19 +931,19 @@
 
   function mountChart(host, spec, createOption) {
     disposeHost(host);
-    host.innerHTML = '<div class="viz-chart"></div>';
+    host.innerHTML = '<div class="viz-chart" translate="no"></div>';
     var el = host.querySelector('.viz-chart');
     if (!global.echarts) {
       host.innerHTML = '<div class="viz-empty"><b>无法绘制图表</b><p>图表组件没有加载成功，请刷新页面。</p></div>';
       return;
     }
-    var chart = global.echarts.init(el, spec.dashboard_theme && spec.dashboard_theme !== 'light' ? 'dark' : null, { renderer: 'canvas' });
+    var chart = global.echarts.init(el, spec.dashboard_theme && spec.dashboard_theme !== 'light' ? 'dark' : null, { renderer: 'canvas', locale:global.TopbaseLocale?.locale().startsWith('en') ? 'EN' : 'ZH' });
     el._tbChart = chart;
     el._tbRo = new ResizeObserver(function () { chart.resize(); });
     el._tbRo.observe(el);
     if (spec.type === 'map') {
       var pkg = mapPackageOf(spec);
-      if (chart.showLoading) chart.showLoading('default', { text: '加载地图包…', color: '#12C9AA', textColor: chartTone(spec).muted, maskColor: 'transparent' });
+      if (chart.showLoading) chart.showLoading('default', { text: chartText('加载地图包…'), color: '#12C9AA', textColor: chartTone(spec).muted, maskColor: 'transparent' });
       ensureMapPackage(pkg).then(function () {
         if (el._tbChart !== chart) return;
         if (chart.hideLoading) chart.hideLoading();
@@ -991,7 +998,7 @@
       html += '</div>';
     });
     if (opts.addLabel && opts.canAdd) {
-      html += '<button type="button" class="tb-btn tb-btn-ghost viz-add-link" data-pick-add="' + key + '">+ ' + esc(opts.addLabel) + '</button>';
+      html += '<button type="button" class="tb-btn tb-btn-ghost viz-add-link" data-pick-add="' + key + '">+ ' + esc(chartText(opts.addLabel)) + '</button>';
     }
     html += '</div>';
     return html;
@@ -1001,7 +1008,7 @@
       values.map(function (c) {
         var v = typeof c === 'string' ? c : c.value;
         var l = typeof c === 'string' ? c : c.label;
-        return '<option value="' + esc(v) + '"' + (String(selected) === String(v) ? ' selected' : '') + '>' + esc(l) + '</option>';
+        return '<option' + (typeof c === 'string' || c.userLabel ? ' translate="no"' : '') + ' value="' + esc(v) + '"' + (String(selected) === String(v) ? ' selected' : '') + '>' + esc(l) + '</option>';
       }).join('');
   }
   function swatches(name, current) {
@@ -1023,13 +1030,13 @@
       return '<button type="button" data-tab="' + t.id + '" class="' + (t.id === tab ? 'active' : '') + '">' + t.label + '</button>';
     }).join('') + '</div>';
   }
-  function seriesCard(spec, name, index, cartesian, open) {
+  function seriesCard(spec, name, index, cartesian, open, displayName) {
     var st = seriesStyle(spec, name);
     var color = colorOf(spec, name, index);
     var kind = displayOf(spec, st);
     var html = '<details class="viz-series-card" data-series="' + esc(name) + '"' + (open ? ' open' : '') + '>';
     html += '<summary><input type="color" data-series="' + esc(name) + '" data-sk="color" value="' + esc(color) + '">' +
-      '<input class="tb-input" type="text" data-series="' + esc(name) + '" data-sk="title" value="' + esc(st.title || name) + '" placeholder="' + esc(name) + '">' +
+      '<input class="tb-input" type="text" data-series="' + esc(name) + '" data-sk="title" translate="no" value="' + esc(st.title || displayName || name) + '" placeholder="' + esc(displayName || name) + '">' +
       '<label class="tb-check viz-mini"><input type="checkbox" data-series="' + esc(name) + '" data-sk="visible"' + (st.visible !== false ? ' checked' : '') + '> 显示</label></summary>';
     html += swatches(name, color);
     if (cartesian && spec.type !== 'row') {
@@ -1064,17 +1071,17 @@
     var openSeries = (host.dataset.openSeries || '').split(',').filter(Boolean);
     var html = '<h3>设置</h3>';
     if (!columns.length) {
-      host.innerHTML = html + '<p class="viz-muted">查询有结果后，可以在这里选择图表类型、颜色和坐标轴。</p>';
+      host.innerHTML = html + '<p class="viz-muted">运行查询后即可设置图表。</p>';
       return;
     }
     html += tabsHtml(spec, tab);
 
     if (spec.type === 'table' && tab === 'display') {
-      html += '<p class="viz-muted">设置字段的显示状态和名称。数据筛选请使用页面顶部的筛选器。</p>';
+      html += '<p class="viz-muted">设置显示字段。筛选请用页面顶部的筛选器。</p>';
       html += (columns || []).map(function (c) {
         var cs = columnStyle(spec, c);
         return '<div class="viz-col-block"><div class="viz-col-row"><label class="tb-check viz-mini"><input type="checkbox" data-col="' + esc(c) + '" data-ck="visible"' + (cs.visible !== false ? ' checked' : '') + '></label>' +
-          '<input class="tb-input" type="text" data-col="' + esc(c) + '" data-ck="title" value="' + esc(cs.title || '') + '" placeholder="' + esc(c) + '"></div></div>';
+          '<input class="tb-input" type="text" data-col="' + esc(c) + '" translate="no" data-ck="title" value="' + esc(cs.title || '') + '" placeholder="' + esc(c) + '"></div></div>';
       }).join('');
     }
 
@@ -1082,20 +1089,20 @@
       html += field('要显示的字段', '<select class="tb-select" data-k="scalar">' + optionList(metrics.length ? metrics : columns, (spec.y || [])[0]) + '</select>');
       var scalarField = (spec.y || [])[0];
       var comparisonOptions = (metrics.length ? metrics : columns).filter(function (name) { return name && name !== scalarField; });
-      html += field('数值对比', '<select class="tb-select" data-k="comparison_field">' + optionList([{ value: '', label: '不比较' }].concat(comparisonOptions.map(function (name) { return { value: name, label: name }; })), spec.comparison_field || '') + '</select>');
+      html += field('数值对比', '<select class="tb-select" data-k="comparison_field">' + optionList([{ value: '', label: '不比较' }].concat(comparisonOptions.map(function (name) { return { value: name, label: name, userLabel:true }; })), spec.comparison_field || '') + '</select>');
     }
     if (tab === 'data' && spec.type === 'pie') {
       html += field('维度', '<select class="tb-select" data-k="x">' + optionList(dims, spec.x) + '</select>');
       html += field('指标', '<select class="tb-select" data-k="scalar">' + optionList(metrics, (spec.y || [])[0]) + '</select>');
       html += '<h4>切片颜色</h4>';
-      html += packed.labels.map(function (name, i) { return seriesCard(spec, name, i, false, openSeries.indexOf(name) >= 0 || (!openSeries.length && i === 0)); }).join('');
+      html += packed.labels.map(function (name, i) { return seriesCard(spec, name, i, false, openSeries.indexOf(name) >= 0 || (!openSeries.length && i === 0), i === packed.otherIndex ? chartText('其他') : name); }).join('');
       html += field('「其他」颜色', '<input type="color" data-k="other_color" value="' + esc(spec.other_color || '#7172AD') + '">');
     }
     if (tab === 'data' && spec.type === 'map') {
       var currentMapPackage = mapPackageOf(spec);
       var mapMetrics = metrics.filter(function (name) { return name !== spec.x; });
       if (!mapMetrics.length) mapMetrics = columns.filter(function (name) { return name !== spec.x; });
-      html += field('图资包', '<select class="tb-select" data-k="map_package">' + optionList(mapPackageList().map(function (pkg) { return { value: pkg.id, label: pkg.label }; }), currentMapPackage && currentMapPackage.id) + '</select>');
+      html += field('图资包', '<select class="tb-select" data-k="map_package">' + optionList(mapPackageList().map(function (pkg) { return { value: pkg.id, label: pkg.id === DEFAULT_MAP_PACKAGE ? chartText(pkg.label) : pkg.label, userLabel:true }; }), currentMapPackage && currentMapPackage.id) + '</select>');
       html += field('区域字段', '<select class="tb-select" data-k="x">' + optionList(columns, spec.x) + '</select>');
       html += field('数值字段', '<select class="tb-select" data-k="scalar">' + optionList(mapMetrics, (spec.y || [])[0]) + '</select>');
       html += '<p class="viz-muted">区域值需要与所选图资包的名称或代码匹配。默认中国图资包支持“广东”“广东省”和 440000 等六位代码。请先在分析中按区域汇总数据。</p>';
@@ -1152,7 +1159,7 @@
       html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="donut"' + (spec.donut !== false ? ' checked' : '') + '> 环形图</label>';
       html += '<label class="tb-check viz-toggle"><input type="checkbox" data-k="labels"' + (spec.show_labels ? ' checked' : '') + '> 显示标签</label>';
       html += field('显示百分比', seg('percent', percentMode(spec), [
-        { value: 'off', label: '关闭' }, { value: 'legend', label: '图例' }, { value: 'inside', label: '图上' }, { value: 'both', label: '两者' }
+        { value: 'off', label: '已关闭' }, { value: 'legend', label: '图例' }, { value: 'inside', label: '图上' }, { value: 'both', label: '两者' }
       ]));
       if (percentMode(spec) !== 'off') {
         html += field('百分比小数位', '<input class="tb-input" data-k="decimals" type="number" min="0" max="6" placeholder="自动" value="' + (spec.decimals == null ? '' : spec.decimals) + '">');
@@ -1448,7 +1455,7 @@
     var goal = spec.goal;
     var extra = '';
     if (goalOn(spec) && isNum(value) && isNum(goal) && Number(goal) !== 0) {
-      extra = '<em>' + esc(formatNumber((Number(value) / Number(goal)) * 100, { decimals: 1, suffix: '% 到达目标' })) + '</em>';
+      extra = '<em>' + esc(formatNumber((Number(value) / Number(goal)) * 100, { decimals: 1, suffix: chartText('% 到达目标') })) + '</em>';
     }
     var comparisonName = spec.comparison_field || '';
     var comparisonIndex = colIndex(columns, comparisonName);
@@ -1461,7 +1468,7 @@
       var rateText = rate == null ? '—' : (rate > 0 ? '+' : '') + formatNumber(rate, Object.assign({}, spec, { number_style: 'percent', prefix: '', suffix: '' }));
       extra += '<em class="viz-comparison ' + direction + '"><i>' + (direction === 'up' ? '↑' : direction === 'down' ? '↓' : '−') + '</i> ' + esc(sign + formatNumber(delta, spec)) + '<span>' + esc(rateText) + '</span></em>';
     }
-    host.innerHTML = '<div class="viz-scalar"><b style="color:' + esc(scalarColor(spec, value)) + '">' + esc(formatNumber(value, spec)) + '</b>' + extra + '</div>';
+    host.innerHTML = '<div class="viz-scalar" translate="no"><b style="color:' + esc(scalarColor(spec, value)) + '">' + esc(formatNumber(value, spec)) + '</b>' + extra + '</div>';
   }
   function render(host, opts) {
     opts = opts || {};

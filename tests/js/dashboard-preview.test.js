@@ -111,3 +111,29 @@ test('inspector exposes controls that apply to the selected widget and maps lega
   assert.equal(legacy.surface, 'solid');
   assert.equal(legacy.border, 'default');
 });
+
+test('publishing settings default to permanent and combine expiry and password in one request', () => {
+  const {run} = dashboard('/dashboard/private/');
+  const now = Date.parse('2026-11-27T00:00:00Z');
+  const publish = (policy, draft) => JSON.parse(run('JSON.stringify(sharePolicyUpdate(' + JSON.stringify(policy) + ',' + JSON.stringify(draft) + ',' + now + '))'));
+  const basic = {expiry: 'permanent', protected: false, password: ''};
+  assert.deepEqual(publish({}, basic).body, {expires_at: null});
+  assert.deepEqual(publish({}, {...basic, expiry:'7', protected:true, password:'分享访问密码测试'}).body,
+    {expires_at: '2026-12-04T00:00:00.000Z', password: '分享访问密码测试'});
+  assert.equal(publish({}, {...basic, expiry:'custom', until:'invalid'}).field, 'share-until');
+  assert.equal(publish({}, {...basic, expiry:'custom', until:'2000-01-01T10:00'}).field, 'share-until');
+  for (const password of ['', '1234567', '        ', '密'.repeat(129)]) {
+    assert.equal(publish({}, {...basic, protected:true, password}).field, 'share-password');
+  }
+});
+
+test('existing protected links retain precise deadlines and unused password fields, and expired links can be renewed', () => {
+  const {run} = dashboard('/dashboard/private/');
+  const policy = {public_uuid:'already-published', expires_at:'2020-01-01T00:01:45Z', password_required:true};
+  const draft = {expiry:'custom', until:run("shareLocalTime('2020-01-01T00:01:45Z')"), protected:true, password:''};
+  const update = changes => JSON.parse(run('JSON.stringify(sharePolicyUpdate(' + JSON.stringify(policy) + ',' + JSON.stringify({...draft,...changes}) + '))')).body;
+  assert.deepEqual(update({}), {});
+  assert.deepEqual(update({password:'新的分享访问密码'}), {password:'新的分享访问密码'});
+  assert.deepEqual(update({expiry:'permanent'}), {expires_at:null});
+  assert.deepEqual(update({protected:false}), {password:''});
+});

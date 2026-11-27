@@ -15,6 +15,7 @@ test('analysis deep link opens once, first failure stays visible and retry reuse
   const notices = [];
   const button = {dataset: {run: 'orders'}, textContent: '重试更新'};
   const context = vm.createContext({
+    navigator:{language:'zh-CN'},
     $: element,
     $$: () => [button],
     esc: value => String(value).replaceAll('<', '&lt;'),
@@ -53,6 +54,10 @@ test('analysis deep link opens once, first failure stays visible and retry reuse
       }
     }
   });
+  context.window = context;
+  vm.runInContext(fs.readFileSync('internal/platform/httpapi/web/locale.js', 'utf8'), context);
+  vm.runInContext(fs.readFileSync('internal/platform/httpapi/web/locales/admin.js', 'utf8'), context);
+  vm.runInContext(fs.readFileSync('internal/platform/httpapi/web/warehouse/messages.js', 'utf8'), context);
   await vm.runInContext(source, context);
   const defaults = vm.runInContext("['订单', '库存', '订单'].map(name => suggestedTarget({name}))", context);
   assert.equal(new Set(defaults).size, 3);
@@ -74,4 +79,19 @@ test('analysis deep link opens once, first failure stays visible and retry reuse
   await vm.runInContext('load()', context);
   assert.match(element('#materializations').innerHTML, /更新失败/);
   assert.match(element('#materializations').innerHTML, /创建分析/);
+});
+
+
+test('English materialization errors preserve run IDs and database diagnostics', () => {
+  const context = vm.createContext({navigator:{language:'en'}});
+  context.window = context;
+  for (const script of ['locale.js','locales/admin.js','warehouse/messages.js']) {
+    vm.runInContext(fs.readFileSync('internal/platform/httpapi/web/'+script, 'utf8'), context);
+  }
+  const detail = 'relation "设置" is locked';
+  const message = '运行 run_12 需核对 warehouse.wh_orders，已暂停重写目标表: 目标库已提交 12 行，水位 "设置"，应用库登记未确认: '+detail+'；重试将使用已确认的回执恢复登记';
+  assert.equal(context.warehouseErrorText(message),
+    'Run run_12 needs verification for warehouse.wh_orders. Further writes are paused: The target committed 12 rows at watermark "设置". The application registry could not be confirmed: '+detail+'. Retrying will restore the registry from the confirmed receipt.');
+  assert.equal(context.warehouseErrorText(detail), detail);
+  assert.equal(context.warehouseErrorText('设置'), '设置');
 });

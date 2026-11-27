@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 分析</title>
   <link rel="stylesheet" href="/ui.css">
@@ -10,12 +13,11 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
-    <header class="topbar"><strong>分析</strong></header>
     <main>
       <div class="page-head">
         <div>
           <h1>分析</h1>
-          <p>创建可视化或 SQL 分析，并在这里用分组整理个人与团队内容。</p>
+          <p>用可视化查询或 SQL 创建分析，按分组整理。</p>
         </div>
         <div class="analysis-head-actions">
           <a class="secondary tb-btn tb-btn-secondary" id="manage-groups" href="#analysis-groups">分组管理 <span id="group-count"></span></a>
@@ -24,7 +26,7 @@
         </div>
       </div>
       <section id="analysis-groups" class="analysis-group-overview" aria-labelledby="analysis-groups-heading">
-        <div class="group-view-head"><div><h2 id="analysis-groups-heading">分析分组</h2><p>个人分组用于整理自己的内容；企业项目由管理后台配置成员角色。个人分组可以共享给其他成员查看。</p></div></div>
+        <div class="group-view-head"><div><h2 id="analysis-groups-heading">分析分组</h2><p>个人分组可共享给成员查看。企业项目的成员角色由管理员配置。</p></div></div>
         <section id="group-list" class="analysis-group-list"></section>
       </section>
       <section id="analysis-view">
@@ -32,7 +34,7 @@
           <label><span>⌕</span><input id="search" placeholder="搜索分析"></label>
           <select class="tb-select" id="collection" aria-label="按分组筛选"><option value="">全部分组</option></select>
         </div>
-        <section id="list" class="cards" aria-live="polite"><div class="empty-state"><b>正在加载分析</b><p>请稍候…</p></div></section>
+        <section id="list" class="cards" aria-live="polite"><div class="empty-state"><b>正在加载分析</b></div></section>
       </section>
     </main>
   </div>

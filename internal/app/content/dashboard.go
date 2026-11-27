@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/topbase/topbase/internal/core"
 )
@@ -20,8 +21,7 @@ func (s Service) CreateDashboard(d core.Dashboard, userID string) (core.Dashboar
 	d.CreatedAt = time.Now().UTC()
 	// Dashboards are private by default. Publishing and embedding are only
 	// enabled through their dedicated, permission-checked service methods.
-	d.PublicUUID = ""
-	d.PublicEmbedEnabled = false
+	clearDashboardSharing(&d)
 	normalizeDashboard(&d)
 	if err := s.Dashboards.Create(d); err != nil {
 		return core.Dashboard{}, err
@@ -41,20 +41,13 @@ func (s Service) UpdateDashboard(d core.Dashboard, userID string) (core.Dashboar
 	if strings.TrimSpace(d.Name) == "" {
 		d.Name = existing.Name
 	}
-	if d.PublicUUID == "" {
-		d.PublicUUID = existing.PublicUUID
-	}
-	if d.PublicUUID == "-" {
-		d.PublicUUID = ""
-	}
 	d.CreatedBy = existing.CreatedBy
 	d.CreatedAt = existing.CreatedAt
 	normalizeDashboard(&d)
 	if err := s.Dashboards.Update(d); err != nil {
 		return core.Dashboard{}, err
 	}
-	s.recordRevision("dashboard", d.ID, userID, d)
-	return d, nil
+	return s.readDashboardRevision(d.ID, userID)
 }
 
 func (s Service) GetDashboardByPublicUUID(uuid string) (core.Dashboard, error) {
@@ -62,36 +55,71 @@ func (s Service) GetDashboardByPublicUUID(uuid string) (core.Dashboard, error) {
 }
 
 func (s Service) EnableDashboardPublicLink(id, userID string) (core.Dashboard, error) {
-	d, err := s.Dashboards.ByID(id)
-	if err != nil {
+	return s.PublishDashboard(id, userID, core.DashboardPublicLinkUpdate{})
+}
+
+func (s Service) PublishDashboard(id, userID string, update core.DashboardPublicLinkUpdate) (core.Dashboard, error) {
+	return s.setDashboardPublicLink(id, userID, core.NewID("pub"), update)
+}
+
+func (s Service) UpdateDashboardPublicLink(id, userID string, update core.DashboardPublicLinkUpdate) (core.Dashboard, error) {
+	return s.setDashboardPublicLink(id, userID, "", update)
+}
+
+func (s Service) setDashboardPublicLink(id, userID, publishUUID string, update core.DashboardPublicLinkUpdate) (core.Dashboard, error) {
+	if update.SetExpiry && update.ExpiresAt != nil && update.ExpiresAt.UnixMilli() <= time.Now().UnixMilli() {
+		return core.Dashboard{}, fmt.Errorf("分享截止时间必须晚于当前时间")
+	}
+	var passwordHash *string
+	if update.Password != nil {
+		password := *update.Password
+		hash := ""
+		if password != "" {
+			length := utf8.RuneCountInString(password)
+			if length < 8 || length > 128 || strings.TrimSpace(password) == "" {
+				return core.Dashboard{}, fmt.Errorf("访问密码需为 8 至 128 个字符，且不能全为空格")
+			}
+			var err error
+			hash, err = core.HashPassword(password)
+			if err != nil {
+				return core.Dashboard{}, err
+			}
+		}
+		passwordHash = &hash
+	}
+	if err := s.Dashboards.SetPublicLink(id, publishUUID, update.SetExpiry, update.ExpiresAt, passwordHash); err != nil {
 		return core.Dashboard{}, err
 	}
-	if d.PublicUUID == "" {
-		d.PublicUUID = core.NewID("pub")
-	}
-	return s.UpdateDashboard(d, userID)
+	return s.readDashboardRevision(id, userID)
 }
 
 func (s Service) DisableDashboardPublicLink(id, userID string) (core.Dashboard, error) {
-	d, err := s.Dashboards.ByID(id)
-	if err != nil {
+	if err := s.Dashboards.ClearPublicLink(id); err != nil {
 		return core.Dashboard{}, err
 	}
-	d.PublicUUID = "-"
-	d.PublicEmbedEnabled = false
-	return s.UpdateDashboard(d, userID)
+	return s.readDashboardRevision(id, userID)
 }
 
 func (s Service) SetDashboardEmbedding(id string, enabled bool, userID string) (core.Dashboard, error) {
-	d, err := s.Dashboards.ByID(id)
-	if err != nil {
+	if err := s.Dashboards.SetEmbedding(id, enabled); err != nil {
 		return core.Dashboard{}, err
 	}
-	if enabled && d.PublicUUID == "" {
-		return core.Dashboard{}, fmt.Errorf("publish the dashboard before enabling embedding")
+	return s.readDashboardRevision(id, userID)
+}
+
+func (s Service) readDashboardRevision(id, userID string) (core.Dashboard, error) {
+	d, err := s.Dashboards.ByID(id)
+	if err == nil {
+		s.recordRevision("dashboard", id, userID, d)
 	}
-	d.PublicEmbedEnabled = enabled
-	return s.UpdateDashboard(d, userID)
+	return d, err
+}
+
+func clearDashboardSharing(d *core.Dashboard) {
+	d.PublicUUID = ""
+	d.PublicEmbedEnabled = false
+	d.PublicExpiresAt = nil
+	d.PublicPasswordHash = ""
 }
 
 func (s Service) DuplicateDashboard(id, userID string) (core.Dashboard, error) {
@@ -104,8 +132,7 @@ func (s Service) DuplicateDashboard(id, userID string) (core.Dashboard, error) {
 	copy := src
 	copy.ID = core.NewID("dsh")
 	copy.Name = strings.TrimSpace(src.Name) + " 副本"
-	copy.PublicUUID = ""
-	copy.PublicEmbedEnabled = false
+	clearDashboardSharing(&copy)
 	copy.ArchivedAt = nil
 	copy.CreatedBy = userID
 	copy.CreatedAt = time.Now().UTC()

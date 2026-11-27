@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 新建分析</title>
   <link rel="stylesheet" href="/ui.css">
@@ -10,7 +13,7 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page analysis-start-page">
-    <header class="topbar">
+    <header class="context-bar" aria-label="当前位置">
       <a href="/questions/">分析</a><span>/</span><strong>新建分析</strong>
     </header>
     <main class="analysis-start">
@@ -18,7 +21,7 @@
         <div>
           <small>可视化查询构建器</small>
           <h1 id="picker-title">选择起始数据</h1>
-          <p id="picker-description">先选择要分析的数据，接着通过字段、筛选、汇总和关联逐步构建结果。</p>
+          <p id="picker-description">选择数据表或已保存的分析。</p>
         </div>
         <a class="secondary tb-btn tb-btn-secondary" href="/">使用 SQL 或 AI</a>
       </div>
@@ -35,7 +38,7 @@
         </label>
         <div class="picker-path" id="picker-path" hidden>
           <button class="picker-back tb-btn tb-btn-ghost" id="picker-back" type="button">← 所有数据源</button>
-          <span>/</span><strong id="picker-current"></strong>
+          <span>/</span><strong id="picker-current" translate="no"></strong>
         </div>
         <div id="source-status" class="picker-status">正在读取可用数据…</div>
         <div id="source-list" class="source-list" aria-live="polite"></div>
@@ -43,7 +46,7 @@
 
       <div class="analysis-start-note">
         <span>安全</span>
-        <p>选择数据不会修改源数据库。Topbase 只会生成并执行只读查询。</p>
+        <p>所有查询均为只读。</p>
       </div>
     </main>
   </div>

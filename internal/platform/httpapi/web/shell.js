@@ -60,7 +60,7 @@ window.topbaseRememberDatabase = function (id) {
 
   function avatar(user, name) {
     if (user && user.avatar_url) return `<span class="avatar avatar-image"><img src="${esc(user.avatar_url)}" alt=""></span>`;
-    return `<span class="avatar">${esc(initial(name))}</span>`;
+    return `<span class="avatar" translate="no">${esc(initial(name))}</span>`;
   }
 
   async function currentUser() {
@@ -80,6 +80,7 @@ window.topbaseRememberDatabase = function (id) {
     loadShellStyle();
     const active = host.dataset.active || '';
     const user = await currentUser();
+    if (user?.locale) window.TopbaseLocale?.syncAccount(user.locale);
 
     if (kind === 'admin') {
       if (!user) {
@@ -104,12 +105,12 @@ window.topbaseRememberDatabase = function (id) {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     host.classList.add('sidebar', kind === 'admin' ? 'sidebar-admin' : 'sidebar-app');
     const context = kind === 'admin' ? '<p>管理后台</p>' : '<p>数据工作台</p>';
-    host.innerHTML = `<div class="sidebar-panel"><div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><img class="mark mark-image" src="/assets/topbase-logo.png" alt="Topbase logo"><strong>${heading}</strong><span class="shell-context">${kind === 'admin' ? '管理后台' : '工作台'}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">${icon(collapsed ? 'panel-left-open' : 'panel-left-close', 'sidebar-toggle-icon')}</button></div><label class="sidebar-search">${icon('search', 'sidebar-search-icon')}<input type="search" placeholder="搜索功能" aria-label="搜索功能"></label><nav>${context}${links(items, active)}</nav><footer><div class="sidebar-account" data-active="${active === 'account'}"><button class="sidebar-profile" type="button" aria-label="账户菜单" title="账户菜单">${avatar(user, name)}<strong>${esc(name)}</strong><span aria-hidden="true">›</span></button><div class="account-menu tb-menu" hidden><a href="/account/">个人中心</a><button type="button" data-logout>退出登录</button></div></div></footer></div>`;
+    host.innerHTML = `<div class="sidebar-panel"><div class="sidebar-brand"><a class="workspace" href="${kind === 'admin' ? '/admin/' : '/'}"><img class="mark mark-image" src="/assets/topbase-logo.png" alt="Topbase logo"><strong>${heading}</strong><span class="shell-context">${kind === 'admin' ? '管理后台' : '工作台'}</span></a><button class="sidebar-toggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏">${icon(collapsed ? 'panel-left-open' : 'panel-left-close', 'sidebar-toggle-icon')}</button></div><label class="sidebar-search">${icon('search', 'sidebar-search-icon')}<input type="search" placeholder="搜索功能" aria-label="搜索功能"></label><nav>${context}${links(items, active)}</nav><footer><div class="sidebar-account" data-active="${active === 'account'}"><button class="sidebar-profile" type="button" aria-label="账户菜单" title="账户菜单">${avatar(user, name)}<strong translate="no">${esc(name)}</strong><span aria-hidden="true">›</span></button><div class="account-menu tb-menu" hidden><a href="/account/">个人中心</a><button type="button" data-logout>退出登录</button></div></div></footer></div>`;
     if (kind === 'admin' && active === 'integrations') {
       const script = document.createElement('script'); script.src = '/admin/integrations/tabs.js?v=1'; document.body.appendChild(script);
     }
     if (kind === 'admin') {
-      const versionLink = document.createElement('a'); versionLink.className = 'sidebar-version'; versionLink.href = '/admin/updates/'; versionLink.textContent = '版本'; host.querySelector('footer').before(versionLink);
+      const versionLink = document.createElement('a'); versionLink.className = 'sidebar-version'; versionLink.dataset.versionLabel = window.TopbaseLocale?.t('当前版本') || '当前版本'; versionLink.href = '/admin/updates/'; versionLink.textContent = '版本'; host.querySelector('footer').before(versionLink);
       fetch('/api/version').then(r => r.ok ? r.json() : null).then(info => { if (!info) return; versionLink.textContent = info.version || '版本'; if (info.latest_version && info.latest_version !== info.version) versionLink.innerHTML = esc(info.version) + '<b>NEW</b>'; }).catch(() => {});
     }
     const toggle = host.querySelector('.sidebar-toggle');

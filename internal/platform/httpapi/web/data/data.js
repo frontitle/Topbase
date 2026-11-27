@@ -30,6 +30,10 @@ async function loadResult(request, applyResult, onError) {
   }
 }
 function key(t){return t.schema+'.'+t.name}
+function setPageContext(fallback){
+  const label=editingQuestion?'编辑分析':(creationMode?'新建分析':fallback);
+  document.title='Topbase · '+label;
+}
 function setURL(){
   const p=new URLSearchParams();
   if(editingQuestion)p.set('edit',editingQuestion.id);
@@ -43,7 +47,6 @@ async function hydrateQuestion(question){
   if(question.query_type==='native'){
     queryEditor.setMode('sql');
     queryEditor.setSQL(question.native_sql||'',{dirty:false});
-    $('#section-title').textContent='编辑分析';
     return;
   }
   const query=question.queryir;
@@ -88,7 +91,7 @@ async function hydrateQuestion(question){
     lastChart=question.chartspec||result.chartspec;
     renderGrid(result,'visual');
   }, error=>{
-    $('#grid-status').textContent='已载入配置，但暂时无法运行：'+error.message;
+    $('#grid-status').textContent=TopbaseLocale.t('无法运行已保存的查询：{error}',{error:error.message});
     $('#grid-wrap').innerHTML='';
     toast(error.message);
   });
@@ -97,14 +100,14 @@ function showDatabases(){
   beginNavigation();
   currentDB=null;active=null;tables=[];
   $('#db-view').hidden=false;$('#table-view').hidden=true;
-  $('#crumb').textContent='选择数据库';
+  setPageContext('源数据');
   setURL();
   renderDatabases();
 }
 function renderDatabases(){
   const q=($('#db-search').value||'').toLowerCase();
   const items=databases.filter(d=>(d.name+' '+(d.host||'')).toLowerCase().includes(q));
-  $('#db-cards').innerHTML=items.map(d=>`<button class="db-card" data-id="${esc(d.id)}" type="button"><b>${esc(d.name)}</b><small>PostgreSQL · ${esc(d.host||'')} · ${d.table_count||0} 张表<br>已连接</small></button>`).join('')||emptyHTML({icon:'▣',title:'还没有数据源',body:'管理员可在管理后台连接数据库。',href:'/admin/',cta:'打开数据源管理'});
+  $('#db-cards').innerHTML=items.map(d=>`<button class="db-card" data-id="${esc(d.id)}" type="button"><b translate="no">${esc(d.name)}</b><small><span translate="no">${esc(d.engine||'PostgreSQL')} · ${esc(d.host||'')}</span> · ${esc(TopbaseLocale.t('表数：{n}',{n:d.table_count||0}))}<br>已连接</small></button>`).join('')||emptyHTML({icon:'▣',title:'还没有数据源',body:'管理员可在管理后台连接数据库。',href:'/admin/',cta:'打开数据源管理'});
   $$('#db-cards [data-id]').forEach(card=>card.onclick=()=>openDatabase(card.dataset.id).catch(e=>toast(e.message)));
 }
 async function openDatabase(id){
@@ -118,8 +121,9 @@ async function openDatabase(id){
   $('#schema-status').hidden=true;
   $('#table-list').textContent='正在读取表…';
   $('#db-view').hidden=true;$('#table-view').hidden=false;
+  $('#db-title').translate=false;
   $('#db-title').textContent=currentDB.name||id;
-  $('#crumb').textContent=currentDB.name||id;
+  setPageContext(currentDB.name||id);
   $('#empty-state').hidden=false;$('#table-workspace').hidden=true;
   setURL();
   let items;
@@ -146,8 +150,16 @@ function renderTables(items){
   const groups={};
   items.forEach(t=>{ (groups[t.schema]||(groups[t.schema]=[])).push(t) });
   const html=Object.keys(groups).sort().map(schema=>{
-    const rows=groups[schema].map(t=>{const selected=!!(active&&key(active)===key(t));return `<button class="table-item ${selected?'active':''}" data-key="${esc(key(t))}" ${selected?'aria-current="true"':''} title="${esc(t.description||'')}"><b>${esc(t.display_name||t.name)}${t.warehouse?' · 已沉淀':''}</b><small>${esc(t.display_name?t.schema+'.'+t.name:(t.description||((t.columns||[]).length+' 个字段')))}</small></button>`}).join('');
-    return `<div class="schema-label">${esc(schema)}</div>${rows}`;
+    const rows = groups[schema].map(table => {
+      const selected = active && key(active) === key(table);
+      const title = table.display_name || table.name;
+      const badge = table.warehouse ? ' · ' + TopbaseLocale.t('已沉淀') : '';
+      const detail = table.display_name ? table.schema + '.' + table.name
+        : table.description || TopbaseLocale.t('字段：{n}', {n: (table.columns || []).length});
+      return `<button translate="no" class="table-item ${selected ? 'active' : ''}" data-key="${esc(key(table))}" ${selected ? 'aria-current="true"' : ''} title="${esc(table.description || '')}">
+        <b>${esc(title + badge)}</b><small>${esc(detail)}</small></button>`;
+    }).join('');
+    return `<div class="schema-label" translate="no">${esc(schema)}</div>${rows}`;
   }).join('');
   $('#table-list').innerHTML=html||'没有可读取的数据表。';
   $$('#table-list .table-item').forEach(b=>b.onclick=()=>openTable(tables.find(t=>key(t)===b.dataset.key)).catch(e=>toast(e.message)));
@@ -165,30 +177,30 @@ async function openTable(table, question){
   $('#toggle-ask').setAttribute('aria-expanded','true');
   $('#source-name').textContent=table.schema;
   $('#table-name').textContent=table.display_name||table.name;
-  $('#table-description').textContent='正在拉取数据…';
+  $('#table-description').textContent=TopbaseLocale.t('正在拉取数据…');
   $('#grid-status').textContent='正在拉取数据…';
   $('#grid-wrap').innerHTML='';
-  $('#crumb').textContent=(currentDB.name||'')+' / '+table.schema+'.'+(table.display_name||table.name);
+  setPageContext(table.display_name||table.name);
   $('#edit-meta').hidden=!isAdmin;
   $('#edit-meta').href=`/admin/datamodel/?db=${encodeURIComponent(currentDB.id)}&schema=${encodeURIComponent(table.schema)}&table=${encodeURIComponent(table.name)}`;
   setURL();
   const cols=table.columns||[];
   $('#builder-source').textContent=table.schema+'.'+table.name;
-  $('#fields').innerHTML=cols.map(c=>`<label title="${esc(c.description||'')}"><input type="checkbox" value="${esc(c.name)}" checked> <span>${esc(c.name)}</span></label>`).join('');
-  const options='<option value="">选择字段</option>'+cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  $('#fields').innerHTML=cols.map(c=>`<label translate="no" title="${esc(c.description||'')}"><input type="checkbox" value="${esc(c.name)}" checked> <span>${esc(c.name)}</span></label>`).join('');
+  const options='<option value="">选择字段</option>'+cols.map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   $('#aggregation').value='';
-  $('#aggregation-field').innerHTML='<option value="">记录数无需选择字段</option>'+cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  $('#aggregation-field').innerHTML='<option value="">记录数无需选择字段</option>'+cols.map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   $('#aggregation-field').hidden=true;
-  $('#group-by-field').innerHTML='<option value="">不分组</option>'+cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  $('#group-by-field').innerHTML='<option value="">不分组</option>'+cols.map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   $('#group-by-field').value='';
   $('#group-by-temporal').value='';$('#group-by-temporal').hidden=true;
-  $('#sort-field').innerHTML='<option value="">不排序</option>'+cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  $('#sort-field').innerHTML='<option value="">不排序</option>'+cols.map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   $('#sort-field').value='';$('#sort-direction').value='asc';
   $('#row-limit').value='1000';
   $('#expression-alias').value='';$('#expression-right').value='';$('#expression-op').value='add';
   $('#expression-left').innerHTML=options;
-  $('#expression-field-options').innerHTML=cols.map(c=>`<option value="${esc(c.name)}"></option>`).join('');
-  $('#drill-field').innerHTML='<option value="">当前筛选字段</option>'+cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  $('#expression-field-options').innerHTML=cols.map(c=>`<option translate="no" value="${esc(c.name)}"></option>`).join('');
+  $('#drill-field').innerHTML='<option value="">当前筛选字段</option>'+cols.map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   $$('.step-editor').forEach(panel=>panel.hidden=true);
   $$('[data-builder-target]').forEach(button=>button.classList.remove('active'));
   updateSelectedFieldCount();
@@ -207,7 +219,7 @@ async function openTable(table, question){
     lastChart=result.chartspec;
     renderGrid(result,'visual');
   },error=>{
-    $('#grid-status').textContent='无法拉取数据：'+error.message;
+    $('#grid-status').textContent=TopbaseLocale.t('读取失败：{error}',{error:error.message});
     $('#grid-wrap').innerHTML=`<div class="reconnect"><b>查询失败</b><small>${esc(error.message)}</small></div>`;
   });
   const [note, fields]=await metadata;
@@ -241,7 +253,7 @@ function columnModels(){
   });
 }
 function tableForJoin(value){return tables.find(t=>key(t)===value)}
-function optionList(columns, selected, placeholder){return `<option value="">${placeholder||'选择字段'}</option>`+(columns||[]).map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${esc(c.name)}</option>`).join('')}
+function optionList(columns, selected, placeholder){return `<option value="">${placeholder||'选择字段'}</option>`+(columns||[]).map(c=>`<option translate="no" value="${esc(c.name)}" ${c.name===selected?'selected':''}>${esc(c.name)}</option>`).join('')}
 function isDateField(name){
   const column=(active&&active.columns||[]).find(c=>c.name===name);
   return !!(column&&/date|time|timestamp/i.test(column.data_type||''));
@@ -250,7 +262,7 @@ function qualifyField(name,joined){return name&&joined&&!name.includes('.')?acti
 function updateSelectedFieldCount(){
   if(!active)return;
   const checked=$$('#fields input:checked').length,total=(active.columns||[]).length;
-  $('#selected-field-count').textContent=checked===total?'全部字段':`${checked} / ${total} 个字段`;
+  $('#selected-field-count').textContent=checked===total?'全部字段':TopbaseLocale.t('已选字段：{selected} / {total}',{selected:checked,total});
 }
 function updateAggregationControls(){
   const aggregation=$('#aggregation').value;
@@ -277,10 +289,10 @@ function refreshSortOptions(){
   const group=$('#group-by-field').value;
   let options='<option value="">不排序</option>';
   if(aggregation){
-    options+=`<option value="__metric__">汇总结果（${esc(aggregation)}）</option>`;
-    if(group)options+=`<option value="__group__">分组字段（${esc(group)}）</option>`;
+    options+=`<option value="__metric__">${esc(TopbaseLocale.t('汇总结果（{name}）',{name:aggregation}))}</option>`;
+    if(group)options+=`<option value="__group__">${esc(TopbaseLocale.t('分组字段（{name}）',{name:group}))}</option>`;
   }else{
-    options+=(active.columns||[]).map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+    options+=(active.columns||[]).map(c=>`<option translate="no" value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   }
   $('#sort-field').innerHTML=options;
   if($$('#sort-field option').some(option=>option.value===selected))$('#sort-field').value=selected;
@@ -305,24 +317,24 @@ function updateBuilderSummary(){
   const joined=!!$('#join-table').value;
   const sort=!!$('#sort-field').value;
   const parts=[];
-  if(filters)parts.push(`${filters} 条筛选`);
-  if(aggregation)parts.push(`按${group||'全部记录'}${aggregation==='count'?'计数':aggregation}`);
-  if(joined)parts.push('跨表关联');
-  if(sort)parts.push('结果排序');
-  if($('#expression-alias').value.trim())parts.push('自定义字段');
-  if(Number($('#row-limit').value)!==1000)parts.push(`最多 ${Number($('#row-limit').value)||1000} 行`);
-  const text=parts.length?parts.join(' · '):'显示原始数据';
+  if(filters)parts.push(TopbaseLocale.t('筛选：{n}',{n:filters}));
+  if(aggregation)parts.push(TopbaseLocale.t('{group} · {operation}',{group:group||TopbaseLocale.t('全部记录'),operation:aggregation==='count'?TopbaseLocale.t('计数'):aggregation}));
+  if(joined)parts.push(TopbaseLocale.t('跨表关联'));
+  if(sort)parts.push(TopbaseLocale.t('结果排序'));
+  if($('#expression-alias').value.trim())parts.push(TopbaseLocale.t('自定义字段'));
+  if(Number($('#row-limit').value)!==1000)parts.push(TopbaseLocale.t('最多 {n} 行',{n:Number($('#row-limit').value)||1000}));
+  const text=parts.length?parts.join(' · '):TopbaseLocale.t('显示原始数据');
   $('#query-summary').textContent=text;
 }
 function configureJoinBuilder(){
   if(!active)return;
   const picker=$('#join-table');
   const candidates=tables.filter(t=>key(t)!==key(active));
-  picker.innerHTML='<option value="">不关联</option>'+candidates.map(t=>`<option value="${esc(key(t))}">${esc(t.schema+'.'+t.name)}</option>`).join('');
+  picker.innerHTML='<option value="">不关联</option>'+candidates.map(t=>`<option translate="no" value="${esc(key(t))}">${esc(t.schema+'.'+t.name)}</option>`).join('');
   $('#join-left-field').innerHTML=optionList(active.columns);
   $('#join-right-field').innerHTML='<option value="">请先选择关联表</option>';
   $('#join-fields').textContent='请先选择关联表。';
-  $('#join-hint').textContent='选择关联表后，指定两边用于匹配的字段；系统只会生成安全的只读查询。';
+  $('#join-hint').textContent='选择关联表，再选择两表的匹配字段。';
 }
 function updateJoinTarget(){
   const target=tableForJoin($('#join-table').value);
@@ -339,8 +351,8 @@ function updateJoinTarget(){
   const relation=manualRelation||(sourceColumn?{name:sourceColumn.name,fk_target:sourceColumn.foreign_key}:null);
   $('#join-left-field').innerHTML=optionList(active.columns,relation&&relation.name);
   $('#join-right-field').innerHTML=optionList(target.columns,relation&&relation.fk_target&&relation.fk_target.name);
-  $('#join-fields').innerHTML=target.columns.map(c=>`<label><input type="checkbox" value="${esc(c.name)}"> ${esc(c.name)} <small>${esc(c.data_type||'')}</small></label>`).join('');
-  $('#join-hint').textContent=relation?'已根据外键元数据预选关联字段。可按需要调整。':'未发现外键标记，请选择两边实际对应的字段。';
+  $('#join-fields').innerHTML=target.columns.map(c=>`<label translate="no"><input type="checkbox" value="${esc(c.name)}"> ${esc(c.name)} <small>${esc(c.data_type||'')}</small></label>`).join('');
+  $('#join-hint').textContent=relation?'已按外键选择匹配字段，可手动调整。':'请选择两表的匹配字段。';
   updateBuilderSummary();
 }
 function selectedJoin(){
@@ -390,7 +402,7 @@ async function runWithFilters(filters){
     lastChart=d.chartspec;
     renderGrid(d,'visual');
   },e=>{
-    $('#grid-status').textContent='筛选失败：'+e.message;
+    $('#grid-status').textContent=TopbaseLocale.t('筛选失败：{error}',{error:e.message});
     toast(e.message);
   });
 }
@@ -402,7 +414,7 @@ function renderGrid(d, mode){
   queryEditor.setGeneratedSQL(d.sql||'');
   const n=mode==='visual'?(lastQueryIR&&lastQueryIR.filters||[]).length:0;
   const limited=queryLimitMessage(d.meta);
-  $('#grid-status').textContent=`数据库返回 ${rows.length} 行`+(mode==='sql'?'（SQL 实时查询）':(n?`（已应用 ${n} 条筛选）`:'。可在上方添加查询步骤。'))+(limited?` · ${limited}`:'');
+  $('#grid-status').textContent=TopbaseLocale.t('数据库返回 {n} 行',{n:rows.length})+(mode==='sql'?' · SQL':(n?' · '+TopbaseLocale.t('筛选：{n}',{n}):''))+(limited?` · ${limited}`:'');
   if(!cols.length){$('#grid-wrap').innerHTML='<p>这张表没有返回列。</p>';return}
   const types={},semanticTypes=Object.assign({},d.meta&&d.meta.semantic_types||{}),descriptions={};
   tables.forEach(table=>(table.columns||[]).forEach(column=>{
@@ -513,7 +525,7 @@ async function runVisualQuery(){
     lastQueryIR=d.queryir||query;
     lastChart=d.chartspec;
     renderGrid(d,'visual');updateBuilderSummary();toast('查询已完成');
-  },e=>{$('#grid-status').textContent='查询失败：'+e.message;toast(e.message)});
+  },e=>{$('#grid-status').textContent=TopbaseLocale.t('查询失败：{error}',{error:e.message});toast(e.message)});
 }
 async function runNativeSQL(){
   if(!active||!currentDB)return;
@@ -524,13 +536,13 @@ async function runNativeSQL(){
     lastChart=null;
     renderGrid(Object.assign({},d,{sql:d.sql||sql}),'sql');
     toast('SQL 查询已完成');
-  },e=>{$('#grid-status').textContent='SQL 查询失败：'+e.message;toast(e.message)});
+  },e=>{$('#grid-status').textContent=TopbaseLocale.t('SQL 查询失败：{error}',{error:e.message});toast(e.message)});
 }
 $('#save-question').onclick=async()=>{
   if(!lastQueryIR&&!queryEditor.sql().trim())return toast('请先打开一张表并完成查询');
   const signal=navigationRequest.signal;
   let collections;
-  try{collections=await api('/api/collections')}catch(e){if(!signal.aborted)toast('无法读取可保存的分组：'+e.message);return}
+  try{collections=await api('/api/collections')}catch(e){if(!signal.aborted)toast(TopbaseLocale.t('读取分组失败：{error}',{error:e.message}));return}
   if(signal.aborted)return;
   const writableCollections=collections.filter(collection=>!collection.read_only);
   const personal=writableCollections.find(collection=>collection.kind==='personal_project');
@@ -540,8 +552,8 @@ $('#save-question').onclick=async()=>{
     description:'为分析命名，并选择它在分析列表中的分组。',
     confirmText:editingQuestion?'保存修改':'保存分析',
     fields:[
-      {name:'name',label:'分析名称',value:(editingQuestion&&editingQuestion.name)||(active&&($('#table-name').textContent||active.name))||'未命名分析',placeholder:'例如：活跃客户明细',required:true},
-      {name:'collection_id',label:'保存到分组',type:'select',value:(editingQuestion&&editingQuestion.collection_id)||(personal?personal.id:'__personal__'),required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,label:collection.name+(collection.kind==='personal_project'?' · 个人分组':' · 企业项目')})))}
+      {name:'name',label:'分析名称',value:(editingQuestion&&editingQuestion.name)||(active&&($('#table-name').textContent||active.name))||TopbaseLocale.t('未命名分析'),placeholder:'例如：活跃客户明细',required:true},
+      {name:'collection_id',label:'保存到分组',type:'select',value:(editingQuestion&&editingQuestion.collection_id)||(personal?personal.id:'__personal__'),required:true,options:(personal?[]:[{value:'__personal__',label:'我的分析（默认分组）'}]).concat(writableCollections.map(collection=>({value:collection.id,translate:false,label:collection.name+' · '+TopbaseLocale.t(collection.kind==='personal_project'?'个人分组':'企业项目')})))}
     ]
   });
   if(!values||signal.aborted)return;
@@ -574,9 +586,9 @@ async function boot(){
     databases=await api('/api/databases');
     const params=new URLSearchParams(location.search);
     const editID=params.get('edit');
-    if(editID){editingQuestion=await api('/api/questions/'+encodeURIComponent(editID));$('#section-title').textContent='编辑分析';$('#back-dbs').textContent='← 返回分析';$('#toggle-ask').textContent='查询步骤';}
+    if(editID){editingQuestion=await api('/api/questions/'+encodeURIComponent(editID));$('#back-dbs').textContent='← 返回分析';$('#toggle-ask').textContent='查询步骤';}
     creationMode=!!editingQuestion||params.get('from')==='new-analysis';
-    if(creationMode&&!editingQuestion){$('#section-title').textContent='新建分析';$('#back-dbs').textContent='← 更换起始数据';$('#toggle-ask').textContent='查询步骤'}
+    if(creationMode&&!editingQuestion){$('#back-dbs').textContent='← 更换起始数据';$('#toggle-ask').textContent='查询步骤'}
     const source=editingQuestion&&editingQuestion.queryir&&editingQuestion.queryir.source;
     const db=params.get('db') || (source&&source.database_id) || (editingQuestion&&editingQuestion.database_id) || topbasePickDatabase(databases);
     renderDatabases();

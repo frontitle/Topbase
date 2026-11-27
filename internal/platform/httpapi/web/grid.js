@@ -1,4 +1,8 @@
 (function (global) {
+  function gridText(key, values = {}) {
+    return globalThis.TopbaseLocale?.t(key, values) ?? key.replace(/\{(\w+)\}/g, (token, name) => values[name] ?? token);
+  }
+
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -120,7 +124,7 @@
     function typeMark(name) {
       var value = String(state.types[name] || '').toLowerCase();
       if (/int|numeric|decimal|double|real|float|money/.test(value)) return '123';
-      if (/date|time|timestamp/.test(value)) return '日';
+      if (/date|time|timestamp/.test(value)) return global.TopbaseLocale?.locale() === 'en' ? gridText('日期') : '日';
       if (/bool/.test(value)) return '✓';
       return 'T';
     }
@@ -175,7 +179,7 @@
           else if (va == null) cmp = -1;
           else if (vb == null) cmp = 1;
           else if (numeric) cmp = Number(va) - Number(vb);
-          else cmp = String(va).localeCompare(String(vb), 'zh-CN', { numeric: true });
+          else cmp = String(va).localeCompare(String(vb), global.TopbaseLocale?.locale() || 'zh-CN', { numeric: true });
           return state.dir === 'desc' ? -cmp : cmp;
         });
       }
@@ -221,46 +225,46 @@
 		(hideToolbar ? (privacyButton ? '<div class="tb-grid-bar tb-privacy-bar"><span class="tb-privacy-hint">敏感字段已默认脱敏，搜索仍使用原始数据</span>' + privacyButton + '</div>' : '') : '<div class="tb-grid-bar">' +
 	        '<span class="tb-view-name"><span class="tb-view-dot">▦</span> 表格视图</span>' +
 	        '<span class="tb-toolbar-divider"></span>' +
-          (compact ? '' : '<details class="tb-group"><summary>分组' + (state.group ? ' · ' + esc(state.aliases[state.group] || state.group) : '') + '</summary><div><label>按字段分组<select class="tb-select" data-group><option value="">不分组</option>' + state.columns.map(function (c) { return '<option value="' + esc(c) + '"' + (state.group === c ? ' selected' : '') + '>' + esc(state.aliases[c] || c) + '</option>'; }).join('') + '</select></label></div></details>') +
+          (compact ? '' : '<details class="tb-group"><summary>' + gridText('分组') + (state.group ? ' · ' + esc(state.aliases[state.group] || state.group) : '') + '</summary><div><label>按字段分组<select class="tb-select" data-group><option value="">不分组</option>' + state.columns.map(function (c) { return '<option translate="no" value="' + esc(c) + '"' + (state.group === c ? ' selected' : '') + '>' + esc(state.aliases[c] || c) + '</option>'; }).join('') + '</select></label></div></details>') +
 	        (compact ? '' : '<details class="tb-row-height"><summary>行高</summary><div><label><select class="tb-select" data-row-height aria-label="行高"><option value="compact"' + (state.rowHeight === 'compact' ? ' selected' : '') + '>紧凑</option><option value="normal"' + (state.rowHeight === 'normal' ? ' selected' : '') + '>标准</option><option value="loose"' + (state.rowHeight === 'loose' ? ' selected' : '') + '>宽松</option></select></label></div></details>') +
 	        (opts.filtersEnabled === false ? '' : '<button class="tb-tool" type="button" data-toggle-filters>筛选</button>') +
           '<button class="tb-tool" type="button" data-clear-sort' + (state.sort ? '' : ' disabled') + '>排序</button>' +
           '<input class="tb-search tb-input" aria-label="搜索记录" placeholder="搜索记录">' +
-          '<span class="tb-count">显示 ' + rows.length + ' / ' + state.rows.length + ' 行</span>' +
+          '<span class="tb-count">' + gridText('显示 {visible} / {total} 行', {visible:rows.length, total:state.rows.length}) + '</span>' +
           privacyButton +
           (compact ? '' : '<details class="tb-cols"' + (fieldPanel ? ' open' : '') + '><summary>字段</summary><div class="tb-field-list">' +
             state.order.map(function (c, index) {
               var visibleLabel = state.hidden[c] ? '显示' : '隐藏';
-              return '<div class="tb-field-item" draggable="true" data-field="' + esc(c) + '" title="' + esc(state.descriptions[c] || '') + '"><span class="tb-field-grip" aria-hidden="true">⋮⋮</span><span class="tb-type">' + typeMark(c) + '</span><span class="tb-field-name">' + esc(state.aliases[c] || c) + '</span><span class="tb-field-actions"><button type="button" data-move-field="up" data-col="' + esc(c) + '" aria-label="上移字段"' + (index === 0 ? ' disabled' : '') + '>↑</button><button type="button" data-move-field="down" data-col="' + esc(c) + '" aria-label="下移字段"' + (index === state.order.length - 1 ? ' disabled' : '') + '>↓</button><button type="button" data-toggle-column="' + esc(c) + '" aria-label="' + visibleLabel + '字段">' + visibleLabel + '</button></span></div>';
+              return '<div class="tb-field-item" draggable="true" data-field="' + esc(c) + '" title="' + esc(state.descriptions[c] || '') + '"><span class="tb-field-grip" aria-hidden="true">⋮⋮</span><span class="tb-type">' + typeMark(c) + '</span><span class="tb-field-name" translate="no">' + esc(state.aliases[c] || c) + '</span><span class="tb-field-actions"><button type="button" data-move-field="up" data-col="' + esc(c) + '" aria-label="上移字段"' + (index === 0 ? ' disabled' : '') + '>↑</button><button type="button" data-move-field="down" data-col="' + esc(c) + '" aria-label="下移字段"' + (index === state.order.length - 1 ? ' disabled' : '') + '>↓</button><button type="button" data-toggle-column="' + esc(c) + '" aria-label="' + gridText(state.hidden[c] ? '显示字段' : '隐藏字段') + '">' + visibleLabel + '</button></span></div>';
             }).join('') + '</div></details>') +
         '</div>') +
         '<div class="tb-grid-scroll"><table><thead><tr>' +
           (dashboardOnly ? '' : '<th class="tb-row-number">#</th>') +
           cols.map(function (c) {
             var mark = state.sort === c ? (state.dir === 'desc' ? ' ↓' : ' ↑') : '';
-            return '<th' + (dashboardOnly ? '' : ' data-sort="' + esc(c) + '"') + ' title="' + esc(state.descriptions[c] || '') + '"><span class="tb-type">' + typeMark(c) + '</span>' + esc(state.aliases[c] || c) + (dashboardOnly ? '' : mark) + (state.aliases[c] ? '<small>' + esc(c) + '</small>' : '') + '</th>';
+            return '<th translate="no"' + (dashboardOnly ? '' : ' data-sort="' + esc(c) + '"') + ' title="' + esc(state.descriptions[c] || '') + '"><span class="tb-type">' + typeMark(c) + '</span>' + esc(state.aliases[c] || c) + (dashboardOnly ? '' : mark) + (state.aliases[c] ? '<small>' + esc(c) + '</small>' : '') + '</th>';
           }).join('') +
 	    '</tr>' + (opts.filtersEnabled !== false && state.showFilters ? '<tr class="tb-filters"><th class="tb-row-number"></th>' +
           cols.map(function (c) {
             var idx = colIndex(c);
             var uniques = uniqueValues(state.rows, idx, 16);
             var val = esc(state.filters[c] || '');
-            var label = esc('筛选' + (state.aliases[c] || c));
+            var label = esc(gridText('筛选 {name}', {name:state.aliases[c] || c}));
             if (uniques && uniques.length) {
               return '<th><select class="tb-select" aria-label="' + label + '" data-filter="' + esc(c) + '"><option value="">全部</option>' +
                 uniques.map(function (u) {
                   var stored = '=' + u;
-                  return '<option value="' + esc(stored) + '"' + (state.filters[c] === stored ? ' selected' : '') + '>' + (u === '' ? '（空）' : esc(displayValue(c, u))) + '</option>';
+                  return '<option translate="no" value="' + esc(stored) + '"' + (state.filters[c] === stored ? ' selected' : '') + '>' + (u === '' ? gridText('（空）') : esc(displayValue(c, u))) + '</option>';
                 }).join('') + '</select></th>';
             }
             return '<th><input class="tb-input" aria-label="' + label + '" data-filter="' + esc(c) + '" value="' + val + '" placeholder="包含 / > = <"></th>';
-          }).join('') + '</tr>' : '') + '</thead><tbody>' +
+          }).join('') + '</tr>' : '') + '</thead><tbody translate="no">' +
           (rows.length ? rows.map(function (sourceIndex, rowIndex) {
             var row = state.rows[sourceIndex];
             var groupCell = groupIndex === undefined ? null : groupValue(sourceIndex, groupIndex);
             var previous = rowIndex && groupIndex !== undefined ? groupValue(rows[rowIndex - 1], groupIndex) : undefined;
             var columnCount = Math.max(cols.length + (dashboardOnly ? 0 : 1), 1);
-            var groupHeader = groupIndex !== undefined && groupCell !== previous ? '<tr class="tb-group-row"><td colspan="' + columnCount + '"><span class="tb-caret" aria-hidden="true"></span>' + esc(state.aliases[state.group] || state.group) + '：<b>' + esc(groupCell === '' ? '（空）' : displayValue(state.group, groupCell)) + '</b></td></tr>' : '';
+            var groupHeader = groupIndex !== undefined && groupCell !== previous ? '<tr class="tb-group-row"><td colspan="' + columnCount + '"><span class="tb-caret" aria-hidden="true"></span>' + esc(state.aliases[state.group] || state.group) + '：<b>' + esc(groupCell === '' ? gridText('（空）') : displayValue(state.group, groupCell)) + '</b></td></tr>' : '';
             return groupHeader + '<tr>' + (dashboardOnly ? '' : '<td class="tb-row-number">' + (sourceIndex + 1) + '</td>') + cols.map(function (c, columnIndex) {
               var v = row[visibleIndexes[columnIndex]];
               if (v === null || v === undefined || v === '') return '<td class="null">—</td>';
@@ -268,7 +272,7 @@
               var shown = displayValue(c, v);
               return '<td class="' + cls + (sensitive(c) ? ' sensitive' : '') + '" title="' + esc(shown) + '">' + esc(shown) + '</td>';
             }).join('') + '</tr>';
-          }).join('') : '<tr><td class="empty" colspan="' + Math.max(cols.length + (dashboardOnly ? 0 : 1), 1) + '">没有匹配的行。试试清空筛选，或用 >100、=已完成 这样的条件。</td></tr>') +
+          }).join('') : '<tr><td class="empty" colspan="' + Math.max(cols.length + (dashboardOnly ? 0 : 1), 1) + '">' + gridText('没有匹配的行，请调整筛选条件。') + '</td></tr>') +
         '</tbody></table></div></div>';
 
       host.querySelectorAll('.tb-grid-bar details').forEach(function (details) {

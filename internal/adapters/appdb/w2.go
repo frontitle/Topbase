@@ -27,13 +27,13 @@ func (s *Store) saveDashboard(d core.Dashboard, insert bool) error {
 	defer tx.Rollback()
 	appearance, _ := json.Marshal(d.Appearance)
 	if insert {
-		if _, err := tx.Exec(`INSERT INTO dashboards(id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-			d.ID, nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.PublicEmbedEnabled, nil, nullString(d.CreatedBy), d.CreatedAt.UTC().Format(time.RFC3339)); err != nil {
+		if _, err := tx.Exec(`INSERT INTO dashboards(id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, public_expires_at, public_password_hash, archived_at, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			d.ID, nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.PublicEmbedEnabled, shareExpiryValue(d.PublicExpiresAt), nullString(d.PublicPasswordHash), nil, nullString(d.CreatedBy), d.CreatedAt.UTC().Format(time.RFC3339)); err != nil {
 			return err
 		}
 	} else {
-		if _, err := tx.Exec(`UPDATE dashboards SET collection_id=?, name=?, description=?, auto_refresh_seconds=?, appearance=?, public_uuid=?, public_embed_enabled=? WHERE id=?`,
-			nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), nullString(d.PublicUUID), d.PublicEmbedEnabled, d.ID); err != nil {
+		if _, err := tx.Exec(`UPDATE dashboards SET collection_id=?, name=?, description=?, auto_refresh_seconds=?, appearance=? WHERE id=?`,
+			nullString(d.CollectionID), d.Name, d.Description, d.AutoRefreshSeconds, string(appearance), d.ID); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`DELETE FROM dashboard_tabs WHERE dashboard_id=?`, d.ID); err != nil {
@@ -73,31 +73,12 @@ func (s *Store) saveDashboard(d core.Dashboard, insert bool) error {
 	return tx.Commit()
 }
 
-func (s *Store) DashboardByPublicUUID(uuid string) (core.Dashboard, error) {
-	if strings.TrimSpace(uuid) == "" {
-		return core.Dashboard{}, core.ErrNotFound
-	}
-	return s.readOneDashboard(" WHERE public_uuid=? AND archived_at IS NULL", uuid)
-}
-
-// PublicDashboardPageAvailable checks the page gate before the browser loads
-// the actual dashboard through the public dataset API.
-func (s *Store) PublicDashboardPageAvailable(ctx context.Context, uuid string, embed bool) (bool, error) {
-	var embedEnabled bool
-	err := s.db.QueryRowContext(ctx, `SELECT public_embed_enabled FROM dashboards
-		WHERE public_uuid=? AND public_uuid<>'' AND archived_at IS NULL`, uuid).Scan(&embedEnabled)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	return err == nil && (!embed || embedEnabled), err
-}
-
 func (s *Store) DashboardByID(id string) (core.Dashboard, error) {
 	return s.readOneDashboard(" WHERE id=?", id)
 }
 
-func (s *Store) readOneDashboard(predicate, value string) (core.Dashboard, error) {
-	items, err := s.readDashboards(predicate, value)
+func (s *Store) readOneDashboard(predicate string, args ...any) (core.Dashboard, error) {
+	items, err := s.readDashboards(predicate, args...)
 	if err != nil {
 		return core.Dashboard{}, err
 	}
@@ -122,7 +103,7 @@ func (s *Store) readDashboards(clause string, args ...any) ([]core.Dashboard, er
 	}
 	defer rawTx.Rollback()
 	tx := &transaction{Tx: rawTx, db: s.db}
-	rows, err := tx.Query(`SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, archived_at, created_by, created_at FROM dashboards`+clause, args...)
+	rows, err := tx.Query(`SELECT id, collection_id, name, description, auto_refresh_seconds, appearance, public_uuid, public_embed_enabled, public_expires_at, public_password_hash, archived_at, created_by, created_at FROM dashboards`+clause, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +112,14 @@ func (s *Store) readDashboards(clause string, args ...any) ([]core.Dashboard, er
 	for rows.Next() {
 		var item core.Dashboard
 		var collection, desc, appearance, createdBy, archived, created, publicUUID sql.NullString
-		var refresh sql.NullInt64
-		if err := rows.Scan(&item.ID, &collection, &item.Name, &desc, &refresh, &appearance, &publicUUID, &item.PublicEmbedEnabled, &archived, &createdBy, &created); err != nil {
+		var refresh, expires sql.NullInt64
+		var passwordHash sql.NullString
+		if err := rows.Scan(&item.ID, &collection, &item.Name, &desc, &refresh, &appearance, &publicUUID, &item.PublicEmbedEnabled, &expires, &passwordHash, &archived, &createdBy, &created); err != nil {
 			return nil, err
 		}
 		item.CollectionID, item.Description, item.CreatedBy, item.PublicUUID = collection.String, desc.String, createdBy.String, publicUUID.String
+		item.PublicExpiresAt = shareExpiryTime(expires)
+		item.PublicPasswordHash = passwordHash.String
 		item.AutoRefreshSeconds = int(refresh.Int64)
 		if appearance.String != "" {
 			_ = json.Unmarshal([]byte(appearance.String), &item.Appearance)
@@ -384,7 +368,15 @@ func (s *Store) CreateNotification(n core.Notification) error {
 }
 
 func (s *Store) ListNotifications(userID string) ([]core.Notification, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, alert_id, title, body, created_at, read_at FROM notifications WHERE user_id=? OR user_id IS NULL ORDER BY created_at DESC LIMIT 100`, userID)
+	return s.readNotifications(" WHERE user_id=? OR user_id IS NULL", userID)
+}
+
+func (s *Store) ListAllNotifications() ([]core.Notification, error) {
+	return s.readNotifications("")
+}
+
+func (s *Store) readNotifications(filter string, args ...any) ([]core.Notification, error) {
+	rows, err := s.db.Query(`SELECT id, user_id, alert_id, title, body, created_at, read_at FROM notifications`+filter+` ORDER BY created_at DESC, id DESC LIMIT 100`, args...)
 	if err != nil {
 		return nil, err
 	}

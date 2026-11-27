@@ -113,12 +113,13 @@ func (s *server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	session, _, err := s.identity.LoginExternalIdentity(provider.ID, subject, email)
+	session, user, err := s.identity.LoginExternalIdentity(provider.ID, subject, email)
 	if err != nil {
 		writeJSON(w, 403, map[string]string{"error": err.Error()})
 		return
 	}
 	setSessionCookie(w, session.ID, session.ExpiresAt)
+	setLocaleCookie(w, r, user.Locale)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

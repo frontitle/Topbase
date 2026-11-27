@@ -38,6 +38,7 @@ function renderAvatars() {
     fallback.hidden = !!avatarValue;
     if (avatarValue) image.src = avatarValue;
     else image.removeAttribute('src');
+    fallback.translate = false;
     fallback.textContent = initials(name);
   });
 }
@@ -75,7 +76,7 @@ function renderBindings() {
       action = '<button class="secondary binding-action tb-btn tb-btn-secondary" type="button" disabled>组织统一管理</button>';
       description = '该办公平台账号由管理员通过组织同步进行绑定。';
     }
-    cards.push(`<article class="binding-card"><span class="binding-icon">${esc(meta.icon)}</span><div class="binding-copy"><strong>${esc(provider.name || meta.label)}</strong><small>${esc(description)}</small></div>${action}</article>`);
+    cards.push(`<article class="binding-card"><span class="binding-icon">${esc(meta.icon)}</span><div class="binding-copy"><strong translate="no">${esc(provider.name || window.TopbaseLocale.t(meta.label))}</strong><small>${esc(description)}</small></div>${action}</article>`);
   });
   if (!(profileState.providers || []).length) {
     cards.push('<div class="account-loading">当前工作区还没有配置第三方登录方式；邮箱与密码登录不受影响。</div>');
@@ -86,7 +87,7 @@ function renderBindings() {
       const provider = profileState.providers.find(item => item.id === button.dataset.unbind);
       const approved = await confirmDialog({
         kicker: '账号绑定',
-        title: `解除“${provider ? provider.name : '第三方账号'}”绑定？`,
+        title: window.TopbaseLocale.t('解除“{name}”绑定？', {name:provider?.name || window.TopbaseLocale.t('第三方账号')}),
         description: profileState.password_login_enabled ? '解除后将不能再用该平台身份登录，但邮箱密码登录不受影响。' : '解除后将不能再用该平台身份登录，请确认仍有其他已绑定的登录方式。',
         confirmText: '解除绑定',
         tone: 'danger'
@@ -113,10 +114,12 @@ function renderProfile() {
   $('#account-email').textContent = user.email;
   $('#profile-name').value = user.name;
   $('#profile-email').value = user.email;
+  $('#profile-locale').value = user.locale === 'en' || user.locale === 'en-US' ? 'en' : 'zh-CN';
   $('#profile-current-password').value = '';
   $('#email-password').hidden = true;
-  const badges = [...new Set([user.is_admin ? '管理员' : '成员'].concat(profileState.groups || []))];
-  $('#account-badges').innerHTML = badges.map(item => `<span>${esc(item)}</span>`).join('');
+  const role = window.TopbaseLocale.t(user.is_admin ? '管理员' : '普通成员');
+  const badges = [...new Set([role].concat(profileState.groups || []))];
+  $('#account-badges').innerHTML = badges.map(item => `<span translate="no">${esc(item)}</span>`).join('');
   $('#password-status').textContent = profileState.password_login_enabled ? '密码登录已启用' : '密码登录已关闭';
   renderAvatars();
   renderBindings();
@@ -170,7 +173,7 @@ function renderAPIKeys(keys) {
     return;
   }
   const now = Date.now();
-  list.innerHTML = keys.map(key => { const expired = key.expires_at && new Date(key.expires_at).getTime() <= now; const expiry = key.expires_at ? `${expired ? '已过期' : '有效至'} ${new Date(key.expires_at).toLocaleDateString('zh-CN')}` : '永久有效'; return `<article class="binding-card${expired ? ' is-expired' : ''}"><span class="binding-icon">API</span><div class="binding-copy"><strong>${esc(key.name)}</strong><small>${esc(key.prefix)}•••• · 创建于 ${esc(new Date(key.created_at).toLocaleString('zh-CN'))} · <span class="${expired ? 'key-expired' : ''}">${esc(expiry)}</span></small></div><button class="secondary danger-subtle tb-btn tb-btn-danger" type="button" data-revoke-key="${esc(key.id)}">撤销</button></article>`; }).join('');
+  list.innerHTML = keys.map(key => { const expired = key.expires_at && new Date(key.expires_at).getTime() <= now; const expiry = key.expires_at ? window.TopbaseLocale.t(expired ? '已于 {date} 到期' : '有效至 {date}', {date:new Date(key.expires_at).toLocaleDateString(window.TopbaseLocale.locale())}) : '永久有效'; return `<article class="binding-card${expired ? ' is-expired' : ''}"><span class="binding-icon">API</span><div class="binding-copy"><strong translate="no">${esc(key.name)}</strong><small>${esc(key.prefix)}•••• · ${esc(window.TopbaseLocale.t('创建于 {date}', {date:new Date(key.created_at).toLocaleString(window.TopbaseLocale.locale())}))} · <span class="${expired ? 'key-expired' : ''}">${esc(expiry)}</span></small></div><button class="secondary danger-subtle tb-btn tb-btn-danger" type="button" data-revoke-key="${esc(key.id)}">撤销</button></article>`; }).join('');
   $$('[data-revoke-key]', list).forEach(button => {
     button.onclick = async () => {
       const approved = await confirmDialog({kicker:'API Key',title:'撤销这个 API Key？',description:'使用它的 MCP、CLI 和自动化程序会立即失去访问权限，此操作不会删除已经创建的分析。',confirmText:'撤销密钥',tone:'danger'});
@@ -192,8 +195,8 @@ async function loadAPIKeys(force) {
     const notice = $('#developer-notice');
     notice.classList.toggle('is-disabled', !enabled);
     notice.querySelector('strong').textContent = enabled ? '开发者模式已启用' : '开发者模式未启用';
-    notice.querySelector('small').textContent = enabled ? `API 查询最多返回 ${developerStatus.max_query_rows} 行，新密钥默认有效 ${developerStatus.default_key_ttl_days ? developerStatus.default_key_ttl_days + ' 天' : '期为永久'}。${developerStatus.allow_analysis_write ? '允许创建可视化分析。' : '当前仅允许只读查询。'}` : '请联系管理员在“管理后台 → 设置 → 开发者模式”中启用。已有密钥会保留，但目前不能访问 API。';
-    notice.querySelector('.account-state').textContent = enabled ? `${developerStatus.active_keys} 个可用 Key` : '已停用';
+    notice.querySelector('small').textContent = enabled ? window.TopbaseLocale.t('查询最多 {rows} 行 · 密钥有效期：{expiry} · {access}', {rows:developerStatus.max_query_rows, expiry:developerStatus.default_key_ttl_days ? window.TopbaseLocale.t('{days} 天', {days:developerStatus.default_key_ttl_days}) : window.TopbaseLocale.t('永久有效'), access:window.TopbaseLocale.t(developerStatus.allow_analysis_write ? '可创建可视化分析' : '只读查询')}) : '请联系管理员在“管理后台 → 设置 → 开发者模式”中启用。已有密钥会保留，但目前不能访问 API。';
+    notice.querySelector('.account-state').textContent = enabled ? window.TopbaseLocale.t('可用密钥：{n}', {n:developerStatus.active_keys}) : '已停用';
     $('#create-api-key').disabled = !canCreate;
     $('#create-api-key').title = canCreate ? '' : (enabled ? '管理员未允许成员创建个人 Key' : '开发者模式未启用');
     const baseURL = developerStatus.public_base_url || location.origin;
@@ -262,7 +265,7 @@ $('#profile-form').onsubmit = async event => {
     const updated = await api('/api/user/profile', 'PUT', {
       name: $('#profile-name').value,
       email: $('#profile-email').value,
-      locale: profileState.user.locale || 'zh-CN',
+      locale: $('#profile-locale').value,
       theme: profileState.user.theme || 'light',
       avatar_url: avatarValue,
       current_password: $('#profile-current-password').value
@@ -271,6 +274,7 @@ $('#profile-form').onsubmit = async event => {
     renderProfile();
     setStatus('#profile-status', '个人资料已保存。');
     toast('个人资料已保存');
+    window.TopbaseLocale.useSaved(updated.locale);
   } catch (error) {
     setStatus('#profile-status', friendlyError(error), true);
   } finally {

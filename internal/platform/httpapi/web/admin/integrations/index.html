@@ -1,1 +1,78 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Topbase · 通知与订阅</title><link rel="stylesheet" href="/admin/admin.css"><link rel="stylesheet" href="/ui.css"><link rel="stylesheet" href="/admin/integrations/integrations.css?v=1"></head><body><aside class="sidebar" data-shell="admin" data-active="integrations"></aside><div class="page"><header class="topbar"><strong>管理后台</strong><span>/</span><strong>通知与订阅</strong></header><main class="notify-page"><div class="page-head"><div><h1>通知与订阅</h1><p>统一管理群 Webhook、消息样式、仪表盘订阅和发送记录。</p></div><button class="primary tb-btn tb-btn-primary" id="add-hook">创建 Webhook</button></div><section class="section-block"><div class="section-row"><div><h2>Webhook 通道</h2><span>飞书、钉钉、企业微信优先适配；每个通道可配置消息模板。</span></div></div><div id="hooks" class="hook-grid"></div></section><section class="section-block"><div class="section-row"><div><h2>订阅管理</h2><span>可验证、暂停或删除；运行状态已迁入此处。</span></div><div class="filters"><select class="tb-select" id="sub-filter"><option value="all">全部状态</option><option value="enabled">已启用</option><option value="disabled">已暂停</option></select><input class="tb-input" id="sub-search" placeholder="搜索仪表盘或通道"></div></div><div class="table-wrap"><table class="notify-table"><thead><tr><th>仪表盘</th><th>通道</th><th>计划</th><th>最近发送</th><th>状态</th><th class="actions">操作</th></tr></thead><tbody id="subscriptions"></tbody></table></div></section><section class="section-block"><div class="section-row"><div><h2>发送记录</h2><span>保留仪表盘订阅与系统通知的生成时间和内容。</span></div></div><div class="table-wrap"><table class="notify-table"><thead><tr><th>时间</th><th>标题</th><th>内容</th></tr></thead><tbody id="history"></tbody></table></div></section></main></div><div id="toast"></div><script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/integrations/integrations.js?v=2"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/admin.js"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Topbase · 通知与订阅</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/admin/integrations/integrations.css">
+</head>
+<body>
+  <aside class="sidebar" data-shell="admin" data-active="integrations"></aside>
+  <div class="page">
+    <main class="notify-page">
+      <div class="page-head">
+        <div><h1>通知与订阅</h1><p>管理仪表盘订阅的推送通道、消息样式和发送记录。</p></div>
+        <button type="button" class="primary tb-btn tb-btn-primary" id="add-hook" disabled>创建 Webhook</button>
+      </div>
+      <section class="section-block">
+        <div class="section-row"><h2>Webhook 通道</h2></div>
+        <div class="hook-shortcuts" role="group" aria-label="快速接入平台">
+          <span>快速接入</span>
+          <button type="button" class="tb-btn tb-btn-secondary" data-quick-provider="slack" disabled>Slack</button>
+          <button type="button" class="tb-btn tb-btn-secondary" data-quick-provider="teams" disabled>Microsoft Teams</button>
+          <button type="button" class="tb-btn tb-btn-secondary" data-quick-provider="google_chat" disabled>Google Chat</button>
+        </div>
+        <div id="hooks" class="hook-grid"></div>
+      </section>
+      <section class="section-block">
+        <div class="section-row">
+          <div><h2>订阅管理</h2><span>可验证、暂停或删除订阅。</span></div>
+          <div class="filters">
+            <select class="tb-select" id="sub-filter" aria-label="订阅状态"><option value="all">全部状态</option><option value="enabled">已启用</option><option value="disabled">已暂停</option></select>
+            <input class="tb-input" id="sub-search" aria-label="搜索仪表盘或通道" placeholder="搜索仪表盘或通道">
+          </div>
+        </div>
+        <div class="table-wrap"><table class="notify-table"><thead><tr><th>仪表盘</th><th>通道</th><th>计划</th><th>最近发送</th><th>状态</th><th class="actions">操作</th></tr></thead><tbody id="subscriptions"></tbody></table></div>
+      </section>
+      <section class="section-block">
+        <div class="section-row"><h2>发送记录</h2></div>
+        <div class="table-wrap"><table class="notify-table"><thead><tr><th>时间</th><th>标题</th><th>内容</th></tr></thead><tbody id="history"></tbody></table></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="hook-dialog" aria-labelledby="hook-heading">
+    <form id="hook-form">
+      <header class="tb-dialog-head"><h2 id="hook-heading">创建 Webhook</h2><button class="tb-icon-trigger" type="button" data-close-hook aria-label="关闭"><svg class="tb-icon" aria-hidden="true"><use href="/vendor/lucide-nav.svg#x"></use></svg></button></header>
+      <div class="tb-dialog-body">
+        <label class="tb-dialog-field">平台<select class="tb-select" id="hook-provider"></select></label>
+        <p class="hook-guide"><span id="hook-instructions"></span> <a id="hook-guide-link" target="_blank" rel="noopener noreferrer" hidden>官方设置指南 ↗</a></p>
+        <label class="tb-dialog-field">通道名称<input class="tb-input" id="hook-name" required autocomplete="off"></label>
+        <label class="tb-dialog-field">Webhook URL<input type="url" class="tb-input" id="hook-url" required autocomplete="off" spellcheck="false"></label>
+        <label class="tb-dialog-field" id="hook-secret-field">附加密钥（可选）<input type="password" class="tb-input" id="hook-secret" autocomplete="new-password"><small>随请求头 X-Topbase-Signature 发送。更换地址时请重新填写密钥。</small></label>
+        <label class="tb-dialog-field">消息样式<select class="tb-select" id="hook-style">
+          <option value="text">文本消息</option><option value="post">富文本</option><option value="card">消息卡片</option><option value="custom">自定义 JSON</option>
+        </select></label>
+        <p class="hook-guide" id="hook-card-help" hidden>在「设置 → 域名与 SSL」配置访问域名后，订阅卡片可直接打开仪表盘，按成员权限访问。</p>
+        <details id="hook-content"><summary>个性化消息内容</summary>
+          <label class="tb-dialog-field">标题<input class="tb-input" id="hook-title-pattern" placeholder="{{title}}"></label>
+          <label class="tb-dialog-field">正文<textarea class="tb-input" id="hook-body-pattern" rows="2" placeholder="{{body}}"></textarea><small>使用 {{title}} 和 {{body}} 引用订阅的标题和正文。</small></label>
+        </details>
+        <label class="tb-dialog-field" id="hook-json-field" hidden>模板 JSON<textarea class="tb-input" id="hook-json" rows="5" spellcheck="false"></textarea><small>JSON 字符串中可使用 {{title}}、{{body}}。国际平台还支持 {{dashboard_url}}。</small></label>
+        <p class="tb-dialog-error" id="hook-error" role="alert" hidden></p>
+      </div>
+      <footer class="tb-dialog-footer">
+        <button type="button" class="tb-btn tb-btn-secondary" data-close-hook>取消</button>
+        <button type="submit" class="tb-btn tb-btn-primary" id="hook-save">保存通道</button>
+      </footer>
+    </form>
+  </dialog>
+  <div id="toast"></div>
+  <script src="/ui.js"></script><script src="/shell.js"></script>
+  <script src="/admin/integrations/integrations.js"></script>
+</body>
+</html>

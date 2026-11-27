@@ -1342,6 +1342,26 @@ func TestDashboardSubscriptionCreateAndRun(t *testing.T) {
 	if runRec.Code != http.StatusOK {
 		t.Fatalf("run subscription %d %s", runRec.Code, runRec.Body.String())
 	}
+
+	historyReq := httptest.NewRequest(http.MethodGet, "/api/admin/notifications", nil)
+	historyReq.AddCookie(cookie)
+	history := httptest.NewRecorder()
+	handler.ServeHTTP(history, historyReq)
+	if history.Code != http.StatusOK || !strings.Contains(history.Body.String(), "经营看板") {
+		t.Fatalf("subscription missing from admin history: %d %s", history.Code, history.Body.String())
+	}
+
+	webhook.Close()
+	failedRun := httptest.NewRecorder()
+	handler.ServeHTTP(failedRun, runReq)
+	if failedRun.Code == http.StatusOK || strings.Contains(failedRun.Body.String(), webhook.URL) {
+		t.Fatalf("delivery failure not returned safely: %d %s", failedRun.Code, failedRun.Body.String())
+	}
+	afterFailure := httptest.NewRecorder()
+	handler.ServeHTTP(afterFailure, historyReq)
+	if afterFailure.Code != http.StatusOK || !strings.Contains(afterFailure.Body.String(), "仪表盘订阅投递失败") || strings.Contains(afterFailure.Body.String(), webhook.URL) {
+		t.Fatalf("unexpected history after delivery failure: %d %s", afterFailure.Code, afterFailure.Body.String())
+	}
 }
 
 func TestNonAdminCannotManageDatabases(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDashboardSharingPolicyAndRevocation(t *testing.T) {
@@ -100,4 +101,149 @@ func TestDashboardSharingPolicyAndRevocation(t *testing.T) {
 			t.Fatal("revoked links should stay unavailable on refresh")
 		}
 	}
+}
+
+func TestPublicDashboardPasswordAndExpiry(t *testing.T) {
+	handler := testServer(t)
+	admin := adminSession(t, handler)
+	call := func(cookie *http.Cookie, method, path, body, token string, want int) *httptest.ResponseRecorder {
+		t.Helper()
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		if token != "" {
+			r.Header.Set(dashboardShareTokenHeader, token)
+		}
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != want {
+			t.Fatalf("%s %s: got %d, want %d: %s", method, path, w.Code, want, w.Body.String())
+		}
+		if strings.HasPrefix(path, "/api/public/") && w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal("public response is cacheable")
+		}
+		if strings.Contains(w.Body.String(), "argon2id$") || strings.Contains(w.Body.String(), "私有访问口令123") {
+			t.Fatal("share credentials in response")
+		}
+		return w
+	}
+	asMap := func(w *httptest.ResponseRecorder) map[string]any {
+		t.Helper()
+		var m map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	call(admin, "PUT", "/api/admin/settings", `{"site_name":"QA","public_sharing_enabled":true,"embedding_enabled":true}`, "", 200)
+	board := asMap(call(admin, "POST", "/api/dashboards", `{"name":"protected-board","cards":[{"type":"text","body":"only visible after unlock"}]}`, "", 201))
+	manage := "/api/dashboards/" + board["id"].(string) + "/public-link"
+	draft := asMap(call(admin, "GET", strings.TrimSuffix(manage, "/public-link")+"?view=sharing", "", "", 200))
+	if draft["expires_at"] != nil || draft["password_required"] != false {
+		t.Fatal(draft)
+	}
+	call(admin, "PUT", manage, `{"password":"私有访问口令123"}`, "", 400)
+	call(admin, "POST", manage, `{"expires_at":"2020-12-01T00:00:00Z"}`, "", 400)
+	call(admin, "POST", manage, `{"password":"tiny"}`, "", 400)
+	config := asMap(call(admin, "POST", manage, `{"password":"私有访问口令123","expires_at":"2099-05-01T00:00:00Z"}`, "", 200))
+	if config["expires_at"] != "2099-05-01T00:00:00Z" || config["password_required"] != true {
+		t.Fatal(config)
+	}
+	uuid := config["public_uuid"].(string)
+	path := "/api/public/dashboard/" + uuid
+	card := path + "/cards/" + board["cards"].([]any)[0].(map[string]any)["id"].(string) + "/dataset"
+	locked := call(nil, "GET", path, "", "", 401)
+	if asMap(locked)["code"] != "password_required" || strings.Contains(locked.Body.String(), "only visible after unlock") {
+		t.Fatal("expected a password prompt without board data")
+	}
+	call(nil, "POST", card, "{}", "", 401)
+	call(nil, "POST", path+"/verify", `{"password":"wrong"}`, "", 401)
+	call(nil, "POST", path+"/verify?embed=1", `{"password":"私有访问口令123"}`, "", 404)
+	verify := func(password string) string {
+		t.Helper()
+		return asMap(call(nil, "POST", path+"/verify", `{"password":"`+password+`"}`, "", 200))["token"].(string)
+	}
+	token := verify("私有访问口令123")
+	if token == "" {
+		t.Fatal("missing grant")
+	}
+	got := asMap(call(nil, "GET", path, "", token, 200))["dashboard"].(map[string]any)
+	if got["name"] != "protected-board" || got["public_expires_at"] != config["expires_at"] {
+		t.Fatal("missing authorized board or expiry")
+	}
+	call(nil, "POST", card, "{}", token, 400) // Auth succeeds; text cards have no dataset.
+	call(nil, "GET", path+"?embed=1", "", token, 404)
+	call(admin, "PUT", strings.TrimSuffix(manage, "/public-link")+"/embedding", `{"enabled":true}`, "", 200)
+	call(nil, "GET", path+"?embed=1", "", token, 200)
+	call(nil, "POST", card+"?embed=1", "{}", "", 401)
+	call(admin, "PUT", manage, `{"password":"replacement-123"}`, "", 200)
+	call(nil, "GET", path, "", token, 401)
+	call(nil, "POST", path+"/verify", `{"password":"私有访问口令123"}`, "", 401)
+	token = verify("replacement-123")
+	config = asMap(call(admin, "PUT", manage, `{"expires_at":null}`, "", 200))
+	if config["expires_at"] != nil || config["password_required"] != true || config["public_uuid"] != uuid {
+		t.Fatal(config)
+	}
+	call(nil, "GET", path, "", token, 401)
+	verify("replacement-123")
+	config = asMap(call(admin, "PUT", manage, `{"password":null}`, "", 200))
+	if config["password_required"] != false || config["public_uuid"] != uuid {
+		t.Fatal(config)
+	}
+	call(nil, "GET", path, "", "", 200)
+	// Exercise the clock edge without mutating the database behind the service.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	call(admin, "PUT", manage, `{"expires_at":"`+deadline.UTC().Format(time.RFC3339Nano)+`"}`, "", 200)
+	time.Sleep(time.Until(deadline))
+	for _, page := range []string{"/public/dashboard/" + uuid + "/", "/embed/dashboard/" + uuid + "/"} {
+		rec := call(nil, "GET", page, "", "", 404)
+		if !strings.Contains(rec.Body.String(), "分享链接不可用") {
+			t.Fatal("expired page should render unavailability")
+		}
+	}
+	call(nil, "GET", path, "", token, 404)
+	call(nil, "POST", card+"?embed=1", "{}", token, 404)
+	call(nil, "POST", path+"/verify", `{"password":"replacement-123"}`, "", 404)
+	config = asMap(call(admin, "PUT", manage, `{"expires_at":null}`, "", 200))
+	if config["public_uuid"] != uuid {
+		t.Fatal("renewal changed the public link")
+	}
+	call(nil, "GET", path, "", "", 200)
+	call(admin, "DELETE", manage, "", "", 200)
+	call(nil, "GET", path, "", token, 404)
+	call(nil, "POST", card, "{}", token, 404)
+	call(nil, "POST", path+"/verify", `{"password":"replacement-123"}`, "", 404)
+}
+
+func TestShareGrantsAndPasswordThrottling(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	access := newDashboardShareAccess([]byte("test-instance-key"))
+	second := newDashboardShareAccess([]byte("test-instance-key"))
+	expires := now.Add(time.Minute)
+	grant := access.grant("uuid", "current", &expires, now)
+	if !second.validGrant(grant, "uuid", "current", &expires, now) {
+		t.Fatal("shared application key must validate grant")
+	}
+	if second.validGrant(grant, "other", "current", &expires, now) || second.validGrant(grant, "uuid", "old", &expires, now) || second.validGrant(grant, "uuid", "current", &expires, expires) || second.validGrant(grant+"x", "uuid", "current", &expires, now) {
+		t.Fatal("grant had wrong scope or lifetime")
+	}
+	permanent := access.grant("uuid", "current", nil, now)
+	if second.validGrant(permanent, "uuid", "current", nil, now.Add(12*time.Hour)) {
+		t.Fatal("permanent link must use bounded grants")
+	}
+	for i := 0; i < 6; i++ {
+		if access.reserve("uuid/ip", now) != 0 {
+			t.Fatal("valid attempt was throttled")
+		}
+		<-access.workers
+	}
+	if access.reserve("uuid/ip", now) == 0 || access.reserve("uuid/other-ip", now) != 0 {
+		t.Fatal("unexpected retry window")
+	}
+	<-access.workers
+	if access.reserve("uuid/ip", now.Add(time.Minute)) != 0 {
+		t.Fatal("expected retry after expiry")
+	}
+	<-access.workers
 }

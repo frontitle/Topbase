@@ -106,14 +106,24 @@ func (s Service) RunSubscription(ctx context.Context, id string) (core.Notificat
 	note := core.Notification{
 		ID: core.NewID("ntf"), UserID: sub.CreatedBy, Title: "仪表盘订阅", Body: body, CreatedAt: time.Now().UTC(),
 	}
-	if err := s.Content.RecordNotification(note); err != nil {
-		return core.Notification{}, err
-	}
+	// A failed delivery still counts as an attempt for the cron scheduler.
 	now := time.Now().UTC()
 	sub.LastRunAt = &now
-	_ = s.Subscriptions.Update(sub)
+	if err := s.Subscriptions.Update(sub); err != nil {
+		return core.Notification{}, err
+	}
 	if s.Deliver != nil {
-		s.Deliver(note.Title, note.Body, sub.Channel)
+		if err := s.Deliver(ctx, note.Title, note.Body, sub.Channel, board.ID); err != nil {
+			note.Title = "仪表盘订阅投递失败"
+			note.Body = fmt.Sprintf("%s：%s", board.Name, err)
+			if recordErr := s.Content.RecordNotification(note); recordErr != nil {
+				return core.Notification{}, fmt.Errorf("记录投递失败历史时出错：%w", recordErr)
+			}
+			return core.Notification{}, err
+		}
+	}
+	if err := s.Content.RecordNotification(note); err != nil {
+		return core.Notification{}, err
 	}
 	return note, nil
 }

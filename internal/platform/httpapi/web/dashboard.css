@@ -98,8 +98,7 @@
 .board-card.card-content-scalar.card-align-left .viz-scalar{justify-items:start}
 .board-card.card-content-scalar.card-align-right .viz-scalar{justify-items:end}
 .dashboard-time > span{flex:none;line-height:1.2}
-.public-badge{display:inline-flex;align-items:center;gap:4px;margin-left:3px;padding:3px 7px;border:1px solid #8bd6b5;border-radius:999px;background:#edfff5;color:#16845a;font-size:11px;font-weight:650;line-height:1.2}.public-badge[hidden]{display:none}
-.share-toggle{display:flex!important;align-items:flex-start!important;gap:10px!important;padding:10px 0;color:#344654!important}.share-toggle input{margin:3px 0 0;accent-color:#177fd2}.share-toggle span{display:grid;gap:3px}.share-toggle b{font-size:13px}.share-toggle small,.share-help,.share-restricted p{color:#71808d;font-size:12px;line-height:1.55}.share-section{margin-top:14px;padding-top:12px;border-top:1px solid #e2ebef}.share-section h3{margin:0 0 2px;font-size:13px}.share-restricted{margin-top:8px;padding:10px;border:1px dashed #cad7df;border-radius:7px;background:#f8fafb}.share-restricted b{font-size:12px;color:#50626e}.share-restricted p{margin:4px 0 0}.embed-share-settings.disabled{opacity:.58}.embed-share-settings label:not(.share-toggle){display:grid;gap:5px;margin-top:10px;font-size:11px;color:#62717d}
+.public-badge{display:inline-flex;align-items:center;gap:4px;margin-left:3px;padding:3px 7px;border:1px solid #8bd6b5;border-radius:999px;background:#edfff5;color:#16845a;font-size:11px;font-weight:650;line-height:1.2}.public-badge.expired{color:#73542d;background:#fff8e9;border-color:#e6d3a7}.public-badge[hidden]{display:none}
 .board-empty {
   position: absolute;
   top: 50%;
@@ -202,6 +201,25 @@
 .board-page .top-actions > button[hidden] { display: none; }
 #view-actions{display:inline-flex;gap:8px}.board-menu{position:fixed;right:88px;top:57px;z-index:24;display:grid;min-width:190px;padding:6px;border:1px solid #e2e4e7;border-radius:9px;background:#fff;box-shadow:0 12px 36px #0002}.board-menu[hidden]{display:none}.board-menu button{border:0;border-radius:6px;background:transparent;padding:9px 10px;text-align:left;font:12px var(--tb-font);cursor:pointer}.board-menu button:hover{background:#f4f5f6}.board-menu hr{width:100%;border:0;border-top:1px solid #ececec;margin:5px 0}.danger-text{color:#c3362b!important}
 #view-actions[hidden]{display:none}.question-picker{width:min(680px,100%);max-height:min(720px,calc(100vh - 48px));display:flex;flex-direction:column;padding:20px;border:1px solid #e2e4e7;border-radius:12px;background:#fff;box-shadow:0 20px 70px #0003}.question-picker header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:16px}.question-picker h2{margin:2px 0 4px;font-size:20px}.question-picker small,.question-picker p{color:#70757d;font-size:12px}.question-picker p{margin:0;line-height:1.5}.question-picker>input{height:38px;border:1px solid #d9dde3;border-radius:7px;padding:0 12px;font:13px var(--tb-font);margin-bottom:10px}.picker-list{overflow:auto;border:1px solid #eceef0;border-radius:8px}.picker-question{width:100%;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border:0;border-bottom:1px solid #eceef0;background:#fff;text-align:left;color:inherit;font:13px var(--tb-font);cursor:pointer}.picker-question:last-child{border-bottom:0}.picker-question:hover:not(:disabled){background:#f4f8ff}.picker-question:disabled{opacity:.58;cursor:default}.picker-question span{min-width:0}.picker-question b,.picker-question small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.picker-question small{margin-top:4px}.picker-question em{font-style:normal;font-size:12px;font-weight:600;color:#3b6fc4;white-space:nowrap}.picker-question:disabled em{color:#8b9097}
-.action-dialog{--tb-modal-width:620px;padding:20px}.action-dialog header{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px}.action-dialog h2{margin:2px 0 4px;font-size:20px}.action-dialog small,.action-dialog p{color:#70757d;font-size:12px}.action-dialog p{margin:0;line-height:1.5}.action-dialog>label{display:grid;gap:6px;margin:12px 0;font-size:12px}.copy-row{display:flex;gap:8px}.copy-row input{height:36px;min-width:0;flex:1;border:1px solid #d9dde3;border-radius:7px;padding:0 10px;font:12px ui-monospace}.action-dialog>.danger-text{border:0;background:transparent;padding:8px 0;font:12px var(--tb-font);cursor:pointer}
+.action-dialog { --tb-modal-width: 500px; padding: clamp(16px, 3vw, 24px); }
+.action-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.action-dialog h2 { margin: 0; font-size: 19px; }
+#share-controls { min-width: 0; margin: 0; padding: 0; border: 0; }
+.share-toggle { display: flex; align-items: flex-start; gap: 9px; padding: 4px 0; color: var(--tb-control-text); }
+.share-toggle > input { flex: none; margin: 3px 0 0; accent-color: var(--tb-action); }
+.share-toggle > span { display: grid; gap: 4px; }
+.share-toggle b { font-size: 14px; }
+.share-toggle small, .share-help { color: var(--tb-control-muted); font-size: 12px; line-height: 1.5; }
+.share-help { margin: 4px 0 0 22px; }
+.share-policy-fields { display: grid; gap: 12px; margin-top: 10px; padding: 14px; border: 1px solid var(--tb-control-line); border-radius: 8px; }
+.share-policy-fields :is(input:not([type="checkbox"]), select) { width: 100%; }
+.share-policy-fields .tb-check { font-size: 13px; }
+.share-save { display: flex; justify-content: flex-end; margin-top: 12px; }
+.action-dialog .share-error { margin: 8px 0 0; color: var(--tb-danger); font-size: 13px; }
+.share-section { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--tb-control-line); }
+.share-link-field { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.share-link-field > label { display: grid; flex: 1; min-width: 0; gap: 5px; font-size: 12px; color: var(--tb-control-muted); }
+.share-link-field input { width: 100%; font: 12px ui-monospace, monospace; }
+.action-dialog > a { display: inline-block; margin-top: 12px; font-size: 13px; }
 
 .board-canvas.canvas-snap-off .board-ghost { border-style: solid; }

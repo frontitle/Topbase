@@ -32,7 +32,7 @@ const TopbaseDashboardLayout = (() => {
           step="${limits.snap ? 1 : 0.25}" value="${box[key]}"></label>`;
     }).join('');
     const buttons = Object.entries(alignments).map(([edge, label]) =>
-      `<button type="button" class="tb-btn tb-btn-secondary" data-align-to="${edge}" title="相对画布${label}">${label}</button>`
+      `<button type="button" class="tb-btn tb-btn-secondary" data-align-to="${edge}" title="${globalThis.TopbaseLocale?.t('相对画布' + label) ?? ('相对画布' + label)}">${label}</button>`
     ).join('');
     return `<section class="card-style-section layout-fields"><b>位置与尺寸 <small>网格单位</small></b>
       <div class="layout-field-grid">${fields}</div>

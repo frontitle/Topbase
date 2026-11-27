@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 分析分组</title>
   <link rel="stylesheet" href="/ui.css">
@@ -9,7 +12,7 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
-    <header class="topbar">
+    <header class="context-bar" aria-label="分组操作">
       <a href="/questions/">分析</a><span>/</span><a href="/questions/?view=groups">分组</a><span>/</span><strong id="title">加载中</strong>
       <div class="top-actions">
         <button class="secondary tb-btn tb-btn-secondary" id="rename" type="button">重命名</button>
@@ -22,7 +25,7 @@
       <div class="page-head">
         <div>
           <h1 id="heading">分析分组</h1>
-          <p id="project-meta">分组内的分析与仪表盘可继续按子分组整理。</p>
+          <p id="project-meta">可用子分组整理分析和仪表盘。</p>
         </div>
       </div>
       <section class="section-block">
@@ -48,12 +51,14 @@
     async function load(){
       payload=await api('/api/collections/'+id);
       const c=payload.collection;
+      $('#title').setAttribute('translate','no');
+      $('#heading').setAttribute('translate','no');
       $('#title').textContent=c.name;
       $('#heading').textContent=c.name;
-      $('#project-meta').textContent=c.read_only?'这是 '+(c.shared_by_name||'其他成员')+' 共享给你的个人分组；你可以查看其中的内容，但不能修改。':(c.kind==='personal_project'?'这是你的个人分组；用于整理自己的分析和仪表盘，也可以共享给其他成员查看。':'这是企业项目；成员角色统一由管理后台配置。');
-      $('#children').innerHTML=(payload.children||[]).map(x=>cardHTML({href:'/collections/'+x.id+'/',title:x.name,meta:'子分组'})).join('')||emptyHTML({icon:'☰',title:'没有子分组',body:'可以用右上角「新建子分组」继续分层整理。'});
+      $('#project-meta').textContent=c.read_only?TopbaseLocale.t('{name} 共享给你的只读分组。',{name:c.shared_by_name||TopbaseLocale.t('其他成员')}):(c.kind==='personal_project'?'你可以整理此分组，也可以共享给成员查看。':'成员角色由管理员配置。');
+      $('#children').innerHTML=(payload.children||[]).map(x=>cardHTML({href:'/collections/'+x.id+'/',title:x.name,meta:'子分组'})).join('')||emptyHTML({icon:'☰',title:'没有子分组',body:'可新建子分组。'});
       $('#questions').innerHTML=(payload.questions||[]).map(q=>cardHTML({href:'/questions/'+q.id+'/',title:q.name,meta:q.query_type==='native'?'SQL 分析':'可视化分析'})).join('')||emptyHTML({icon:'◇',title:'还没有分析',body:'新建分析后，可以移动到当前分组。',href:'/questions/new/',cta:'新建分析'});
-      $('#dashboards').innerHTML=(payload.dashboards||[]).map(d=>cardHTML({href:'/dashboard/'+d.id+'/',title:d.name,meta:(d.cards||[]).length+' 张卡片'})).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'可将仪表盘发布到当前分组，供团队共同查看。',href:'/dashboard/',cta:'新建仪表盘'});
+      $('#dashboards').innerHTML=(payload.dashboards||[]).map(d=>cardHTML({href:'/dashboard/'+d.id+'/',title:d.name,meta:TopbaseLocale.t('卡片：{n}',{n:(d.cards||[]).length})})).join('')||emptyHTML({icon:'☷',title:'还没有仪表盘',body:'可将仪表盘发布到当前分组，供团队共同查看。',href:'/dashboard/',cta:'新建仪表盘'});
       const readOnly=!!c.read_only;
       $('#remove').hidden=!!c.personal_owner_user_id||readOnly;
       $('#share').hidden=c.kind!=='personal_project'||readOnly;
@@ -67,7 +72,7 @@
       load();
     };
     $('#add-child').onclick=async()=>{
-      const name=await promptDialog({kicker:'分析分组',title:'创建子分组',description:'子分组会创建在“'+payload.collection.name+'”下面。',label:'子分组名称',placeholder:'例如：月度报表',confirmText:'创建子分组'});
+      const name=await promptDialog({kicker:'分析分组',title:'创建子分组',description:TopbaseLocale.t('上级分组：{name}',{name:payload.collection.name}),label:'子分组名称',placeholder:'例如：月度报表',confirmText:'创建子分组'});
       if(!name)return;
       const item=await api('/api/collections','POST',{name,parent_id:id});
       location.href='/collections/'+item.id+'/';
@@ -75,13 +80,13 @@
     $('#share').onclick=async()=>{
       try{
         const [members,shared]=await Promise.all([api('/api/shareable-users'),api('/api/collections/'+id+'/shares')]);
-        const values=await formDialog({kicker:'共享个人分组',title:'选择可查看的成员',description:'被共享的成员会在自己的分析首页看到此分组；他们只能查看，不能修改或移动其中内容。',size:'wide',confirmText:'保存共享',fields:[{name:'user_ids',label:'共享给成员',type:'multichoice',value:shared.map(member=>member.id),options:members.map(member=>({value:member.id,label:member.name,description:member.email}))}]});
+        const values=await formDialog({kicker:'共享个人分组',title:'选择可查看的成员',description:'选中的成员可在分析首页查看此分组。',size:'wide',confirmText:'保存共享',fields:[{name:'user_ids',label:'共享给成员',type:'multichoice',value:shared.map(member=>member.id),options:members.map(member=>({value:member.id,label:member.name,description:member.email,translate:false}))}]});
         if(!values)return;
         await api('/api/collections/'+id+'/shares','PUT',{user_ids:values.user_ids||[]});toast('分组共享已保存');
       }catch(e){toast(e.message)}
     };
     $('#remove').onclick=async()=>{
-      if(!await confirmDialog({kicker:'删除分组',title:'删除“'+payload.collection.name+'”？',description:'只有空分组可以删除；其中的分析、仪表盘或子分组需要先移动。',confirmText:'删除分组',tone:'danger'}))return;
+      if(!await confirmDialog({kicker:'删除分组',title:TopbaseLocale.t('删除“{name}”？',{name:payload.collection.name}),description:'先移出分析、仪表盘和子分组，再删除空分组。',confirmText:'删除分组',tone:'danger'}))return;
       try{await api('/api/collections/'+id,'DELETE');location.href='/questions/#analysis-groups'}catch(e){toast(e.message)}
     };
     load().catch(e=>toast(e.message));

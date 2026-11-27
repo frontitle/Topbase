@@ -1,10 +1,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const workspaceLocale = require('./helpers/workspace-locale');
 const test = require('node:test');
 const source = fs.readFileSync('internal/platform/httpapi/web/question-view.js', 'utf8');
 
-function page(fetch, formDialog) {
+function page(fetch, formDialog, language = 'zh-CN') {
   const controls = new Map();
   function control(id) {
     if (!controls.has(id)) controls.set(id, {});
@@ -12,6 +13,7 @@ function page(fetch, formDialog) {
   }
   const downloads = [], messages = [];
   const scope = vm.createContext({
+    TopbaseLocale: workspaceLocale(language),
     location: {pathname:'/questions/q1/'}, fetch, formDialog, confirmDialog: async () => true,
     $: selector => control(selector.slice(1)), api: () => new Promise(() => {}),
     toast: text => messages.push(text), setTimeout: fn => fn(),
@@ -27,6 +29,24 @@ function page(fetch, formDialog) {
     vm.runInContext('question = fixture; canRun = true', scope);
   }};
 }
+
+test('English analysis metadata keeps the original group, title, and SQL parameter labels', async () => {
+  const p = page(null, null, 'en');
+  p.scope.api = async () => ({
+    id:'q1', name:'查看查询', query_type:'native', native_sql:'select {{date}} as value',
+    collection_id:'group', collection_name:'仪表盘', can_run:true, can_edit:false
+  });
+  p.scope.queryLimitMessage = () => '';
+  p.scope.TopbaseCode = {setCode() {}};
+  p.scope.document.body.toggleAttribute = () => {};
+  await vm.runInContext('boot()', p.scope);
+  assert.equal(p.control('heading').textContent, '查看查询');
+  assert.equal(p.control('heading').translate, false);
+  assert.match(p.control('meta').textContent, /SQL · 仪表盘 · Read-only/);
+  const params = vm.runInContext('nativeParameterFields(question)', p.scope);
+  assert.equal(params[0].label, 'date');
+  assert.equal(params[0].translateLabel, false);
+});
 
 test('saved SQL export prompts for referenced parameters and only downloads the successful response', async () => {
   let resolve, requests = 0;

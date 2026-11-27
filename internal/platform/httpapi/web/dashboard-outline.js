@@ -16,7 +16,7 @@ function renderOutline() {
     .sort((a, b) => (a.card.layout.y - b.card.layout.y) || (a.card.layout.x - b.card.layout.x));
   $('#outline-items').innerHTML = items.map(({card, name, type}) =>
     `<button type="button" data-outline-card="${esc(card.id)}" aria-current="${card.id === selectedCard}">
-       <span>${esc(name)}</span>${type !== name ? `<small>${esc(type)}</small>` : ''}
+       <span translate="no">${esc(name)}</span>${type !== name ? `<small>${esc(type)}</small>` : ''}
      </button>`).join('') || `<p>${term ? '没有匹配的组件' : '画布上还没有组件'}</p>`;
 }
 

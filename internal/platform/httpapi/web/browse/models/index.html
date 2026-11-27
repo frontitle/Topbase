@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 模型与指标</title>
   <link rel="stylesheet" href="/ui.css">
@@ -9,12 +12,11 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="models"></aside>
   <div class="page">
-    <header class="topbar"><strong>模型</strong></header>
     <main>
       <div class="page-head">
         <div>
           <h1>模型 / 指标 / 分段 / 术语</h1>
-          <p>先在数据浏览打开一张表并保存为分析，再在此把分析做成可复用模型。</p>
+          <p>将已保存的分析创建为可复用模型。</p>
         </div>
       </div>
       <section id="models" class="cards"></section>
@@ -40,10 +42,10 @@
         ...models.map(i=>cardHTML({title:i.name,meta:'模型'})),
         ...metrics.map(i=>cardHTML({title:i.name,meta:'指标'})),
         ...segments.map(i=>cardHTML({title:i.name,meta:'分段'})),
-        ...glossary.map(i=>cardHTML({title:i.name,meta:i.definition||'术语'}))
+        ...glossary.map(i=>cardHTML({title:i.name,metaTranslate:false,meta:i.definition||TopbaseLocale.t('术语')}))
       ];
       $('#models').innerHTML=cards.join('')||emptyHTML({icon:'⌘',title:'还没有模型或指标',body:'保存一条分析后，可以在下方把它做成可复用模型。',href:'/questions/',cta:'打开分析'});
-      $('#questions').innerHTML=questions.filter(q=>q.queryir).map(q=>'<option value="'+q.id+'">'+esc(q.name)+'</option>').join('');
+      $('#questions').innerHTML=questions.filter(q=>q.queryir).map(q=>'<option translate="no" value="'+esc(q.id)+'">'+esc(q.name)+'</option>').join('');
     }
     $('#form').onsubmit=async ev=>{
       ev.preventDefault();

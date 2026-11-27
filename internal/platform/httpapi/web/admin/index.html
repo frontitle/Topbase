@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/admin.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 数据</title>
   <link rel="stylesheet" href="/admin/admin.css">
@@ -13,7 +16,6 @@
 <body>
 <aside class="sidebar" data-shell="admin" data-active="databases"></aside>
 <div class="page">
-  <header class="topbar"><strong>管理后台</strong><span>/</span><strong>数据</strong></header>
   <main>
     <nav class="tb-tabs data-admin-tabs" aria-label="数据分类"><button class="active" type="button" data-data-tab="remote">远程数据源</button><button type="button" data-data-tab="local">本地数仓</button></nav>
     <section id="remote-data">
@@ -21,7 +23,7 @@
       <div class="page-head">
         <div>
           <h1>数据</h1>
-          <p>统一管理远程连接的数据源与 Topbase 本地数仓。普通成员在工作台浏览数据，不进入此后台。</p>
+          <p>管理远程数据源与本地数仓。</p>
         </div>
         <button class="primary tb-button-with-caret tb-btn tb-btn-primary" id="show-form">添加数据库<span class="tb-caret" aria-hidden="true"></span></button>
       </div>
@@ -31,7 +33,7 @@
       <section id="empty" class="empty">
         <div class="empty-mark">T</div>
         <h2>连接你的第一个数据库</h2>
-        <p>连接后，Topbase 会同步表和字段，团队成员便可开始探索与可视化数据。</p>
+        <p>连接后自动同步表和字段，供团队分析。</p>
         <button class="primary tb-btn tb-btn-primary" id="empty-add">连接数据库</button>
         <small>支持 PostgreSQL、MySQL / MariaDB、ClickHouse、SQL Server、Oracle 与 SQLite。</small>
       </section>
@@ -44,7 +46,7 @@
       <div class="page-head">
         <div>
           <button class="secondary tb-btn tb-btn-secondary" id="back-list" type="button">← 返回列表</button>
-          <h1 id="detail-name">数据源</h1>
+          <h1 id="detail-name" translate="no">数据源</h1>
           <p id="detail-meta">尚未扫描</p>
         </div>
         <div class="top-actions">
@@ -61,7 +63,7 @@
         <section class="schema-fields">
           <header class="table-head">
             <div>
-              <h2 id="table-title">选择一张表</h2>
+              <h2 id="table-title" translate="no">选择一张表</h2>
               <p id="table-sub">查看字段类型，或重新扫描这一张表。</p>
             </div>
             <button class="secondary tb-btn tb-btn-secondary" id="rescan-table" type="button" hidden>重新扫描此表</button>
@@ -80,10 +82,10 @@
 </div>
 <dialog class="tb-modal" id="upload-preview" aria-labelledby="upload-preview-title">
   <form method="dialog" class="modal-head">
-    <div><h2 id="upload-preview-title"></h2><p id="upload-preview-status" role="status"></p></div>
+    <div><h2 id="upload-preview-title" translate="no"></h2><p id="upload-preview-status" role="status"></p></div>
     <button class="close" value="close" aria-label="关闭预览">×</button>
   </form>
-  <div id="upload-preview-grid" tabindex="0" aria-label="记录预览"></div>
+  <div id="upload-preview-grid" translate="no" tabindex="0" aria-label="记录预览"></div>
 </dialog>
 <dialog class="tb-modal" id="wizard" aria-labelledby="wizard-title">
   <form method="dialog">
@@ -110,17 +112,17 @@
         <label data-username class="tb-field">用户名 <em>*</em><input class="tb-input" id="username" placeholder="例如：topbase_reader"></label>
         <label data-password class="tb-field">密码<input class="tb-input" id="password" type="password" placeholder="没有密码时可留空"></label>
       </div>
-      <p class="panel-help">建议创建一个专用于 Topbase 的只读账号，只授予需要分析的数据表权限。</p>
+      <p class="panel-help">建议使用专用只读账号，仅授权所需表。</p>
     </div>
     <div class="panel" data-panel="security">
       <div class="form-grid">
         <label data-network class="tb-field">传输加密<select class="tb-select" id="ssl"><option value="prefer">自动 / 优先加密</option><option value="require">必须验证加密</option><option value="skip-verify">加密但不校验证书</option><option value="disable">不加密（仅内网测试）</option></select></label>
         <label class="tb-field">连接字符串（可选）<input class="tb-input" id="dsn" type="password" placeholder="postgres://user:password@host:5432/database?sslmode=require"></label>
       </div>
-      <p class="panel-help">填写连接字符串时，它将覆盖“连接信息”内的数据库参数。</p>
+      <p class="panel-help">连接字符串将覆盖连接信息。</p>
     </div>
     <div class="panel" data-panel="ssh">
-      <div class="ssh-intro"><b>通过 SSH 跳板机连接</b><span>数据库地址请保持内网地址；Topbase 将经由跳板机建立临时安全隧道。</span></div>
+      <div class="ssh-intro"><b>通过 SSH 跳板机连接</b><span>填写数据库内网地址，通过跳板机连接。</span></div>
       <div class="form-grid">
         <label class="tb-field">SSH 主机 <em>*</em><input class="tb-input" id="ssh-host" placeholder="bastion.company.com"></label>
         <label class="tb-field">SSH 端口<input class="tb-input" id="ssh-port" type="number" value="22"></label>
@@ -131,7 +133,7 @@
         <label class="tb-field">私钥密码（可选）<input class="tb-input" id="ssh-key-password" type="password" placeholder="私钥已加密时填写"></label>
         <label class="tb-field">服务器主机密钥指纹（可选）<input class="tb-input" id="ssh-fingerprint" placeholder="SHA256:xxxxxxxx"></label>
       </div>
-      <p class="panel-help">建议填写跳板机的 SHA256 主机密钥指纹；留空时仍可连接，但不会验证跳板机身份。</p>
+      <p class="panel-help">填写 SHA256 指纹可验证跳板机身份；留空则跳过验证。</p>
     </div>
     <div id="connection-status" class="connection-status" aria-live="polite">尚未测试连接</div>
     <footer class="modal-footer">

@@ -7,13 +7,13 @@ function dateLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '最近更新';
   const diff = Date.now() - date.getTime();
-  if (diff >= 0 && diff < 60 * 60 * 1000) return Math.max(1, Math.floor(diff / 60000)) + ' 分钟前';
-  if (diff >= 0 && diff < 24 * 60 * 60 * 1000) return Math.floor(diff / 3600000) + ' 小时前';
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date);
+  if (diff >= 0 && diff < 60 * 60 * 1000) return TopbaseLocale.t('{n} 分钟前', {n: Math.max(1, Math.floor(diff / 60000))});
+  if (diff >= 0 && diff < 24 * 60 * 60 * 1000) return TopbaseLocale.t('{n} 小时前', {n: Math.floor(diff / 3600000)});
+  return new Intl.DateTimeFormat(TopbaseLocale.locale(), { month: 'numeric', day: 'numeric' }).format(date);
 }
 
 function recentRow(item) {
-  return `<a href="${esc(item.href)}"><i>${esc(item.icon)}</i><span><strong>${esc(item.name)}</strong><small>${esc(item.type)} · ${esc(dateLabel(item.created_at))}</small></span><b>→</b></a>`;
+  return `<a href="${esc(item.href)}"><i>${esc(item.icon)}</i><span><strong translate="no">${esc(item.name)}</strong><small>${esc(TopbaseLocale.t(item.type))} · ${esc(TopbaseLocale.t(dateLabel(item.created_at)))}</small></span><b>→</b></a>`;
 }
 
 function renderRecent(questions, dashboards) {
@@ -35,18 +35,47 @@ function renderDatabaseHealth(databases, allowed) {
   }
   const connected = databases.filter(item => item.connected || item.status === 'connected').length;
   $('#stat-databases').textContent = databases.length;
-  $('#stat-databases-meta').textContent = databases.length ? `${connected} 个连接正常` : '等待添加第一个数据源';
+  $('#stat-databases-meta').textContent = databases.length ? TopbaseLocale.t('{n} 个连接正常', {n:connected}) : '等待添加第一个数据源';
   $('#database-health').innerHTML = databases.length
     ? databases.slice(0, 6).map(item => {
       const healthy = item.connected || item.status === 'connected';
-      return `<a href="/data/?db=${encodeURIComponent(item.id)}"><span class="health-dot ${healthy ? 'healthy' : ''}"></span><span><strong>${esc(item.name)}</strong><small>${esc(item.engine || '数据库')} · ${healthy ? '连接正常' : '需要检查'}</small></span><b>→</b></a>`;
+      return `<a href="/data/?db=${encodeURIComponent(item.id)}"><span class="health-dot ${healthy ? 'healthy' : ''}"></span><span><strong translate="no">${esc(item.name)}</strong><small>${esc(item.engine || TopbaseLocale.t('数据库'))} · ${TopbaseLocale.t(healthy ? '连接正常' : '需要检查')}</small></span><b>→</b></a>`;
     }).join('')
     : '<div class="home-permission-note"><i>＋</i><span><strong>还没有数据源</strong><small>管理员连接数据库后即可开始分析。</small></span></div>';
 }
 
+// Existing notification records store the rendered message. Match the producer's
+// format only, leaving user-provided titles, names, and diagnostics untouched.
+const alertPatterns = [
+  [/^查询返回 (\d+) 行$/, '查询返回 {rows} 行', ['rows']],
+  [/^当前值 (-?[\d.]+) 已达到目标 (-?[\d.]+)$/, '当前值 {value} 已达到目标 {goal}', ['value','goal']],
+  [/^进度 (-?[\d.]+) 已达到 (-?[\d.]+)$/, '进度 {value} 已达到 {goal}', ['value','goal']]
+];
+const systemNotifications = new Map([
+  ['数仓物化成功', [[/^([\s\S]+) 已写入 (.+)，共 (\d+) 行$/, '{name} 已写入 {table}，共 {rows} 行', ['name','table','rows']]]],
+  ['数仓物化已恢复', [[/^([\s\S]+) 的写入记录与水位已恢复$/, '{name} 的写入记录与水位已恢复', ['name']]]],
+  ['仪表盘订阅', [[/^([\s\S]+)：成功 (\d+) 张卡，失败 (\d+)，共 (\d+) 行$/, '{name}：成功 {ok} 张卡，失败 {failed}，共 {rows} 行', ['name','ok','failed','rows']]]],
+  ['数仓物化失败', []],
+  ['仪表盘订阅投递失败', []]
+]);
+function notificationText(item) {
+  const body = item.body || '';
+  const patterns = item.alert_id ? alertPatterns : systemNotifications.get(item.title) || [];
+  let message = body;
+  for (const [pattern, key, names] of patterns) {
+    const match = body.match(pattern);
+    if (match) {
+      message = TopbaseLocale.t(key, Object.fromEntries(names.map((name, i) => [name, match[i + 1]])));
+      break;
+    }
+  }
+  const title = !item.alert_id && systemNotifications.has(item.title) ? TopbaseLocale.t(item.title) : item.title;
+  return {title: title || TopbaseLocale.t('任务动态'), body: message};
+}
+
 function renderNotifications(items) {
   $('#notifications').innerHTML = items.length
-    ? items.slice(0, 6).map(item => `<div><i>◴</i><span><strong>${esc(item.title || '任务动态')}</strong><small>${esc(item.body || '')}</small></span></div>`).join('')
+    ? items.slice(0, 6).map(notificationText).map(item => `<div><i>◴</i><span><strong translate="no">${esc(item.title)}</strong><small translate="no">${esc(item.body)}</small></span></div>`).join('')
     : '<div class="home-quiet"><i>✓</i><strong>暂无待处理动态</strong><small>计划任务、告警和订阅结果会显示在这里。</small></div>';
 }
 
@@ -95,7 +124,9 @@ async function boot() {
   const name = user.name || user.email || '';
   $('#warehouse-link').hidden = !user.is_admin;
   $('#admin-database-link').hidden = !user.is_admin;
-  $('#welcome').textContent = name ? `欢迎回来，${name}` : '欢迎回来';
+  const welcome = $('#welcome');
+  welcome.translate = false;
+  welcome.textContent = name ? TopbaseLocale.t('欢迎回来，{name}', {name}) : TopbaseLocale.t('欢迎回来');
   await loadOverview();
 }
 

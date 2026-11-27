@@ -2,6 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/workspace.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 分析</title>
   <link rel="stylesheet" href="/ui.css">
@@ -13,8 +17,8 @@
 <body class="question-view">
   <aside class="sidebar" data-shell="app" data-active="questions"></aside>
   <div class="page">
-    <header class="topbar analysis-topbar">
-      <a href="/questions/">分析</a><span>/</span><a id="group-crumb" hidden href="/questions/"></a><span id="group-crumb-separator" hidden>/</span><span id="read-title">加载中</span><button class="topbar-title-button" id="title" type="button" title="点击修改名称" data-edit-action>加载中</button>
+    <header class="context-bar analysis-context-bar" aria-label="分析操作">
+      <a href="/questions/">分析</a><span>/</span><a id="group-crumb" translate="no" hidden href="/questions/"></a><span id="group-crumb-separator" hidden>/</span><span id="read-title">加载中</span><button class="context-bar-title-button" id="title" type="button" title="点击修改名称" data-edit-action>加载中</button>
       <div class="top-actions">
         <button class="secondary tb-btn tb-btn-secondary" id="edit-analysis" type="button" data-edit-action>编辑</button>
         <span id="export-action" hidden><button class="secondary tb-btn tb-btn-secondary" id="export-csv" type="button" title="重新运行已保存的分析并下载原始结果">导出 CSV</button></span>

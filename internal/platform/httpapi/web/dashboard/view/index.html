@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 仪表盘</title>
   <link rel="stylesheet" href="/ui.css">
@@ -16,8 +19,8 @@
 <body>
   <aside class="sidebar" data-shell="app" data-active="dashboards"></aside>
   <div class="page board-page">
-    <header class="topbar">
-      <a href="/dashboard/">仪表盘</a><span>/</span><strong id="title">加载中</strong><span id="public-badge" class="public-badge" hidden title="此仪表盘已公开分享">◉ 已公开</span>
+    <header class="context-bar" aria-label="仪表盘操作">
+      <a href="/dashboard/">仪表盘</a><span>/</span><strong id="title" translate="no">…</strong><span id="public-badge" class="public-badge" hidden title="此仪表盘已公开分享">◉ 已公开</span>
       <div class="top-actions">
         <span id="view-actions">
           <button class="tb-btn tb-btn-secondary" id="fullscreen" type="button">全屏</button>
@@ -93,7 +96,7 @@
   </div>
   <dialog id="modal" class="tb-modal action-dialog" aria-labelledby="share-dialog-title"></dialog>
   <div id="toast"></div>
-  <script src="/ui.js"></script>
+  <script src="/ui.js"></script><script src="/dashboard-share-status.js"></script>
   <script src="/shell.js"></script>
   <script src="/grid.js"></script>
   <script src="/echarts.min.js"></script>

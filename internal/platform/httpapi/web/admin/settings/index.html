@@ -2,6 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script src="/locale.js"></script>
+  <script src="/locales/common.js"></script>
+  <script src="/locales/admin.js"></script>
+  <script src="/locales/analytics.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Topbase · 设置</title>
   <link rel="stylesheet" href="/admin/admin.css">
@@ -11,10 +15,9 @@
 <body>
   <aside class="sidebar" data-shell="admin" data-active="settings"></aside>
   <div class="page">
-    <header class="topbar"><strong>管理后台</strong><span>/</span><strong>设置</strong></header>
     <main class="settings-page">
       <div class="page-head settings-head">
-        <div><h1>工作区设置</h1><p>维护实例级偏好与对外访问策略。成员、分组权限和订阅在对应管理页面维护。</p></div>
+        <div><h1>工作区设置</h1><p>设置工作区偏好和对外访问策略。</p></div>
         <div class="settings-head-actions"><span class="save-state" id="save-state" aria-live="polite">已同步</span><button class="primary tb-btn tb-btn-primary" id="save" type="submit" form="form">保存更改</button></div>
       </div>
       <nav class="tb-tabs settings-tabs" aria-label="设置分类">
@@ -29,11 +32,11 @@
           <div class="settings-section-head"><div><h2 id="general-title">基础信息</h2><p>用于浏览器标题、通知内容和系统默认时间。</p></div></div>
           <div class="settings-card settings-fields">
             <label class="settings-field tb-field"><span>工作区名称</span><input class="tb-input" id="site_name" maxlength="80" required placeholder="例如：增长分析中心"><small>显示在工作台、登录页和系统通知中。</small></label>
-            <label class="settings-field tb-field"><span>默认时区</span><select class="tb-select" id="timezone"><option value="Asia/Shanghai">中国标准时间 · UTC+8</option><option value="Asia/Singapore">新加坡时间 · UTC+8</option><option value="UTC">协调世界时 · UTC</option></select><small>新建订阅与定时任务默认采用此时区，已有任务不受影响。</small></label>
+            <label class="settings-field tb-field"><span>默认时区</span><select class="tb-select" id="timezone"><option value="Asia/Shanghai">中国标准时间 · UTC+8</option><option value="Asia/Singapore">新加坡时间 · UTC+8</option><option value="UTC">协调世界时 · UTC</option></select><small>仅用于新建订阅和定时任务。</small></label>
           </div>
         </section>
         <section class="settings-section" data-settings-panel="access" aria-labelledby="address-title" hidden>
-          <div class="settings-section-head"><div><h2 id="address-title">域名与 SSL</h2><p>设置用户访问 Topbase 时使用的固定地址，并用于分享、嵌入和 OAuth 回调链接。</p></div></div>
+          <div class="settings-section-head"><div><h2 id="address-title">域名与 SSL</h2><p>设置分享、嵌入和 OAuth 回调使用的访问地址。</p></div></div>
           <div class="settings-card public-address-card">
             <div class="public-address-fields">
               <label class="settings-field tb-field"><span>访问协议</span><select class="tb-select" id="public_scheme"><option value="auto">自动识别</option><option value="https">HTTPS（推荐）</option><option value="http">HTTP</option></select><small>使用负载均衡或反向代理时请选择外部实际协议。</small></label>
@@ -45,7 +48,7 @@
           </div>
         </section>
         <section class="settings-section" data-settings-panel="access" aria-labelledby="sharing-title" hidden>
-          <div class="settings-section-head"><div><h2 id="sharing-title">对外访问</h2><p>控制仪表盘公开链接与嵌入访问的全局上限。</p></div><a href="/admin/embedding/" class="text-link">查看公开内容 →</a></div>
+          <div class="settings-section-head"><div><h2 id="sharing-title">对外访问</h2><p>设置仪表盘公开链接与嵌入策略。</p></div><a href="/admin/embedding/" class="text-link">查看公开内容 →</a></div>
           <div class="settings-card access-card">
             <label class="setting-toggle" for="public_sharing_enabled"><span><b>允许公开链接</b><small>已发布的仪表盘可生成无需登录的访问地址。</small></span><input id="public_sharing_enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
             <div class="access-impact" id="public-impact" hidden></div>
@@ -55,7 +58,7 @@
         </section>
       </form>
       <section class="settings-section" data-settings-panel="storage" aria-labelledby="storage-title" hidden>
-        <div class="settings-section-head"><div><h2 id="storage-title">应用数据库与备份</h2><p>这里保存 Topbase 的用户、连接、分析、仪表盘和计划任务，不是被分析的业务数据源。</p></div></div>
+        <div class="settings-section-head"><div><h2 id="storage-title">应用数据库与备份</h2><p>保存用户、连接、分析、仪表盘和计划任务。</p></div></div>
         <div class="settings-card appdb-card">
           <div class="appdb-status"><span class="settings-link-icon">库</span><div><b id="appdb-engine">正在读取…</b><small id="appdb-description">正在确认项目数据的持久化方式。</small></div><span class="account-state" id="appdb-mode">—</span></div>
           <div class="appdb-warning" id="appdb-warning" hidden><strong>当前为开发体验模式</strong><p>SQLite 数据位于本机数据目录。Docker 未持久化挂载 <code>/data</code> 时，重建或升级容器可能丢失全部项目数据。正式使用请先备份，再一次性迁移到 PostgreSQL 或 MySQL。</p></div>
@@ -64,7 +67,7 @@
         </div>
       </section>
       <section class="settings-section" data-settings-panel="developer" aria-labelledby="developer-title" hidden>
-        <div class="settings-section-head"><div><h2 id="developer-title">开发者模式</h2><p>统一管理 MCP、CLI 与 API Key。关闭后所有密钥立即停止访问，但不会被删除。</p></div><span class="account-state" id="developer-state">正在读取…</span></div>
+        <div class="settings-section-head"><div><h2 id="developer-title">开发者模式</h2><p>管理 MCP、CLI 和 API Key。关闭后立即停用所有密钥。</p></div><span class="account-state" id="developer-state">正在读取…</span></div>
         <div class="settings-card developer-card">
           <label class="setting-toggle" for="developer-enabled"><span><b>启用开发者模式</b><small>允许受控的 API Key 通过 MCP、CLI 或自动化程序访问 Topbase。</small></span><input id="developer-enabled" type="checkbox" role="switch"><i aria-hidden="true"></i></label>
           <div class="developer-fields" id="developer-fields">
@@ -77,12 +80,12 @@
           <footer class="developer-actions"><span id="developer-save-state" aria-live="polite">已同步</span><button class="primary tb-btn tb-btn-primary" id="save-developer" type="button">保存开发者设置</button></footer>
         </div>
         <div class="settings-card developer-keys-card">
-          <div class="developer-key-head"><div><b>已签发的 API Key</b><small>管理员可以集中查看归属与有效期，并立即撤销异常密钥。</small></div><span id="developer-key-count">0 个</span></div>
+          <div class="developer-key-head"><div><b>已签发的 API Key</b><small>查看密钥归属和有效期，或撤销密钥。</small></div><span id="developer-key-count">0 个</span></div>
           <div id="developer-key-list" class="developer-key-list"><div class="developer-empty">正在读取密钥…</div></div>
         </div>
       </section>
       <section class="settings-section" data-settings-panel="management" aria-labelledby="admin-title" hidden>
-        <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2><p>按职责分开维护，减少同一页面内的高风险误操作。</p></div></div>
+        <div class="settings-section-head"><div><h2 id="admin-title">其他管理项</h2></div></div>
         <div class="settings-links">
           <a href="/admin/people/"><span class="settings-link-icon">人</span><span><b>人员与组</b><small>成员、权限分组与企业账号接入</small></span><em>›</em></a>
           <a href="/admin/integrations/"><span class="settings-link-icon">通</span><span><b>通知与订阅</b><small>Webhook、推送通道与订阅消息</small></span><em>›</em></a>
@@ -91,6 +94,6 @@
     </main>
   </div>
   <div id="toast"></div>
-  <script src="/ui.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=3"></script>
+  <script src="/ui.js"></script><script src="/dashboard-share-status.js"></script><script src="/shell.js"></script><script src="/admin/settings/settings.js?v=3"></script>
 </body>
 </html>

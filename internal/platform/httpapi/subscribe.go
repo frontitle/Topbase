@@ -1,8 +1,8 @@
 package httpapi
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
+	"errors"
 	"net/http"
 	"runtime"
 	"runtime/debug"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/topbase/topbase/internal/adapters/feishu"
+	"github.com/topbase/topbase/internal/adapters/webhook"
 	"github.com/topbase/topbase/internal/core"
 )
 
@@ -183,7 +184,7 @@ func (s *server) listAdminNotifications(w http.ResponseWriter, r *http.Request) 
 	if _, ok := s.requireAdmin(w, r); !ok {
 		return
 	}
-	items, err := s.content.ListNotifications("")
+	items, err := s.content.Notifications.ListAllNotifications()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -378,7 +379,7 @@ func (s *server) listWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range items {
-		items[i].Secret = ""
+		items[i] = redactWebhook(items[i])
 	}
 	writeJSON(w, 200, items)
 }
@@ -408,73 +409,63 @@ func (s *server) saveWebhooks(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &items) {
 		return
 	}
-	existing, _ := s.identity.Webhooks()
+	existing, err := s.identity.Webhooks()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 Webhook 配置失败"})
+		return
+	}
+	stored := make(map[string]core.WebhookEndpoint, len(existing))
+	for _, hook := range existing {
+		stored[hook.ID] = hook
+	}
 	for i := range items {
-		for _, old := range existing {
-			if items[i].ID == old.ID && strings.TrimSpace(items[i].Secret) == "" {
-				items[i].Secret = old.Secret
-			}
+		hook := &items[i]
+		old, found := stored[hook.ID]
+		if !found || old.Provider != hook.Provider {
+			continue
 		}
+		if strings.TrimSpace(hook.URL) == "" {
+			hook.URL = old.URL
+		}
+		if hook.URL == old.URL && strings.TrimSpace(hook.Secret) == "" {
+			hook.Secret = old.Secret
+		}
+		hook.CreatedAt = old.CreatedAt
 	}
 	if err := s.identity.SaveWebhooks(items); err != nil {
 		writeJSON(w, 400, map[string]string{"error": err.Error()})
 		return
+	}
+	for i := range items {
+		items[i] = redactWebhook(items[i])
 	}
 	writeJSON(w, 200, items)
 }
 
 // deliverNotification resolves a stored endpoint only at delivery time, so a
 // subscription never needs to contain a webhook URL or a secret.
-func (s *server) deliverNotification(title, body, channel string) {
+func (s *server) deliverNotification(ctx context.Context, title, body, channel, dashboardID string) error {
 	if channel == "feishu" {
-		_ = feishu.NotifyCard(title, body)
-		return
+		if err := feishu.NotifyCard(title, body); err != nil {
+			return errors.New("飞书通知投递失败")
+		}
+		return nil
 	}
 	if !strings.HasPrefix(channel, "webhook:") {
-		return
+		return nil
 	}
 	id := strings.TrimPrefix(channel, "webhook:")
 	hooks, err := s.identity.Webhooks()
 	if err != nil {
-		return
+		return err
 	}
 	for _, hook := range hooks {
 		if hook.ID != id || !hook.Enabled {
 			continue
 		}
-		text := title + "\n" + body
-		var payload any = map[string]string{"title": title, "body": body}
-		if hook.Template != "" {
-			rawTemplate := strings.NewReplacer("{{title}}", title, "{{body}}", body).Replace(hook.Template)
-			if json.Unmarshal([]byte(rawTemplate), &payload) != nil {
-				return
-			}
-		}
-		switch hook.Provider {
-		case "feishu":
-			if hook.Template == "" {
-				payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": text}}
-			}
-		case "dingtalk":
-			payload = map[string]any{"msgtype": "text", "text": map[string]string{"content": text}}
-		case "wecom":
-			payload = map[string]any{"msgtype": "text", "text": map[string]string{"content": text}}
-		}
-		raw, _ := json.Marshal(payload)
-		req, err := http.NewRequest(http.MethodPost, hook.URL, bytes.NewReader(raw))
-		if err != nil {
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		if hook.Secret != "" {
-			req.Header.Set("X-Topbase-Signature", hook.Secret)
-		}
-		resp, err := (&http.Client{Timeout: 8_000_000_000}).Do(req)
-		if err == nil && resp != nil {
-			resp.Body.Close()
-		}
-		return
+		return webhook.SendWithDashboard(ctx, hook, title, body, s.subscriptionDashboardURL(hook, dashboardID))
 	}
+	return errors.New("通知通道已停用或已删除")
 }
 
 func (s *server) createSubscription(w http.ResponseWriter, r *http.Request) {
