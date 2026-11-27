@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	appwarehouse "github.com/topbase/topbase/internal/app/warehouse"
-	"github.com/topbase/topbase/internal/core"
+	appwarehouse "github.com/frontitle/Topbase/internal/app/warehouse"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *server) serveWarehousePage(w http.ResponseWriter, r *http.Request) {

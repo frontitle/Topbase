@@ -26,6 +26,16 @@ jobs:
       - name: Run quality gate
         run: make check
 
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci && npm run build && npm run check
+        working-directory: website
+
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -55,6 +65,14 @@ jobs:
             --build-arg VERSION="$(cat VERSION)" \
             --build-arg COMMIT="${GITHUB_SHA}" \
             --tag topbase-ci .
+      - name: Check licenses in the runtime image
+        run: |
+          docker run --rm --entrypoint sh topbase-ci -ec '
+            cd /usr/share/doc/topbase
+            for file in LICENSE NOTICE licenses/echarts/NOTICE licenses/geojson-chinadata/LICENSE licenses/lucide-LICENSE.txt licenses/go/stdlib/LICENSE; do
+              test -r "$file" && test -s "$file" || exit 1
+            done
+          '
       - name: Verify initialization and persistent restart
         run: |
           set -euo pipefail

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func requestScheme(r *http.Request) string {

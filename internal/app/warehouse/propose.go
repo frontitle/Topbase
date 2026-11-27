@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 var hourPattern = regexp.MustCompile(`(\d{1,2})\s*点`)

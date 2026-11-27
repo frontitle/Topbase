@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/topbase/topbase/internal/adapters"
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/adapters"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type memSchedules struct{ items map[string]core.Schedule }

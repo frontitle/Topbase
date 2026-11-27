@@ -1,5 +1,31 @@
 Topbase
 Copyright 2026 Topbase contributors
 
-This product includes third-party software. Applicable third-party copyright
-and license notices remain with those components and their distributions.
+Topbase is distributed under the Apache License, Version 2.0 (LICENSE).
+Topbase 采用 Apache License 2.0，见 LICENSE。
+
+Third-party components / 第三方组件
+
+Apache ECharts 5.6.0
+Copyright 2017-2024 The Apache Software Foundation
+Apache License 2.0. See licenses/echarts/NOTICE and licenses/echarts/LICENSE.
+The distribution includes d3-derived code, zrender 5.6.1 and tslib 2.3.0.
+Their terms and attributions are in licenses/echarts/licenses/.
+https://github.com/apache/echarts/tree/5.6.0
+
+Lucide static icons 1.34.0
+ISC and MIT (Feather-derived icons). The copyright and license texts are in
+internal/platform/httpapi/web/vendor/lucide-LICENSE.txt in the source and
+licenses/lucide-LICENSE.txt in the container's documentation directory.
+https://github.com/lucide-icons/lucide
+
+China province GeoJSON
+Copyright (c) 2021 QiBin Lin
+MIT License. See licenses/geojson-chinadata/LICENSE.
+https://github.com/lqb-zh/geojson-chinadata/tree/03c042e6e8a44e9faee2e459767f217e6281b053
+
+The container includes these files under /usr/share/doc/topbase/ and ships
+the notices for its Go runtime and linked Go modules under licenses/go/.
+The module paths and versions identify the corresponding upstream sources.
+镜像内的项目和第三方声明位于 /usr/share/doc/topbase/。其 licenses/go/
+目录按模块路径与版本收录随程序分发的 Go 依赖声明。

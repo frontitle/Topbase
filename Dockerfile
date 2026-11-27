@@ -1,6 +1,6 @@
 FROM golang:1.25-alpine AS builder
 
-ARG VERSION=0.2.5
+ARG VERSION=0.2.6
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 
@@ -8,19 +8,24 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY migrations/ ./migrations/
 RUN CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -ldflags="-s -w -X github.com/frontitle/Topbase/internal/buildinfo.Version=${VERSION} -X github.com/frontitle/Topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/frontitle/Topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
     -o /out/topbase ./cmd/topbase \
     && CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -ldflags="-s -w -X github.com/frontitle/Topbase/internal/buildinfo.Version=${VERSION} -X github.com/frontitle/Topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/frontitle/Topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
     -o /out/topbase-backup ./cmd/topbase-backup \
     && CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -ldflags="-s -w -X github.com/frontitle/Topbase/internal/buildinfo.Version=${VERSION} -X github.com/frontitle/Topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/frontitle/Topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
     -o /out/topbase-cli ./cmd/topbase-cli \
     && CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X github.com/topbase/topbase/internal/buildinfo.Version=${VERSION} -X github.com/topbase/topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/topbase/topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
+    -ldflags="-s -w -X github.com/frontitle/Topbase/internal/buildinfo.Version=${VERSION} -X github.com/frontitle/Topbase/internal/buildinfo.Commit=${COMMIT} -X github.com/frontitle/Topbase/internal/buildinfo.BuildTime=${BUILD_TIME}" \
     -o /out/topbase-mcp ./cmd/topbase-mcp
+
+COPY deploy/collect-go-notices.sh ./deploy/collect-go-notices.sh
+RUN CGO_ENABLED=0 sh deploy/collect-go-notices.sh /out/go-licenses
 
 FROM alpine:3.22
 
@@ -35,6 +40,11 @@ COPY --from=builder /out/topbase /app/topbase
 COPY --from=builder /out/topbase-backup /app/topbase-backup
 COPY --from=builder /out/topbase-cli /app/topbase-cli
 COPY --from=builder /out/topbase-mcp /app/topbase-mcp
+
+COPY LICENSE NOTICE /usr/share/doc/topbase/
+COPY licenses/ /usr/share/doc/topbase/licenses/
+COPY internal/platform/httpapi/web/vendor/lucide-LICENSE.txt /usr/share/doc/topbase/licenses/lucide-LICENSE.txt
+COPY --from=builder /out/go-licenses/ /usr/share/doc/topbase/licenses/go/
 
 USER topbase
 ENV TOPBASE_ADDR=:8080

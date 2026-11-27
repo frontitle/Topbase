@@ -4,8 +4,8 @@ How much did each channel earn from paid orders? Use the visual query editor to 
 
 ## Calculate paid sales by channel
 
-1. Open **Source data**, select the sample database, then select `orders`. Select **Show query editor** if it is collapsed, then choose **Visual query**. The first preview shows individual orders.
-2. Under **Filter**, add a condition on `status`, choose equality and select or enter `paid`. Under **Summarize → Calculate**, choose **Sum** and select `amount`. Leave **Group** empty and click **Run query**. The single value should be **680**.
+1. Open **Source data**, select the sample database, then select `orders`. Select **Expand query editor** if it is collapsed, then choose **Visual query**. The first preview shows individual orders.
+2. Under **Filter**, add a condition on `status`, choose equality and select or enter `paid`. Under **Summarize → Calculate**, choose **Sum** and select `amount`. Leave **Group** empty and click **Run and preview**. The single value should be **680**.
 3. Set **Group** to `channel`. Open **Sort**, select the aggregated result `sum` and choose **Descending**. Run the query again. Each row now represents one channel.
 
 | Channel | Sum of paid order amounts |

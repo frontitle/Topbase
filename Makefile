@@ -2,7 +2,7 @@ GO ?= go
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo 0.2.1-dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS := -s -w -X github.com/topbase/topbase/internal/buildinfo.Version=$(VERSION) -X github.com/topbase/topbase/internal/buildinfo.Commit=$(COMMIT) -X github.com/topbase/topbase/internal/buildinfo.BuildTime=$(BUILD_TIME)
+LDFLAGS := -s -w -X github.com/frontitle/Topbase/internal/buildinfo.Version=$(VERSION) -X github.com/frontitle/Topbase/internal/buildinfo.Commit=$(COMMIT) -X github.com/frontitle/Topbase/internal/buildinfo.BuildTime=$(BUILD_TIME)
 WEB_DIR := internal/platform/httpapi/web
 JS_FILES := $(shell find $(WEB_DIR) -type f -name '*.js' ! -name 'echarts.min.js' | sort)
 JS_TESTS := $(shell find tests/js -type f -name '*.test.js' 2>/dev/null | sort)
@@ -13,7 +13,7 @@ help:
 	@echo "make fmt       format Go source"
 	@echo "make check     run all required quality checks"
 	@echo "make build     build versioned server and backup binaries into bin/"
-	@echo "make run       start Topbase on TOPBASE_ADDR (default :8080)"
+	@echo "make run       start Topbase on TOPBASE_ADDR (default :80)"
 	@echo "make backup    create a consistent backup in backups/"
 
 version:

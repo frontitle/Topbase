@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 const dashboardShareTokenHeader = "X-Topbase-Share-Token"

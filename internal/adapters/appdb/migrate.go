@@ -15,7 +15,7 @@ import (
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 
-	appmigrations "github.com/topbase/topbase/migrations"
+	appmigrations "github.com/frontitle/Topbase/migrations"
 )
 
 const migrationTableSQL = `CREATE TABLE IF NOT EXISTS schema_migrations (

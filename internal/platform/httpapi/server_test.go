@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/topbase/topbase/internal/buildinfo"
-	"github.com/topbase/topbase/internal/core"
-	appmigrations "github.com/topbase/topbase/migrations"
+	"github.com/frontitle/Topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/core"
+	appmigrations "github.com/frontitle/Topbase/migrations"
 	"github.com/xuri/excelize/v2"
 )
 

@@ -18,11 +18,15 @@ Thumbs.db
 # Runtime state: may contain users, sessions, source credentials and business data
 /data/
 /backups/
+*.dump
+*.sql.gz
+*.sql.zst
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
+!website/src/assets/samples/orders.db
 
 # Build and test output
 /topbase
@@ -43,6 +47,6 @@ coverage.out
 /.tmp/
 /tmp/
 
-# Private product planning and research must stay outside public docs
+# Local-only material
 /docs-internal/
 /.internal-docs/

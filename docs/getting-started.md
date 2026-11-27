@@ -16,7 +16,8 @@
 SQLite 模式只用于本地体验和单机开发。Docker 必须持久化挂载 `/data`；如果数据目录只存在于容器可写层，重建或升级容器会清空项目数据。首次初始化页面会显示当前模式并要求确认风险。
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
+chmod 600 .env
 # 编辑 .env，至少填写：
 # TOPBASE_APP_DB_PASSWORD=<随机数据库密码>
 # TOPBASE_MASTER_KEY=<openssl rand -base64 32 的输出>
@@ -35,12 +36,7 @@ curl --fail http://localhost:8101/api/ready
 
 应用状态保存在 `topbase_appdb` PostgreSQL 命名卷，兼容文件保存在 `topbase_data`。删除容器不会删除数据；执行 `docker compose down -v` 会删除数据卷，不应在生产环境使用。
 
-需要备份时使用 PostgreSQL 一致性导出，不要直接复制运行中的数据库目录：
-
-```bash
-docker compose -f docker-compose.postgres.yml exec -T appdb \
-  pg_dump -U topbase -d topbase -Fc > topbase-first-backup.dump
-```
+要备份 PostgreSQL，可按[备份步骤](upgrading.md#升级前备份)将一致性导出保存到仓库之外的受保护目录。
 
 ## 从源代码运行
 

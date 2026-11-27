@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/frontitle/Topbase/internal/core"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/topbase/topbase/internal/core"
 )
 
 type SQLConnector struct {

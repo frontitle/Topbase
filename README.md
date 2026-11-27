@@ -1,7 +1,7 @@
 # Topbase
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.2.5-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.6-111111.svg)](CHANGELOG.md)
 
 English · [简体中文](README.zh-CN.md) · [Website](https://frontitle.github.io/Topbase/) · [Documentation](https://frontitle.github.io/Topbase/docs/)
 
@@ -25,8 +25,9 @@ Install Docker with Compose, then run:
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.5
-cp .env.example .env
+git checkout v0.2.6
+cp -n .env.example .env
+chmod 600 .env
 openssl rand -base64 32
 ```
 
@@ -46,7 +47,7 @@ Install the Go version specified in [go.mod](go.mod), then run:
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.5
+git checkout v0.2.6
 go build -o topbase ./cmd/topbase
 TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```
@@ -55,4 +56,4 @@ Open `http://YOUR_SERVER:8080`. This command selects port 8080 explicitly. The b
 
 ## Documentation and license
 
-Read the [deployment guide](https://github.com/frontitle/Topbase/blob/main/docs/deployment.md), [upgrade guide](https://github.com/frontitle/Topbase/blob/main/docs/upgrading.md) and [release notes](https://github.com/frontitle/Topbase/releases/latest). Topbase is distributed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for third-party notices, [CONTRIBUTING](CONTRIBUTING.md) for the development workflow and [SECURITY](SECURITY.md) to report a vulnerability.
+For backups, HTTPS and changing Docker versions, see [Install and run Topbase](https://frontitle.github.io/Topbase/docs/installation.html). When updating, set `TOPBASE_VERSION` in your existing `.env`, check the image with `docker compose -f docker-compose.release.yml config --images`, then pull and restart. [Release notes](https://github.com/frontitle/Topbase/releases/latest) describe product changes. Topbase is distributed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for third-party notices, [CONTRIBUTING](CONTRIBUTING.md) for the development workflow and [SECURITY](SECURITY.md) to report a vulnerability.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func TestOfficeMessageFormats(t *testing.T) {

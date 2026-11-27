@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	appquery "github.com/topbase/topbase/internal/app/query"
-	"github.com/topbase/topbase/internal/core/queryir"
+	appquery "github.com/frontitle/Topbase/internal/app/query"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func (s *server) visualQuery(w http.ResponseWriter, r *http.Request) {

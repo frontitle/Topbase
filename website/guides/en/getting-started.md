@@ -1,6 +1,6 @@
 # Build your first sales dashboard
 
-Which channel brought in the most paid sales? Start with six orders, answer the question in the visual query editor, then put the chart on a dashboard. The finished chart has three bars. Web leads with 300.
+Which channel brought in the most paid sales? Start with six simulated orders, answer the question in the visual query editor, then put the chart on a dashboard. The finished chart has three bars. Web leads with 300. The steps and screenshots were checked in Topbase 0.2.6.
 
 ## Open the sample orders
 
@@ -12,9 +12,9 @@ The [Excel upload exercise](excel.html) uses the same six orders. Use the SQLite
 
 ## Ask the question in the visual editor
 
-1. With **orders** open, click **Show query editor** if the editor is collapsed, then choose **Visual query**.
+1. With **orders** open, click **Expand query editor** if the editor is collapsed, then choose **Visual query**.
 2. In **Filter**, choose `status`, select the equality operator and enter `paid`. In **Summarize**, choose **Sum**, select `amount` as the field and choose `channel` under **Group**.
-3. Open **Sort**, select the aggregate result and choose descending order. Click **Run query**. Compare the result with the table below before you choose a chart.
+3. Open **Sort**, select the aggregate result and choose descending order. Click **Run and preview**. Compare the result with the table below before you choose a chart.
 
 | Channel | Sum of amount |
 | --- | ---: |

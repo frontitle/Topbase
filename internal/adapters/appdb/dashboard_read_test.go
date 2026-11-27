@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func dashboardReadFixture(t testing.TB, count int) *Store {

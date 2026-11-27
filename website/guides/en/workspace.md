@@ -1,12 +1,12 @@
 # Configure your workspace and public address
 
-The first administrator creates the workspace. Administrators can then set its name, time zone, external address and sharing policy under **Admin → Settings**. These settings govern the instance your team signs into.
+The first administrator creates the workspace. Administrators can then set its name, time zone, external address and sharing policy under **Administration → Settings**. These settings govern the instance your team signs into.
 
 ## Create the workspace and set its clock
 
 1. On a fresh installation, open the Topbase address in your browser. The setup screen shows the application database being used. Check that the storage will persist across restarts. For a container using local storage, make sure the deployment mounts its data directory.
 2. Enter the workspace name, administrator name, sign-in email and a password of at least eight characters. Choose **Create workspace**. For an existing workspace, sign in with an account provided by its administrator.
-3. Open **Admin → Settings → Workspace**. Set a descriptive name such as **Sales reporting**, choose the default time zone and click **Save changes**. Check the time zone on each existing schedule. The [materialization guide](warehouse.html) explains the time used for warehouse refreshes.
+3. Open **Administration → Settings → Workspace**. Set a descriptive name such as **Sales reporting**, choose the default time zone and click **Save changes**. Check the time zone on each existing schedule. The [materialization guide](warehouse.html) explains the time used for warehouse refreshes.
 
 <figure><a href="../assets/guide-images/workspace-settings-en.jpg"><img src="../assets/guide-images/workspace-settings-en.jpg" alt="The Workspace tab puts the name and default time zone together. Save changes in the upper-right corner." loading="lazy"></a><figcaption>The Workspace tab puts the name and default time zone together. Save changes in the upper-right corner.</figcaption></figure>
 
@@ -24,7 +24,7 @@ Open an existing dashboard's **Share** dialog and check the generated hostname. 
 
 ## Control public access
 
-Under **Access and security**, **Allow public links** lets published dashboards be opened without signing in. **Allow embedding** allows an already published dashboard to appear in an iframe. Save changes, then open **Admin → Embedding and public links** to review the affected content. Turning off public links disables existing public access and embedding. Test intended reader access with the [sharing guide](sharing.html).
+Under **Access and security**, **Allow public links** lets published dashboards be opened without signing in. **Allow embedding** allows an already published dashboard to appear in an iframe. Save changes, then open **Administration → Embedding and public links** to review the affected content. Turning off public links disables existing public access and embedding. Test intended reader access with the [sharing guide](sharing.html).
 
 ## Check or back up application data
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type memUsers struct{ items map[string]core.User }

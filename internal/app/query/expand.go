@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type Expander struct {

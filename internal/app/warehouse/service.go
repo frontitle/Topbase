@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type Compiler func(queryir.Query) (queryir.Compiled, error)

@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s Service) CreateDashboard(d core.Dashboard, userID string) (core.Dashboard, error) {

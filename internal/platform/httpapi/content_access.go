@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *server) requireCapability(w http.ResponseWriter, r *http.Request, capability, required string) (core.User, bool) {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type Collection struct {

@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func (s DatasetService) ExportCSV(ctx context.Context, q queryir.Query, w io.Writer) error {

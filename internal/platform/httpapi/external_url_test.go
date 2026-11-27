@@ -4,8 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	identityapp "github.com/topbase/topbase/internal/app/identity"
-	"github.com/topbase/topbase/internal/core"
+	identityapp "github.com/frontitle/Topbase/internal/app/identity"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type externalURLSettings map[string]string

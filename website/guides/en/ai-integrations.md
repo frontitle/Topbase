@@ -4,7 +4,7 @@ Connect your AI client through MCP, or run the CLI yourself to inspect each step
 
 ## Enable access and create a personal key
 
-1. An administrator opens **Admin → Settings → Developer → Developer mode**, enables developer mode and allows personal keys if ordinary members will create them. Set the public Topbase URL, default lifetime for new keys and maximum query rows (default 200). Enable AI analysis creation if users should be able to save their results.
+1. An administrator opens **Administration → Settings → Developer → Developer mode**, enables developer mode and allows personal keys if ordinary members will create them. Set the public Topbase URL, default lifetime for new keys and maximum query rows (default 200). Enable AI analysis creation if users should be able to save their results.
 2. Open **My account → AI and API**, choose **Create key**, and name it for the client. Store the full value when it appears. Topbase shows it only once. Revocation on this page immediately stops that client's access.
 3. On the computer running the client, supply `TOPBASE_URL` (the base address of your instance) and `TOPBASE_API_KEY` through its environment or secret store. A source build with `make build` produces `bin/topbase-cli` and `bin/topbase-mcp`. The Docker image includes both under `/app/`.
 

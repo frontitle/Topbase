@@ -9,9 +9,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
-	"github.com/topbase/topbase/internal/topbaseapi"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/topbaseapi"
 )
 
 func main() {

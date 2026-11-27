@@ -2,6 +2,15 @@
 
 Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明和可复现构建元数据。
 
+## [0.2.6] - 2026-11-27
+
+- Package license notices with the release image, restrict the Docker build context and use the public Go module path.
+- Refresh the bilingual installation and feature guides, correct the Excel preview header and enable private vulnerability reporting.
+- 发行镜像内附许可声明，Docker 构建范围已收窄，Go 模块地址已对齐公开仓库。
+- 更新中英文安装和功能指南，修正 Excel 预览标题栏，启用私密漏洞报告。
+
+[Release notes / 发行说明](docs/releases/0.2.6.md)
+
 ## [0.2.5] - 2026-11-27
 
 ### 新增
@@ -95,8 +104,10 @@ Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明�
 
 完整步骤和兼容性说明见 [0.2.1 升级说明](docs/releases/0.2.1.md)。
 
-[0.2.1]: https://github.com/frontitle/Topbase/releases/tag/v0.2.1
-[0.2.2]: https://github.com/frontitle/Topbase/releases/tag/v0.2.2
-[0.2.3]: https://github.com/frontitle/Topbase/releases/tag/v0.2.3
-[0.2.4]: https://github.com/frontitle/Topbase/releases/tag/v0.2.4
-[0.2.5]: https://github.com/frontitle/Topbase/releases/tag/v0.2.5
+[0.2.1]: docs/releases/0.2.1.md
+[0.2.2]: docs/releases/0.2.2.md
+[0.2.3]: docs/releases/0.2.3.md
+[0.2.4]: docs/releases/0.2.4.md
+[0.2.5]: docs/releases/0.2.5.md
+
+[0.2.6]: docs/releases/0.2.6.md

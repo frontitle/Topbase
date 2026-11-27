@@ -13,11 +13,11 @@ import (
 	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 	mysql "github.com/go-sql-driver/mysql"
 	_ "github.com/microsoft/go-mssqldb"
 	_ "github.com/sijms/go-ora/v2"
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
 	_ "modernc.org/sqlite"
 )
 

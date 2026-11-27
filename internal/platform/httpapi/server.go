@@ -13,16 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/topbase/topbase/internal/adapters"
-	"github.com/topbase/topbase/internal/adapters/appdb"
-	"github.com/topbase/topbase/internal/adapters/feishu"
-	"github.com/topbase/topbase/internal/app/content"
-	"github.com/topbase/topbase/internal/app/identity"
-	"github.com/topbase/topbase/internal/app/notify"
-	appquery "github.com/topbase/topbase/internal/app/query"
-	appwarehouse "github.com/topbase/topbase/internal/app/warehouse"
-	"github.com/topbase/topbase/internal/buildinfo"
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/adapters"
+	"github.com/frontitle/Topbase/internal/adapters/appdb"
+	"github.com/frontitle/Topbase/internal/adapters/feishu"
+	"github.com/frontitle/Topbase/internal/app/content"
+	"github.com/frontitle/Topbase/internal/app/identity"
+	"github.com/frontitle/Topbase/internal/app/notify"
+	appquery "github.com/frontitle/Topbase/internal/app/query"
+	appwarehouse "github.com/frontitle/Topbase/internal/app/warehouse"
+	"github.com/frontitle/Topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 //go:embed web/*

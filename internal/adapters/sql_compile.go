@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 var (

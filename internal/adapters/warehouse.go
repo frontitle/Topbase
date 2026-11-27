@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func (p *SQLConnector) Materialize(ctx context.Context, spec core.MaterializeSpec) (core.MaterializeResult, error) {

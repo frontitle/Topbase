@@ -1,6 +1,6 @@
 # Upload and preview an Excel worksheet
 
-Use the local warehouse to keep a copy of a spreadsheet and inspect its records in Topbase. Try it with [orders.xlsx](../assets/samples/orders.xlsx). You will import one worksheet with six rows and five fields.
+Use the local warehouse to keep a copy of a spreadsheet and inspect its records in Topbase. Try it with [orders.xlsx](../assets/samples/orders.xlsx). The example worksheet contains six simulated orders and five fields.
 
 ## Prepare the workbook
 
@@ -14,7 +14,7 @@ Use the local warehouse to keep a copy of a spreadsheet and inspect its records 
 
 ## Upload the first sheet
 
-1. Sign in as an administrator. Open **Admin → Data**. At the top of the page, switch from **Connections** to **Local warehouse**.
+1. Sign in as an administrator. Open **Administration → Data**. At the top of the page, switch from **Remote sources** to **Local warehouse**.
 2. Click **Upload Excel** and choose the downloaded **orders.xlsx** in the file picker. Selecting the file starts the import.
 3. Find **orders** in the local warehouse. Topbase takes the dataset name from the filename. Check the source filename **orders.xlsx**, worksheet **orders**, **6 rows** and **5 fields**.
 4. Click **Preview rows**. Find order **1003** and verify that its `amount` is **50** and its `status` is **refunded**. This checks that the columns and their values line up.

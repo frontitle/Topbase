@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/topbase/topbase/internal/app/content"
-	appquery "github.com/topbase/topbase/internal/app/query"
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/app/content"
+	appquery "github.com/frontitle/Topbase/internal/app/query"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type Service struct {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type fakeSSHClient struct {

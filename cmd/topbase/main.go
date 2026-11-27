@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/topbase/topbase/internal/buildinfo"
-	"github.com/topbase/topbase/internal/platform/httpapi"
+	"github.com/frontitle/Topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/platform/httpapi"
 )
 
 type transportConfig struct {

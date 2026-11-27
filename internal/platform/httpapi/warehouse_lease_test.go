@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/topbase/topbase/internal/adapters/appdb"
+	"github.com/frontitle/Topbase/internal/adapters/appdb"
 )
 
 func TestOverlappingWarehouseRunsKeepTheFirstLease(t *testing.T) {

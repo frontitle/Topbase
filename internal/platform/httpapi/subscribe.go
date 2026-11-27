@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/adapters/feishu"
-	"github.com/topbase/topbase/internal/adapters/webhook"
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/adapters/feishu"
+	"github.com/frontitle/Topbase/internal/adapters/webhook"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *server) listGroups(w http.ResponseWriter, r *http.Request) {

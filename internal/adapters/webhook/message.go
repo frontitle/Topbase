@@ -7,7 +7,7 @@ import (
 	"html"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type object = map[string]any

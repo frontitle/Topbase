@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func (s *server) listFields(w http.ResponseWriter, r *http.Request) {

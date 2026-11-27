@@ -4,7 +4,7 @@ A permission group contains people. A team data group contains content such as a
 
 ## Add members and choose a project role
 
-1. As an administrator, open **Admin → People & groups** (`/admin/people/`). For a new local user, choose **Add member** and enter their name and email.
+1. As an administrator, open **Administration → People and groups** (`/admin/people/`). For a new local user, choose **Add member** and enter their name and email.
 2. Choose **New group**, name it **Sales readers**, and click **Create group**. Open the **Permission groups** tab, find its card and select **Manage group**.
 3. In **Group members**, select an existing non-admin user. Set the four workspace capabilities as shown below. System and synchronized groups take their membership from their source.
 4. In the same dialog, find **Data group ·** followed by the name of the project containing the dashboard. Select **View**. The choices are **No grant**, **View**, **Edit** and **Manage**. Each existing team data group has a separate dropdown.
@@ -25,7 +25,7 @@ For a separate author group that creates charts, grant **Edit** under **Content 
 
 ## Connect a directory or sign-in provider
 
-1. In **Admin → People & groups → Identity providers**, choose **Connect organization**. Select Feishu and name the connection. Continue setup, enter the application's App ID and App Secret, then choose **Verify and connect**. Use an application whose directory access covers the departments you want to synchronize.
+1. In **Administration → People and groups → Identity providers**, choose **Connect organization**. Select Feishu and name the connection. Continue setup, enter the application's App ID and App Secret, then choose **Verify and connect**. Use an application whose directory access covers the departments you want to synchronize.
 2. Choose **Sync organization**. Check the returned department count, then open the permission groups list. The built-in sync creates a group for each returned Feishu department and matches existing Topbase users by Feishu Open ID. If a group appears without members, check the linked users and the app's directory scope before running sync again.
 3. For example, open the synchronized Sales department group and give it **View** for the sales project. Its membership comes from Feishu. The connection also has a department-to-group mappings field that accepts comma-separated `external_department_id:topbase_group_id` pairs. This sync writes memberships to the generated department groups. Check those actual groups when granting roles.
 4. DingTalk and WeCom also appear in the provider selector. Their organization-sync adapters are unavailable in this distribution. Their incoming message webhooks are configured separately in [Notifications and subscriptions](notifications.html).

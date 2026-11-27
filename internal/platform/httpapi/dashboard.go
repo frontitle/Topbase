@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *server) listDashboards(w http.ResponseWriter, r *http.Request) {

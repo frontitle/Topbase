@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"testing"
 
-	appwarehouse "github.com/topbase/topbase/internal/app/warehouse"
-	"github.com/topbase/topbase/internal/core"
+	appwarehouse "github.com/frontitle/Topbase/internal/app/warehouse"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type countingWarehouseWriter struct {

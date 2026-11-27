@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/frontitle/Topbase/internal/aimcp"
+	"github.com/frontitle/Topbase/internal/topbaseapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/topbase/topbase/internal/aimcp"
-	"github.com/topbase/topbase/internal/topbaseapi"
 )
 
 func main() {

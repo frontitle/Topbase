@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/topbase/topbase/internal/app/content"
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/app/content"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func TestDashboardPublicPolicyUpgradeKeepsLegacyLink(t *testing.T) {

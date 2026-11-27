@@ -7,22 +7,24 @@
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.5
-cp .env.example .env
+git checkout v0.2.6
+cp -n .env.example .env
+chmod 600 .env
 # 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.release.yml up -d
 ```
 
-升级时修改 `TOPBASE_VERSION` 或切换目标 Git tag，再执行 `pull` 和 `up -d`。发布镜像使用非 root 用户、只读根文件系统、健康检查和独立数据卷。
+切换发行版本时，先切换目标 Git 标签，再在已有 `.env` 中将 `TOPBASE_VERSION` 改为对应版本号（例如 `0.2.6`）。保留密码和主密钥，执行 `docker compose -f docker-compose.release.yml config --images` 核对镜像标签，再按[更新步骤](upgrading.md#docker-升级)拉取并启动。发布镜像使用非 root 用户、只读根文件系统、健康检查和独立数据卷。
 
 ## Docker Compose 源码构建
 
 仓库提供多阶段 `Dockerfile`。运行容器使用固定 UID `10001` 的非 root 用户、只读根文件系统并移除 Linux capabilities。新安装推荐使用 `docker-compose.postgres.yml`，应用状态保存在独立 PostgreSQL 数据卷。
 
 ```bash
-git clone git@github.com:frontitle/Topbase.git
+git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-cp .env.example .env
+cp -n .env.example .env
+chmod 600 .env
 # 编辑 .env，设置随机的 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
 docker compose -f docker-compose.postgres.yml up --build -d
 ```
@@ -83,7 +85,7 @@ curl --fail http://localhost:8101/api/ready
 
 ```bash
 git fetch --tags
-git checkout v0.2.5
+git checkout v0.2.6
 make check
 make build
 TOPBASE_ADDR=:80 \

@@ -1,6 +1,6 @@
 # 上传并预览 Excel 工作表
 
-管理员可以把电子表格导入本地数仓，保存一份副本，并在 Topbase 核对明细。下载[示例工作簿 orders.xlsx](../assets/samples/orders.xlsx)跟着操作，完成后应看到一张包含六行、五个字段的订单表。
+管理员可以把电子表格导入本地数仓，保存一份副本，并在 Topbase 核对明细。下载[示例工作簿 orders.xlsx](../assets/samples/orders.xlsx)跟着操作，工作簿包含六笔模拟订单和五个字段。
 
 ## 整理工作簿
 

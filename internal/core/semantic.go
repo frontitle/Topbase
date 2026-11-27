@@ -3,7 +3,7 @@ package core
 import (
 	"time"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type SemanticTypeOption struct {

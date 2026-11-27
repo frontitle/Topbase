@@ -27,11 +27,13 @@ Topbase 使用语义化版本：
 4. 在备份副本或预发布环境运行新版本，验证登录、数据库重连、分析、仪表盘和调度。
 5. 再升级生产实例并检查 `/api/health` 和运行日志。
 
-内置 PostgreSQL Compose 示例：
+发布镜像附带的 PostgreSQL 可以从项目目录执行以下备份。输出位于用户主目录下新建的私有目录。自行编译镜像的 PostgreSQL 部署请将文件名换成 `docker-compose.postgres.yml`。
 
 ```bash
-docker compose -f docker-compose.postgres.yml exec -T appdb \
-  pg_dump -U topbase -d topbase -Fc > topbase-before-upgrade.dump
+backup_dir=$(mktemp -d "$HOME/topbase-backup.XXXXXXXX") &&
+docker compose -f docker-compose.release.yml exec -T appdb \
+  sh -c 'exec pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  > "$backup_dir/appdb.dump"
 ```
 
 应用数据库包含加密后的数据库密码和 SSH 私钥，备份仍必须加密并限制访问。`TOPBASE_MASTER_KEY` 不应和数据库备份存放在同一位置，但二者必须配套保留。
@@ -48,24 +50,29 @@ TOPBASE_DATA_DIR=/var/lib/topbase ./bin/topbase-backup /secure/backups/topbase-b
 
 ## Docker 升级
 
+使用发布镜像时，先拉取要安装的 Git 标签。以 0.2.6 为例：
+
 ```bash
 git fetch --tags
-git checkout <目标版本标签>
-docker compose -f docker-compose.postgres.yml build --pull
-docker compose -f docker-compose.postgres.yml up -d
-curl --fail http://localhost:8101/api/ready
-curl --fail http://localhost:8101/api/version
+git checkout v0.2.6
 ```
 
-使用正式镜像时执行：
+在**已有的** `.env` 中设置 `TOPBASE_VERSION=0.2.6`，保留数据库密码、`TOPBASE_MASTER_KEY` 和宿主机端口。然后核对镜像：
 
 ```bash
-export TOPBASE_VERSION=<目标版本号>
-docker compose -f docker-compose.release.yml pull
-docker compose -f docker-compose.release.yml up -d
+docker compose -f docker-compose.release.yml config --images
 ```
 
-升级时 `/data` 和 `/backups` 命名卷不会随容器替换而删除。不要执行 `docker compose down -v`，该命令会删除命名卷。
+确认包含 `ghcr.io/frontitle/topbase:0.2.6` 后启动。自定义宿主机端口时，将下方的 8101 换成实际值。
+
+```bash
+docker compose -f docker-compose.release.yml pull
+docker compose -f docker-compose.release.yml up -d
+curl --fail http://127.0.0.1:8101/api/ready
+curl --fail http://127.0.0.1:8101/api/version
+```
+
+检查 `version` 是否等于目标版本。若构建的是 `docker-compose.postgres.yml` 源码镜像，切换 Git 标签并更新已有 `.env` 中的版本号后，使用 `docker compose -f docker-compose.postgres.yml up --build -d`。两种方式都要保留原有的命名卷。
 
 ## 回滚
 

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/frontitle/Topbase/internal/topbaseapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/topbase/topbase/internal/topbaseapi"
 )
 
 func TestServerExposesSafeAnalyticsWorkflow(t *testing.T) {

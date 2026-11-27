@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/topbase/topbase/internal/app/viz"
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/app/viz"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func (s DatasetService) RunDashboardCard(ctx context.Context, board core.Dashboard, cardID string, values map[string]any, questions core.QuestionStore) (DatasetResult, error) {

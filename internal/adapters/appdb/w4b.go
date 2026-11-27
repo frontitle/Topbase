@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *Store) ListGroups() ([]core.Group, error) {

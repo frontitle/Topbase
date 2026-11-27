@@ -7,6 +7,7 @@
 - [部署](deployment.md)：Docker Compose 与二进制部署
 - [性能与容量](performance.md)：内存保护、查询并发、页面加载和验收方法
 - [升级与备份](upgrading.md)：版本策略、migration、备份和回滚
+- [0.2.6 发行说明](releases/0.2.6.md)：安装文档、发行包许可与 Excel 预览
 - [0.2.5 升级说明](releases/0.2.5.md)：仪表盘分享、数仓可靠性、国际化与官网文档
 - [0.2.4 升级说明](releases/0.2.4.md)：可视化、数据治理、企业接入与性能保护
 - [0.2.3 升级说明](releases/0.2.3.md)：公开镜像、安装指引与发布可靠性修复
@@ -19,8 +20,8 @@
 - [工程架构](architecture.md)：依赖方向、稳定扩展点和安全基线
 - [信息架构与数据命名](information-architecture.md)：一级导航、分析分组与数据生命周期术语
 - [前端功能组件](frontend-components.md)：公共组件清单、接口与准入规则
-- [贡献指南](../CONTRIBUTING.md)：开发流程与质量门禁
-- [安全策略](../SECURITY.md)：安全问题报告和敏感数据要求
+- [贡献指南](../CONTRIBUTING.zh-CN.md)：开发流程与质量门禁
+- [安全策略](../SECURITY.zh-CN.md)：安全问题报告和敏感数据要求
 
 文档描述必须区分“已经可以运行”和“规划中”。功能是否完成以验收条件和自动化测试为准，不能只以页面、按钮或 API 是否存在判断。
 

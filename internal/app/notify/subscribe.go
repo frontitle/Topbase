@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	appwarehouse "github.com/topbase/topbase/internal/app/warehouse"
-	"github.com/topbase/topbase/internal/core"
+	appwarehouse "github.com/frontitle/Topbase/internal/app/warehouse"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s Service) CreateSubscription(input core.Subscription, userID string) (core.Subscription, error) {

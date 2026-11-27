@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 // accessControl is the server-side boundary for the workbench. UI redirects

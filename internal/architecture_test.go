@@ -21,16 +21,16 @@ func TestDependencyDirection(t *testing.T) {
 		{
 			directory: "core",
 			forbidden: []string{
-				"github.com/topbase/topbase/internal/app",
-				"github.com/topbase/topbase/internal/adapters",
-				"github.com/topbase/topbase/internal/platform",
+				"github.com/frontitle/Topbase/internal/app",
+				"github.com/frontitle/Topbase/internal/adapters",
+				"github.com/frontitle/Topbase/internal/platform",
 			},
 		},
 		{
 			directory: "app",
 			forbidden: []string{
-				"github.com/topbase/topbase/internal/adapters",
-				"github.com/topbase/topbase/internal/platform",
+				"github.com/frontitle/Topbase/internal/adapters",
+				"github.com/frontitle/Topbase/internal/platform",
 			},
 		},
 	}

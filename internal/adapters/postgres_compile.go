@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 type compileLimits struct {

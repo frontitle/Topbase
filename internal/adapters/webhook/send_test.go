@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

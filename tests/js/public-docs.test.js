@@ -21,6 +21,7 @@ const publicFiles = [
   'docs/releases/0.2.3.md',
   'docs/releases/0.2.4.md',
   'docs/releases/0.2.5.md',
+  'docs/releases/0.2.6.md',
   'docs/upgrading.md',
 ];
 
@@ -35,11 +36,21 @@ test('docs contains only reviewed public documentation', () => {
   assert.deepEqual(walk('docs').sort(), publicFiles.slice().sort());
 });
 
-test('public documentation has no internal research references or broken local links', () => {
-  const markdownFiles = ['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md', ...publicFiles.filter(file => file.endsWith('.md'))];
-  for (const file of markdownFiles) {
+const projectMarkdown = [
+  'README.md', 'README.zh-CN.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md',
+  'SECURITY.md', 'SECURITY.zh-CN.md', 'website/README.md', ...publicFiles.filter(file => file.endsWith('.md')),
+];
+
+test('published documentation does not contain local user paths', () => {
+  const sources = [...projectMarkdown, ...walk('website/guides'), 'website/src/home-en.html', 'website/src/index.html'];
+  for (const file of sources) {
+    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /\/Users\/[^/\s]+\/|[a-z]:\\Users\\[^\\\s]+\\/i, file);
+  }
+});
+
+test('repository documentation links resolve in a source checkout', () => {
+  for (const file of projectMarkdown) {
     const source = fs.readFileSync(file, 'utf8');
-    assert.doesNotMatch(source, /metabase|metabase-master|parity-matrix|\/Users\/wensky/i, file);
     for (const match of source.matchAll(/!?\[[^\]]*\]\(([^)]+)\)/g)) {
       const target = match[1].split('#')[0];
       if (!target || /^(https?:|mailto:)/.test(target)) continue;

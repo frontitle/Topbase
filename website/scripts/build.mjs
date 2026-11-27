@@ -51,7 +51,7 @@ await rm(join(output, 'home-en.html'));
 
 // Only paired product guides are published in the online manual.
 const sections = [
-  {en: 'Getting started', zh: '快速入门', slugs: ['getting-started', 'account']},
+  {en: 'Getting started', zh: '快速入门', slugs: ['getting-started', 'installation', 'account']},
   {en: 'Connect and explore data', zh: '接入与浏览数据', slugs: ['database-drivers', 'excel', 'browse', 'model']},
   {en: 'Analyze and visualize', zh: '查询与可视化', slugs: ['analysis', 'sql', 'charts']},
   {en: 'Organize and share', zh: '组织与分享', slugs: ['groups', 'dashboards', 'sharing']},
@@ -74,6 +74,11 @@ for (const locale of ['en', 'zh']) {
   const folder = join(english ? output : chinese, 'docs');
   await mkdir(folder, {recursive: true});
   const chapters = [];
+  const guideDir = join(website, 'guides', locale);
+  const files = await readdir(guideDir);
+  if (files.some(name => !slugs.includes(basename(name, '.md')) || !name.endsWith('.md'))) {
+    throw new Error(`Unlisted guide in ${locale}: check the manual navigation before publishing`);
+  }
   for (const slug of slugs) {
     const markdown = await readFile(join(website, 'guides', locale, slug + '.md'), 'utf8');
     const images = [...markdown.matchAll(/<img src="\.\.\/assets\/guide-images\/([^"]+)"/g)].map(match => match[1]);
@@ -123,8 +128,8 @@ for (const locale of ['en', 'zh']) {
 <title>${chapter.title} | Topbase Docs</title><link rel="icon" href="${assetBase}topbase-logo.png">
 ${['styles.css', 'home-layout.css', 'docs.css'].map(name => `<link rel="stylesheet" href="${assetUrl(name, assetBase)}">`).join('\n')}</head>
 <body class="docs-body" id="top">${header}
-<nav class="docs-chapter-bar" aria-label="${guideLabel}"><a href="./">${guideLabel}</a><button type="button" aria-expanded="false" aria-controls="docs-nav">${english ? 'Chapters' : '章节目录'}</button></nav>
-<div class="docs-layout"><aside id="docs-nav"><nav aria-label="${guideLabel}">${nav}</nav></aside><main class="docs-content">${content}</main>
+<nav class="docs-chapter-bar" aria-label="${guideLabel}"><a href="./">${guideLabel} <small>v${version}</small></a><button type="button" aria-expanded="false" aria-controls="docs-nav">${english ? 'Chapters' : '章节目录'}</button></nav>
+<div class="docs-layout"><aside id="docs-nav"><small class="docs-version">Topbase v${version}</small><nav aria-label="${guideLabel}">${nav}</nav></aside><main class="docs-content">${content}</main>
 <div class="docs-toc">${english ? 'On this page' : '本页目录'}<nav id="toc"></nav></div></div>
 ${install}
 ${footer}

@@ -18,7 +18,7 @@ For an enterprise project, an administrator assigns roles to permission groups. 
 
 ## Find a report again
 
-- **Home → Recent content** opens a recently used item. From **Analyses**, search by analysis name or narrow the list to a group. Clear the group filter if the report was moved.
+- **Home → Recent items** opens a recently used item. From **Analyses**, search by analysis name or narrow the list to a group. Clear the group filter if the report was moved.
 - The sidebar search filters *navigation entries*. To search across analyses, dashboards, groups and connections, open the workspace search page at `/search/` on your Topbase instance. Enter a distinctive name and check the type shown beside the result.
 - To rename a writable group, open its detail page, choose **Rename**, enter the new name and save. Before deleting an empty group, confirm that its analyses, dashboards and child groups have been moved out.
 

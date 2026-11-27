@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 var client = &http.Client{

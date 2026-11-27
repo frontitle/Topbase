@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 func (s *Store) CreateDashboard(d core.Dashboard) error {

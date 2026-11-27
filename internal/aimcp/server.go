@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	appquery "github.com/frontitle/Topbase/internal/app/query"
+	"github.com/frontitle/Topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/topbaseapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	appquery "github.com/topbase/topbase/internal/app/query"
-	"github.com/topbase/topbase/internal/buildinfo"
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
-	"github.com/topbase/topbase/internal/topbaseapi"
 )
 
 const instructions = `Topbase exposes permission-scoped analytics tools. For a natural-language data question:

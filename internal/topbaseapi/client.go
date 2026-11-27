@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	appquery "github.com/topbase/topbase/internal/app/query"
-	"github.com/topbase/topbase/internal/core"
-	"github.com/topbase/topbase/internal/core/queryir"
+	appquery "github.com/frontitle/Topbase/internal/app/query"
+	"github.com/frontitle/Topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 const defaultMaxRows = 200

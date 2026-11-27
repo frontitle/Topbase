@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 // DemoExecutor keeps the UI runnable before a source adapter is configured.

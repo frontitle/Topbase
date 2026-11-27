@@ -4,7 +4,7 @@
 
 ## 连接示例 SQLite 文件
 
-1. 下载 [orders.db](../assets/samples/orders.db)。直接在服务器运行 Topbase 时，将文件放在服务进程能读取的目录，例如 `/srv/topbase-samples/orders.db`。
+1. 下载包含六笔模拟订单的 SQLite 数据库 [orders.db](../assets/samples/orders.db)。直接在服务器运行 Topbase 时，将文件放在服务进程能读取的目录，例如 `/srv/topbase-samples/orders.db`。
 2. 使用 Docker Compose 时，将文件放到 Compose 文件旁的 `samples` 目录。在已有的 `services.topbase.volumes` 列表中追加下面这一行，保留原有挂载。使用发行版 Compose 文件时，执行 `docker compose -f docker-compose.release.yml up -d topbase` 应用修改。容器内的用户需要能读取这个目录。
 
    ```yaml

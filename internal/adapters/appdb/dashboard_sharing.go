@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 const activeDashboardLink = ` WHERE public_uuid=? AND public_uuid<>'' AND archived_at IS NULL

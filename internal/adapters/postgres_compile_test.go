@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 func TestCompilePostgresSnapshots(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/topbase/topbase/internal/adapters/appdb"
-	"github.com/topbase/topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/adapters/appdb"
+	"github.com/frontitle/Topbase/internal/buildinfo"
 )
 
 func (s *server) applicationDatabaseStatus(w http.ResponseWriter, r *http.Request) {

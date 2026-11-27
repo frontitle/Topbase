@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/topbase/topbase/internal/backup"
-	"github.com/topbase/topbase/internal/buildinfo"
+	"github.com/frontitle/Topbase/internal/backup"
+	"github.com/frontitle/Topbase/internal/buildinfo"
 )
 
 func main() {

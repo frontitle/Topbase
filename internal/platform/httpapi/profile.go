@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 type profileProvider struct {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/topbase/topbase/internal/core/queryir"
+	"github.com/frontitle/Topbase/internal/core/queryir"
 )
 
 var ErrWarehouseTargetInUse = errors.New("已有沉淀计划或数据表使用此目标，请更换保存表名")

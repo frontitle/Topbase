@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-111111.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.5-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.6-111111.svg)](CHANGELOG.md)
 
 > **看见数据，理解业务，沉淀增长。**
 
@@ -33,7 +33,7 @@ Topbase 是一站式数据分析与可视化数仓平台，让团队通过连接
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.5
+git checkout v0.2.6
 go build -o topbase ./cmd/topbase
 TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```
@@ -47,36 +47,22 @@ TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```bash
 git clone https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.5
-cp .env.example .env
-# 编辑 .env：至少设置 TOPBASE_APP_DB_PASSWORD 和 TOPBASE_MASTER_KEY
+git checkout v0.2.6
+cp -n .env.example .env
+chmod 600 .env
+openssl rand -base64 32
+```
+
+用文本编辑器打开 `.env`。设置独立的强密码 `TOPBASE_APP_DB_PASSWORD`，将上一步的完整输出填入 `TOPBASE_MASTER_KEY`，保存后启动：
+
+```bash
 docker compose -f docker-compose.release.yml up -d
-```
-
-Docker 默认将宿主机 `8101` 映射到容器内 Topbase 的 `8080`，即 `8101:8080`；访问地址是 `http://服务器 IP:8101`。如需使用服务器指定端口，例如 `9000`，执行：
-
-```bash
-TOPBASE_HTTP_PORT=9000 docker compose -f docker-compose.release.yml up -d
-```
-
-这会映射为 `9000:8080`，访问地址改为 `http://服务器 IP:9000`。也可以将 `TOPBASE_HTTP_PORT=9000` 写入 `.env`，之后直接运行同一条 `docker compose` 命令。
-
-确认服务已经就绪：
-
-```bash
 curl --fail http://127.0.0.1:8101/api/ready
 ```
 
-Docker 方式默认将应用数据持久化在 PostgreSQL 数据卷中。`TOPBASE_MASTER_KEY` 用于加密数据源连接，首次启动后必须保持不变。升级前建议先导出应用数据库，随后拉取新版本并重建服务：
+打开 `http://服务器IP:8101`。默认映射为 **服务器 8101 → 容器 8080**。如要使用服务器端口 9000，在 `.env` 中设置 `TOPBASE_HTTP_PORT=9000`，重新执行启动命令，再打开 `http://服务器IP:9000`。
 
-```bash
-docker compose -f docker-compose.release.yml exec -T appdb \
-  pg_dump -U topbase -d topbase -Fc > topbase-before-upgrade.dump
-git fetch --tags
-git checkout <目标版本标签>
-docker compose -f docker-compose.release.yml pull
-docker compose -f docker-compose.release.yml up -d
-```
+Docker 方案将应用数据库存放在 PostgreSQL 命名卷中。切换版本时，在现有 `.env` 中修改 `TOPBASE_VERSION`，保留密码和主密钥。用 `docker compose -f docker-compose.release.yml config --images` 核对镜像后，再拉取并启动。备份、HTTPS 和版本切换的完整步骤见[安装与运行 Topbase](https://frontitle.github.io/Topbase/zh/docs/installation.html)。
 
 生产部署、配置和升级说明：
 
@@ -85,7 +71,7 @@ docker compose -f docker-compose.release.yml up -d
 - [版本升级](docs/upgrading.md)
 - [数据库支持](docs/database-drivers.md)
 - [AI、MCP 与 CLI](docs/ai-integrations.md)
-- [0.2.5 升级说明](docs/releases/0.2.5.md)
+- [0.2.6 发布说明](docs/releases/0.2.6.md)
 - [更新日志](CHANGELOG.md)
 
 ## 开源说明
@@ -101,7 +87,7 @@ Topbase 使用 [Apache License 2.0](LICENSE) 开源。你可以：
 
 ## 参与项目
 
-- [贡献指南](CONTRIBUTING.md)
-- [安全策略](SECURITY.md)
+- [贡献指南](CONTRIBUTING.zh-CN.md)
+- [安全策略](SECURITY.zh-CN.md)
 - [架构说明](docs/architecture.md)
 - [功能组件](docs/frontend-components.md)

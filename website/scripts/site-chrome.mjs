@@ -44,7 +44,7 @@ export function siteChrome({english, version, chapter}) {
         <h2 id="install-title">${t('Build your first <em>dashboard.</em>', '创建第一张<em>仪表盘</em>')}</h2>
         <p>${t('Follow six sample orders from a database to a sales dashboard on your own server.', '从数据库里的六笔示例订单出发，在自己的服务器上做出一张销售仪表盘。')}</p>
         <div class="install-actions">
-          <a class="button button-primary" href="${repository}${t('#install', '/blob/main/README.zh-CN.md#安装')}">${t('Install Topbase', '安装 Topbase')}</a>
+          <a class="button button-primary" href="${docs}installation.html">${t('Install Topbase', '安装 Topbase')}</a>
           <a class="tutorial-link" href="${tutorial}">${t('View tutorial', '查看示例教程')}<span aria-hidden="true">→</span></a>
         </div>
       </div>
@@ -65,7 +65,7 @@ export function siteChrome({english, version, chapter}) {
     [t('Open source', '开源项目'), [
       [repository, t('GitHub repository', 'GitHub 仓库')],
       [repository + '/issues', t('Report an issue', '反馈问题')],
-      [repository + '/blob/main/CONTRIBUTING.md', t('Contributing', '参与贡献')],
+      [repository + '/blob/main/' + t('CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md'), t('Contributing', '参与贡献')],
     ]],
   ];
   const footer = `<footer class="site-footer" id="footer">

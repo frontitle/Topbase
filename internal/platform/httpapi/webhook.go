@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/topbase/topbase/internal/adapters/webhook"
-	"github.com/topbase/topbase/internal/core"
+	"github.com/frontitle/Topbase/internal/adapters/webhook"
+	"github.com/frontitle/Topbase/internal/core"
 )
 
 // A Slack path, a Teams signature, and Chat query parameters are bearer

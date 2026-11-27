@@ -1,4 +1,4 @@
-module github.com/topbase/topbase
+module github.com/frontitle/Topbase
 
 go 1.25.0
 
