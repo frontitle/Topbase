@@ -1,5 +1,5 @@
 const languageLink = document.querySelector('.language-switch a');
-const alternateHome = new URL(languageLink.href);
+const alternatePage = new URL(languageLink.href);
 const sections = [...document.querySelectorAll('main > section[id]')];
 const footer = document.querySelector('.site-footer');
 const header = document.querySelector('.site-header');
@@ -7,6 +7,14 @@ const menu = document.querySelector('.mobile-nav');
 
 function updateLanguageLink() {
   const marker = header.offsetHeight + Math.min(innerHeight / 4, 140);
+  if (!sections.length) {
+    const anchors = [...document.querySelectorAll('.docs-content :is(h2, h3)[id], #install, #footer')];
+    const last = anchors.filter(item => item.getBoundingClientRect().top <= marker).at(-1);
+    const atBottom = scrollY > 0 && Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight;
+    alternatePage.hash = atBottom ? 'footer' : last?.id || '';
+    languageLink.href = alternatePage.href;
+    return;
+  }
   let current = sections[0];
   for (const section of sections) {
     if (section.getBoundingClientRect().top > marker) break;
@@ -20,8 +28,8 @@ function updateLanguageLink() {
   } else if (footer.getBoundingClientRect().top <= marker) {
     current = footer;
   }
-  alternateHome.hash = current && current !== sections[0] ? current.id : '';
-  languageLink.href = alternateHome.href;
+  alternatePage.hash = current && current !== sections[0] ? current.id : '';
+  languageLink.href = alternatePage.href;
 }
 
 // Update when a link is used, including when opening it in another tab.

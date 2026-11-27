@@ -8,7 +8,7 @@ Choose **Dashboards → New dashboard**. Topbase creates a dashboard in your per
 2. On the dashboard, choose **Insert → Add analysis**. Search for the channel analysis by name or select its data group. Click the result to add it, or drag it to a position on the canvas. Repeat for the daily trend. An analysis already on the canvas appears as added.
 3. Choose **Insert → Add widget** if you want a heading or an explanation. Use a short text such as “Paid orders only” to tell readers which orders count. Select the widget to edit its text and appearance.
 
-<figure><a href="../assets/guide-images/dashboard-editor-en.jpg"><img src="../assets/guide-images/dashboard-editor-en.jpg" alt="Insert → Add analysis opens the picker over the canvas. Search by name or narrow the list to a group." width="1150" height="850" loading="lazy"></a><figcaption>Insert → Add analysis opens the picker over the canvas. Search by name or narrow the list to a group.</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-editor-en.jpg"><img src="../assets/guide-images/dashboard-editor-en.jpg" alt="In Insert → Add analysis, search for Sales by channel. Select the visual analysis to add it beside Paid sales by day." loading="lazy"></a><figcaption>In Insert → Add analysis, search for Sales by channel. Select the visual analysis to add it beside Paid sales by day.</figcaption></figure>
 
 ## Arrange and check the canvas
 
@@ -18,7 +18,7 @@ Open **Canvas settings** to choose a color scheme and background. **Show grid** 
 
 Choose **Preview**. The bars should show **Web 300**, **Partner 200** and **Store 180**. The line should show **October 1, 2026 · 200**, **October 3 · 300** and **October 4 · 180**. October 2 only has a refund. For an optional third card, save a single-number analysis summing paid amounts with no grouping. It should show **680**. Press **Escape** to leave preview, then choose **Finish editing**. Reopen the dashboard to check the saved layout.
 
-<figure><a href="../assets/guide-images/dashboard-en.jpg"><img src="../assets/guide-images/dashboard-en.jpg" alt="The finished dashboard pairs Sales by channel with Paid sales by day. The daily chart peaks at 300 on October 3." width="1150" height="850" loading="lazy"></a><figcaption>The finished dashboard pairs Sales by channel with Paid sales by day. The daily chart peaks at 300 on October 3.</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-en.jpg"><img src="../assets/guide-images/dashboard-en.jpg" alt="The finished dashboard pairs Sales by channel with Paid sales by day. The daily chart peaks at 300 on October 3." loading="lazy"></a><figcaption>The finished dashboard pairs Sales by channel with Paid sales by day. The daily chart peaks at 300 on October 3.</figcaption></figure>
 
 ## Configure cards and widgets
 

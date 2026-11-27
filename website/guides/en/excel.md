@@ -14,12 +14,12 @@ Use the local warehouse to keep a copy of a spreadsheet and inspect its records 
 
 ## Upload the first sheet
 
-1. Sign in as an administrator. Open **Administration → Data**. At the top of the page, switch from **Remote sources** to **Local warehouse**.
+1. Sign in as an administrator. Open **Admin → Data**. At the top of the page, switch from **Connections** to **Local warehouse**.
 2. Click **Upload Excel** and choose the downloaded **orders.xlsx** in the file picker. Selecting the file starts the import.
 3. Find **orders** in the local warehouse. Topbase takes the dataset name from the filename. Check the source filename **orders.xlsx**, worksheet **orders**, **6 rows** and **5 fields**.
 4. Click **Preview rows**. Find order **1003** and verify that its `amount` is **50** and its `status` is **refunded**. This checks that the columns and their values line up.
 
-<figure><a href="../assets/guide-images/excel-library-en.jpg"><img src="../assets/guide-images/excel-library-en.jpg" alt="Under Local warehouse, the orders card shows the filename, sheet name and counts. Upload Excel is in the upper-right corner." width="1360" height="850" loading="lazy"></a><figcaption>Under Local warehouse, the orders card shows the filename, sheet name and counts. Upload Excel is in the upper-right corner.</figcaption></figure>
+<figure><a href="../assets/guide-images/excel-library-en.jpg"><img src="../assets/guide-images/excel-library-en.jpg" alt="Under Local warehouse, the orders card shows the filename, sheet name and counts. Upload Excel is in the upper-right corner." loading="lazy"></a><figcaption>Under Local warehouse, the orders card shows the filename, sheet name and counts. Upload Excel is in the upper-right corner.</figcaption></figure>
 
 ## Read the preview and correct an import
 
@@ -32,4 +32,4 @@ The dataset card shows the imported row count. Preview displays up to the first 
 | Two entries have the same name | Each upload creates a separate dataset. Give the corrected file a distinct name, preview it and then remove the obsolete entry with **Delete**. Deleting an entry removes the imported copy in Topbase. |
 | You want to chart or query these orders | The Excel import is available in the local warehouse preview. For the query editor and SQL, use a connected database. Download [the matching SQLite file](../assets/samples/orders.db) and follow [Build your first sales dashboard](getting-started.html). |
 
-<figure><a href="../assets/guide-images/excel-preview-en.jpg"><img src="../assets/guide-images/excel-preview-en.jpg" alt="The worksheet preview includes the refunded Web order 1003 and its amount of 50." width="900" height="422" loading="lazy"></a><figcaption>The worksheet preview includes the refunded Web order 1003 and its amount of 50.</figcaption></figure>
+<figure><a href="../assets/guide-images/excel-preview-en.jpg"><img src="../assets/guide-images/excel-preview-en.jpg" alt="The worksheet preview includes the refunded Web order 1003 and its amount of 50." loading="lazy"></a><figcaption>The worksheet preview includes the refunded Web order 1003 and its amount of 50.</figcaption></figure>

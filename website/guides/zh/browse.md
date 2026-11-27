@@ -5,12 +5,12 @@
 ## 打开一张表
 
 1. 在工作台打开 **源数据**。按连接名称搜索数据库，点击对应卡片。首次使用可先准备[入门指南](getting-started.html)中的示例数据库。
-2. 在左侧 **搜索表** 中输入表名、别称或字段名。表按数据库的 schema 显示。选择 `orders`，在 **数据** 区核对 schema 和物理表名。
+2. 在数据表浏览区上方的 **搜索表** 中输入表名、别称或字段名。表按数据库的 schema 显示。选择 `orders`，在 **数据** 区核对 schema 和物理表名。
 3. 等待查询编辑器下方显示返回行数。打开表时会执行一次只读预览，默认最多返回 1,000 行。大表预览显示 1,000 行，表示本次已返回的行数。要统计全表记录数，清空筛选和分组，选择 **汇总 → 记录数** 后运行。
 
 在 **源数据** 中运行查询时，Topbase 实时读取已连接的数据库。管理员上传的 Excel 工作表有单独的预览入口，在 **管理后台 → 数据 → 本地数仓**。想跟随本页步骤查询那批工作表记录，可连接示例 SQLite 数据库。详见[上传并预览 Excel 工作表](excel.html)。
 
-<figure><a href="../assets/guide-images/browse-orders-zh.jpg"><img src="../assets/guide-images/browse-orders-zh.jpg" alt="源数据浏览页显示 main.orders 的六条记录。展开上方的查询编辑器即可添加筛选。" width="1360" height="850" loading="lazy"></a><figcaption>源数据浏览页显示 main.orders 的六条记录。展开上方的查询编辑器即可添加筛选。</figcaption></figure>
+<figure><a href="../assets/guide-images/browse-orders-zh.jpg"><img src="../assets/guide-images/browse-orders-zh.jpg" alt="源数据浏览页显示 main.orders 的六条记录。点击上方的「展开查询编辑器」即可添加筛选。" loading="lazy"></a><figcaption>源数据浏览页显示 main.orders 的六条记录。点击上方的「展开查询编辑器」即可添加筛选。</figcaption></figure>
 
 ## 核对单个渠道的订单明细
 

@@ -6,16 +6,16 @@ The same query can answer different questions depending on how you display it. A
 
 1. Open **Analyses** and select your saved **Sales by channel**. Wait for the result. You need edit access to change its visualization. The chart types appear above the result and **Settings** appears beside it.
 2. Select **Column chart**. In **Data**, set **X-axis** to `channel` and **Y-axis** to the numeric total. The visual query labels it `sum`. If you used the [SQL example](sql.html), choose `revenue`.
-3. Under **Display**, enable **Show values**. For a target of 200 per channel, turn on **Target line**, enter **200** as the target value and label it **Channel target**. Web should be above the line at 300, Partner on it at 200 and Store below at 180.
+3. Under **Show**, enable **Show values**. For a target of 200 per channel, turn on **Target line**, enter **200** as the target value and label it **Channel target**. Web should be above the line at 300, Partner on it at 200 and Store below at 180.
 4. Under **Axes**, give the Y-axis a title such as **Paid sales**. Set the unit in the title if your amounts have a known currency. Chart changes save automatically. Reopen the analysis to check the chart before adding it to a [dashboard](dashboards.html).
 
 When several series share an axis, **Add grouping** splits a single metric by another dimension present in the result. For a query that returns separate numeric columns, use **Add metric** with no additional grouping. Use percentage stacking when the question is about each series' share within a group.
 
-<figure><a href="../assets/guide-images/chart-settings-en.jpg"><img src="../assets/guide-images/chart-settings-en.jpg" alt="For the channel comparison, select Column chart and map channel to X and sum to Y." width="1360" height="850" loading="lazy"></a><figcaption>For the channel comparison, select Column chart and map channel to X and sum to Y.</figcaption></figure>
+<figure><a href="../assets/guide-images/chart-settings-en.jpg"><img src="../assets/guide-images/chart-settings-en.jpg" alt="For the channel comparison, select Column chart and map channel to X and sum to Y." loading="lazy"></a><figcaption>For the channel comparison, select Column chart and map channel to X and sum to Y.</figcaption></figure>
 
 ## Show the share of each channel
 
-Select **Pie chart** on the saved analysis. In **Data**, choose `channel` as **Dimension** and the sum as **Metric**. In **Display**, turn on **Donut chart** and **Show total**. Set **Show percentages** to **Legend** and **Percentage decimal places** to **1**.
+Select **Pie chart** on the saved analysis. In **Data**, choose `channel` as **Dimension** and the sum as **Metric**. In **Show**, turn on **Donut chart** and **Show total**. Set **Show percentages** to **Legend** and **Percentage decimal places** to **1**.
 
 The total should be **680**. Web accounts for **44.1%**, Partner **29.4%** and Store **26.5%**. **Maximum categories** and **Minimum slice share (%)** control which small categories are collected under **Other**. Leave the category limit at 8 and the threshold at 0 to keep these three channels visible. Changing the chart type updates this saved analysis. To keep both charts, save a second analysis from the query editor.
 

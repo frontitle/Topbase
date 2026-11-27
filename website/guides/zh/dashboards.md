@@ -8,7 +8,7 @@
 2. 回到仪表盘，点击 **插入 → 添加分析**。按名称搜索渠道分析，或用分组缩小范围。点击结果即可添加，也可以直接拖到画布上。用同样的方法加入每日趋势。已在画布上的分析会标为「已添加」。
 3. 需要说明口径时，点击 **插入 → 添加小组件**，加入文本，例如「仅统计已支付订单」。选中文本组件后可在属性面板修改内容和外观。
 
-<figure><a href="../assets/guide-images/dashboard-editor-zh.jpg"><img src="../assets/guide-images/dashboard-editor-zh.jpg" alt="「插入 → 添加分析」在画布上方展开选择面板，可搜索名称，也可按分组筛选。" width="1150" height="850" loading="lazy"></a><figcaption>「插入 → 添加分析」在画布上方展开选择面板，可搜索名称，也可按分组筛选。</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-editor-zh.jpg"><img src="../assets/guide-images/dashboard-editor-zh.jpg" alt="在「插入 → 添加分析」中搜索 Sales by channel，选择标为「可视化分析」的结果，将它添加到 Paid sales by day 旁边。" loading="lazy"></a><figcaption>在「插入 → 添加分析」中搜索 Sales by channel，选择标为「可视化分析」的结果，将它添加到 Paid sales by day 旁边。</figcaption></figure>
 
 ## 排版、预览和保存
 
@@ -18,7 +18,7 @@
 
 点击 **预览**。柱状图应显示 **Web 300、Partner 200、Store 180**。折线图的三个点分别是 **2026 年 10 月 1 日 200、10 月 3 日 300、10 月 4 日 180**。10 月 2 日只有退款订单。如需第三张总金额卡，可保存一条筛选已支付、求和但不分组的数字分析，应为 **680**。按 **Esc** 返回，再点 **完成编辑**。重新打开仪表盘，确认布局已保存。
 
-<figure><a href="../assets/guide-images/dashboard-zh.jpg"><img src="../assets/guide-images/dashboard-zh.jpg" alt="完成后的仪表盘并排展示渠道柱状图和按日折线图，10 月 3 日的日销售额最高，为 300。" width="1150" height="850" loading="lazy"></a><figcaption>完成后的仪表盘并排展示渠道柱状图和按日折线图，10 月 3 日的日销售额最高，为 300。</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-zh.jpg"><img src="../assets/guide-images/dashboard-zh.jpg" alt="完成后的仪表盘并排展示渠道柱状图和按日折线图，10 月 3 日的日销售额最高，为 300。" loading="lazy"></a><figcaption>完成后的仪表盘并排展示渠道柱状图和按日折线图，10 月 3 日的日销售额最高，为 300。</figcaption></figure>
 
 ## 调整卡片与小组件
 

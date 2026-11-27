@@ -4,12 +4,12 @@ A dashboard subscription delivers a scheduled report to a webhook channel. A res
 
 ## Connect the delivery channel
 
-1. An administrator opens **Administration → Notifications and subscriptions** (`/admin/integrations/`) and creates a webhook. In the destination chat or service, create or obtain its incoming webhook URL.
+1. An administrator opens **Admin → Notifications** (`/admin/integrations/`) and creates a webhook. In the destination chat or service, create or obtain its incoming webhook URL.
 2. Choose the matching provider, give the channel a recognizable name such as **Sales morning report**, and enter the full webhook URL. Choose a message style supported by the provider and save the channel.
 3. Start with the provider's default message. If you personalize the title or body, use `{{title}}` and `{{body}}` to insert the report values. Custom JSON requires a valid JSON object in the destination's format. For message cards that link back to the dashboard, configure the external domain under **Settings → Access and security → Domain and SSL**.
 4. Enable the channel and send a test. Check the actual destination chat for the message before adding a subscription.
 
-<figure><a href="../assets/guide-images/webhook-channel-en.jpg"><img src="../assets/guide-images/webhook-channel-en.jpg" alt="A new Slack channel needs the incoming webhook URL. Choose the message format before saving." width="480" height="620" loading="lazy"></a><figcaption>A new Slack channel needs the incoming webhook URL. Choose the message format before saving.</figcaption></figure>
+<figure><a href="../assets/guide-images/webhook-channel-en.jpg"><img src="../assets/guide-images/webhook-channel-en.jpg" alt="A new Slack channel needs the incoming webhook URL. Choose the message format before saving." loading="lazy"></a><figcaption>A new Slack channel needs the incoming webhook URL. Choose the message format before saving.</figcaption></figure>
 
 ## Choose the webhook provider
 
@@ -28,7 +28,7 @@ Slack, Teams and Google Chat offer quick presets that start with a card. Other n
 
 Open the orders dashboard and choose **More → Subscribe to dashboard**. You need edit access to the dashboard and permission to browse data. Pick **Sales morning report** and create the subscription. This dialog schedules it for **09:00 every day in Asia/Shanghai (UTC+8)**. If the dropdown has no channels, an administrator needs to create and enable one first.
 
-In **Administration → Notifications and subscriptions**, search for the dashboard ID or channel name. The row shows the schedule, time zone, latest attempt and status. Choose **Test** and check the actual message. It reports the number of successful cards, failed cards and result rows. With the channel and daily charts in the tutorial you should see two successful cards, zero failures and six rows. Pause or resume the subscription from the same row. Inspect delivery history if a scheduled message is missing.
+In **Admin → Notifications**, search for the dashboard ID or channel name. The row shows the schedule, time zone, latest attempt and status. Choose **Test** and check the actual message. It reports the number of successful cards, failed cards and result rows. With the channel and daily charts in the tutorial you should see two successful cards, zero failures and six rows. Pause or resume the subscription from the same row. Inspect delivery history if a scheduled message is missing.
 
 ## Check whether an analysis returned rows
 

@@ -8,7 +8,7 @@
 2. 在分析分组区域打开「销售报表」，选择「新建子分组」，名称填「月报」并创建。分组详情会分别列出子分组、分析和仪表盘。
 3. 打开已保存的「Sales by channel」，点击「移动到分组」，选择刚创建的「月报」并确认。检查分析顶部的分组名，再打开「月报」找到这条分析。已有仪表盘卡片仍可引用这条分析。
 
-<figure><a href="../assets/guide-images/analysis-library-zh.jpg"><img src="../assets/guide-images/analysis-library-zh.jpg" alt="「分析」页面在搜索框上方列出 Sales reporting 分组，下方列出已保存的两条分析。" width="1360" height="850" loading="lazy"></a><figcaption>「分析」页面在搜索框上方列出 Sales reporting 分组，下方列出已保存的两条分析。</figcaption></figure>
+<figure><a href="../assets/guide-images/analysis-library-zh.jpg"><img src="../assets/guide-images/analysis-library-zh.jpg" alt="「分析」页面在搜索框上方列出 Sales reporting 分组，下方列出已保存的两条分析。" loading="lazy"></a><figcaption>「分析」页面在搜索框上方列出 Sales reporting 分组，下方列出已保存的两条分析。</figcaption></figure>
 
 ## 让同事查看
 

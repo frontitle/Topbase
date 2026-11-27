@@ -12,9 +12,9 @@ The [Excel upload exercise](excel.html) uses the same six orders. Use the SQLite
 
 ## Ask the question in the visual editor
 
-1. With **orders** open, choose **Visual query**. If the editor is collapsed, expand it above the table.
+1. With **orders** open, click **Show query editor** if the editor is collapsed, then choose **Visual query**.
 2. In **Filter**, choose `status`, select the equality operator and enter `paid`. In **Summarize**, choose **Sum**, select `amount` as the field and choose `channel` under **Group**.
-3. Open **Sort**, select the aggregate result and choose descending order. Click **Run and preview**. Compare the result with the table below before you choose a chart.
+3. Open **Sort**, select the aggregate result and choose descending order. Click **Run query**. Compare the result with the table below before you choose a chart.
 
 | Channel | Sum of amount |
 | --- | ---: |
@@ -24,14 +24,14 @@ The [Excel upload exercise](excel.html) uses the same six orders. Use the SQLite
 
 The three groups add up to **680** across five paid orders. If Web shows **350**, check the status filter. If it shows **2**, the calculation is counting Web orders. Change the calculation to **Sum** and run the query again.
 
-<figure><a href="../assets/guide-images/visual-query-en.jpg"><img src="../assets/guide-images/visual-query-en.jpg" alt="Compare your filter, calculation and grouping with these settings. The result contains Web, Partner and Store." width="754" height="885" loading="lazy"></a><figcaption>Compare your filter, calculation and grouping with these settings. The result contains Web, Partner and Store.</figcaption></figure>
+<figure><a href="../assets/guide-images/visual-query-en.jpg"><img src="../assets/guide-images/visual-query-en.jpg" alt="Compare your filter, calculation and grouping with these settings. The result contains Web, Partner and Store." loading="lazy"></a><figcaption>Compare your filter, calculation and grouping with these settings. The result contains Web, Partner and Store.</figcaption></figure>
 
 ## Save a chart
 
 1. Choose **Save analysis**, enter **Sales by channel** and choose a writable group. Your personal group works for this exercise. Choose a group your colleagues can open if they will use the saved analysis.
 2. On the saved analysis, choose **Column chart**. Use `channel` as the category and the summed amount as the value. Hover over the Web bar to check that it shows **300**. See [chart settings](charts.html) for axis and formatting options.
 
-<figure><a href="../assets/guide-images/chart-settings-en.jpg"><img src="../assets/guide-images/chart-settings-en.jpg" alt="The saved analysis shows Web at 300. Choose Column chart above the result and set channel and sum in the right-hand panel." width="1360" height="850" loading="lazy"></a><figcaption>The saved analysis shows Web at 300. Choose Column chart above the result and set channel and sum in the right-hand panel.</figcaption></figure>
+<figure><a href="../assets/guide-images/chart-settings-en.jpg"><img src="../assets/guide-images/chart-settings-en.jpg" alt="The saved analysis shows Web at 300. Choose Column chart above the result and set channel and sum in the right-hand panel." loading="lazy"></a><figcaption>The saved analysis shows Web at 300. Choose Column chart above the result and set channel and sum in the right-hand panel.</figcaption></figure>
 
 ## Put the answer on a dashboard
 

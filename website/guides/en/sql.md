@@ -30,9 +30,9 @@ To investigate one order, replace the query temporarily with `SELECT * FROM orde
 3. In the saved analysis, choose **Query parameters**, enter `Web` without quotes and run. You should see one row with **300**. Reopen **Query parameters**, clear the value and run again. All three channels should reappear.
 4. To require a channel on every run, use `AND channel = {{channel}}` without the optional brackets. A newly opened analysis with this required parameter waits for input. Use names such as `channel` or `start_date`. Leave the placeholder itself outside SQL string quotes so Topbase can bind the value.
 
-<figure><a href="../assets/guide-images/sql-parameters-en.jpg"><img src="../assets/guide-images/sql-parameters-en.jpg" alt="In the saved SQL analysis, the channel parameter takes Web as its value." width="480" height="272" loading="lazy"></a><figcaption>In the saved SQL analysis, the channel parameter takes Web as its value.</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-parameters-en.jpg"><img src="../assets/guide-images/sql-parameters-en.jpg" alt="In the saved SQL analysis, the channel parameter takes Web as its value." loading="lazy"></a><figcaption>In the saved SQL analysis, the channel parameter takes Web as its value.</figcaption></figure>
 
-<figure><a href="../assets/guide-images/sql-parameter-result-en.jpg"><img src="../assets/guide-images/sql-parameter-result-en.jpg" alt="Running the saved analysis with Web returns just that channel and revenue of 300." width="1150" height="755" loading="lazy"></a><figcaption>Running the saved analysis with Web returns just that channel and revenue of 300.</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-parameter-result-en.jpg"><img src="../assets/guide-images/sql-parameter-result-en.jpg" alt="Running the saved analysis with Web returns just that channel and revenue of 300." loading="lazy"></a><figcaption>Running the saved analysis with Web returns just that channel and revenue of 300.</figcaption></figure>
 
 ## Add a daily trend to the dashboard
 
@@ -48,7 +48,7 @@ ORDER BY order_date
 
 The result has three dates in October 2026. October 1 totals **200**, October 3 totals **300** and October 4 totals **180**. October 2 had only a refunded order, so there is no row for that day. Save as **Paid sales by day**. Set the chart to **Line chart**, with `order_date` on X and `revenue` on Y.
 
-<figure><a href="../assets/guide-images/sql-editor-en.jpg"><img src="../assets/guide-images/sql-editor-en.jpg" alt="The daily query returns three dates. Compare revenue in the preview before choosing a line chart." width="754" height="873" loading="lazy"></a><figcaption>The daily query returns three dates. Compare revenue in the preview before choosing a line chart.</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-editor-en.jpg"><img src="../assets/guide-images/sql-editor-en.jpg" alt="The daily query returns three dates. Compare revenue in the preview before choosing a line chart." loading="lazy"></a><figcaption>The daily query returns three dates. Compare revenue in the preview before choosing a line chart.</figcaption></figure>
 
 ## Reuse and troubleshoot a saved query
 

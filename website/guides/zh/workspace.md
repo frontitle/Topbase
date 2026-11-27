@@ -8,7 +8,7 @@
 2. 填写工作区名称、管理员姓名、登录邮箱及至少八位的密码，点击「创建工作区」。已有工作区可用管理员分配的账号登录。
 3. 进入「管理后台 → 设置 → 工作区」，将名称设成便于辨认的「销售报表中心」，选择默认时区，点击「保存更改」。已有任务及[数仓定时沉淀](warehouse.html)的执行时区，可在对应计划的列表中核对。
 
-<figure><a href="../assets/guide-images/workspace-settings-zh.jpg"><img src="../assets/guide-images/workspace-settings-zh.jpg" alt="在「工作区」页签设置名称和默认时区，使用右上角的按钮保存。" width="1360" height="850" loading="lazy"></a><figcaption>在「工作区」页签设置名称和默认时区，使用右上角的按钮保存。</figcaption></figure>
+<figure><a href="../assets/guide-images/workspace-settings-zh.jpg"><img src="../assets/guide-images/workspace-settings-zh.jpg" alt="在「工作区」页签设置名称和默认时区，使用右上角的按钮保存。" loading="lazy"></a><figcaption>在「工作区」页签设置名称和默认时区，使用右上角的按钮保存。</figcaption></figure>
 
 ## 生成同事可以打开的链接
 

@@ -14,7 +14,7 @@
 3. 进入「管理后台 → 数据 → 远程数据源」，点击「添加数据库」。数据库类型选择 **SQLite**，显示名称填 **Sales orders**。「数据库文件」填服务进程可见的绝对路径。按上例挂载时填 `/samples/orders.db`。SQLite 使用文件连接。
 4. 点击「测试连接」，通过后点击「保存数据库」。打开已保存的数据源，找到 **orders** 表。再进入「源数据 → Sales orders → orders」，确认能看到 **1001–1006** 六笔订单。接下来可以[制作第一张销售仪表盘](getting-started.html)。
 
-<figure><a href="../assets/guide-images/database-connect-zh.jpg"><img src="../assets/guide-images/database-connect-zh.jpg" alt="SQLite 测试通过后即可点击「保存数据库」。文件路径请填自己服务器上实际可读的位置。" width="680" height="720" loading="lazy"></a><figcaption>SQLite 测试通过后即可点击「保存数据库」。文件路径请填自己服务器上实际可读的位置。</figcaption></figure>
+<figure><a href="../assets/guide-images/database-connect-zh.jpg"><img src="../assets/guide-images/database-connect-zh.jpg" alt="SQLite 测试通过后即可点击「保存数据库」。文件路径请填自己服务器上实际可读的位置。" loading="lazy"></a><figcaption>SQLite 测试通过后即可点击「保存数据库」。文件路径请填自己服务器上实际可读的位置。</figcaption></figure>
 
 ## 连接网络数据库
 
@@ -48,4 +48,4 @@
 | 测试成功但没有目标表 | 确认库名和 schema，核对连接账号是否获准读取该表，再同步结构。 |
 | SQLite 看起来是空库，或文件打不开 | 核对文件全路径、名称和读取权限，使用 Docker 时检查挂载。下载文件应位于这次练习指定的样本目录。 |
 
-<figure><a href="../assets/guide-images/database-schema-zh.jpg"><img src="../assets/guide-images/database-schema-zh.jpg" alt="选择 main.orders 后可看到五个字段。「同步全部结构」刷新整个数据源的目录，「重新扫描此表」仅刷新所选表。" width="1360" height="850" loading="lazy"></a><figcaption>选择 main.orders 后可看到五个字段。「同步全部结构」刷新整个数据源的目录，「重新扫描此表」仅刷新所选表。</figcaption></figure>
+<figure><a href="../assets/guide-images/database-schema-zh.jpg"><img src="../assets/guide-images/database-schema-zh.jpg" alt="选择 main.orders 后可看到五个字段。「同步全部结构」刷新整个数据源的目录，「重新扫描此表」仅刷新所选表。" loading="lazy"></a><figcaption>选择 main.orders 后可看到五个字段。「同步全部结构」刷新整个数据源的目录，「重新扫描此表」仅刷新所选表。</figcaption></figure>

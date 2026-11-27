@@ -9,7 +9,7 @@
 3. 如需密码，勾选 **需要访问密码**，输入 8 至 128 个字符，再点击 **开启分享**。复制随后出现的 **公开链接**。
 4. 用无痕窗口打开链接。如有密码，输入后核对一张图表与登录状态下的数据。发送给访客的是这里复制的公开链接，后台编辑地址供工作区成员使用。
 
-<figure><a href="../assets/guide-images/dashboard-sharing-zh.jpg"><img src="../assets/guide-images/dashboard-sharing-zh.jpg" alt="有效期选七天并勾选访问密码。输入密码、启用分享后才会生成链接。" width="500" height="472" loading="lazy"></a><figcaption>有效期选七天并勾选访问密码。输入密码、启用分享后才会生成链接。</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-sharing-zh.jpg"><img src="../assets/guide-images/dashboard-sharing-zh.jpg" alt="有效期选「7 天」并勾选「需要访问密码」。输入密码后点击「开启分享」即可生成链接。" loading="lazy"></a><figcaption>有效期选「7 天」并勾选「需要访问密码」。输入密码后点击「开启分享」即可生成链接。</figcaption></figure>
 
 ## 修改有效期、密码或停止分享
 

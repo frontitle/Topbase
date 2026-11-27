@@ -11,7 +11,7 @@
 
 当结果中包含另一列分类字段，并且只有一个指标时，可通过 **添加分组** 将指标拆成多个系列。如果查询返回多列数值，则可以在没有额外分组时使用 **添加指标**。要查看各组内部不同系列所占的比例，可在堆叠设置里选择百分比。
 
-<figure><a href="../assets/guide-images/chart-settings-zh.jpg"><img src="../assets/guide-images/chart-settings-zh.jpg" alt="比较渠道时，选择「柱状图」，将 channel 映射到横轴、sum 映射到纵轴。" width="1360" height="850" loading="lazy"></a><figcaption>比较渠道时，选择「柱状图」，将 channel 映射到横轴、sum 映射到纵轴。</figcaption></figure>
+<figure><a href="../assets/guide-images/chart-settings-zh.jpg"><img src="../assets/guide-images/chart-settings-zh.jpg" alt="比较渠道时，选择「柱状图」，将 channel 映射到横轴、sum 映射到纵轴。" loading="lazy"></a><figcaption>比较渠道时，选择「柱状图」，将 channel 映射到横轴、sum 映射到纵轴。</figcaption></figure>
 
 ## 显示各渠道销售占比
 

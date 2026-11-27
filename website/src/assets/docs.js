@@ -16,14 +16,24 @@ document.querySelectorAll('.docs-content h2, .docs-content h3').forEach((heading
   toc.appendChild(link);
 });
 
-const menuButton = document.querySelector('.docs-header button');
-menuButton.addEventListener('click', () => {
-  menuButton.setAttribute('aria-expanded', String(document.body.classList.toggle('nav-open')));
+const chapterButton = document.querySelector('.docs-chapter-bar button[aria-controls="docs-nav"]');
+const chapterNav = document.getElementById('docs-nav');
+
+function setChaptersOpen(open) {
+  document.body.classList.toggle('nav-open', open);
+  chapterButton.setAttribute('aria-expanded', String(open));
+}
+
+chapterButton.addEventListener('click', () => {
+  setChaptersOpen(chapterButton.getAttribute('aria-expanded') !== 'true');
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && document.body.classList.contains('nav-open')) {
-    document.body.classList.remove('nav-open');
-    menuButton.setAttribute('aria-expanded', 'false');
-    menuButton.focus();
+    setChaptersOpen(false);
+    chapterButton.focus();
   }
 });
+document.addEventListener('focusin', event => {
+  if (event.target !== chapterButton && !chapterNav.contains(event.target)) setChaptersOpen(false);
+});
+matchMedia('(max-width: 900px)').addEventListener('change', () => setChaptersOpen(false));

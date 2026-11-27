@@ -4,8 +4,8 @@ How much did each channel earn from paid orders? Use the visual query editor to 
 
 ## Calculate paid sales by channel
 
-1. Open **Source data**, select the sample database, then select `orders`. The work area opens on **Visual query**. The first preview shows individual orders.
-2. Under **Filter**, add a condition on `status`, choose equality and select or enter `paid`. Under **Summarize → Calculate**, choose **Sum** and select `amount`. Leave **Group** empty and click **Run and preview**. The single value should be **680**.
+1. Open **Source data**, select the sample database, then select `orders`. Select **Show query editor** if it is collapsed, then choose **Visual query**. The first preview shows individual orders.
+2. Under **Filter**, add a condition on `status`, choose equality and select or enter `paid`. Under **Summarize → Calculate**, choose **Sum** and select `amount`. Leave **Group** empty and click **Run query**. The single value should be **680**.
 3. Set **Group** to `channel`. Open **Sort**, select the aggregated result `sum` and choose **Descending**. Run the query again. Each row now represents one channel.
 
 | Channel | Sum of paid order amounts |
@@ -16,7 +16,7 @@ How much did each channel earn from paid orders? Use the visual query editor to 
 
 4. Click **Save analysis**, enter **Sales by channel**, pick a group you can write to, and confirm. The saved analysis opens. Use **Edit** to change its query later. Run the query after changing the visual steps and before saving so the saved definition includes those changes.
 
-<figure><a href="../assets/guide-images/visual-query-en.jpg"><img src="../assets/guide-images/visual-query-en.jpg" alt="The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving." width="754" height="885" loading="lazy"></a><figcaption>The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving.</figcaption></figure>
+<figure><a href="../assets/guide-images/visual-query-en.jpg"><img src="../assets/guide-images/visual-query-en.jpg" alt="The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving." loading="lazy"></a><figcaption>The paid filter and sum of amount grouped by channel return three rows. Compare the totals before saving.</figcaption></figure>
 
 ## Choose what one row represents
 

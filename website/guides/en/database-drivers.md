@@ -11,14 +11,14 @@ Connect the database that holds the records you want to analyze. An administrato
    - ./samples:/samples:ro
    ```
 
-3. In **Administration → Data → Remote sources**, choose **Add database**. Set the database type to **SQLite** and the display name to **Sales orders**. In **Database file**, enter the absolute path visible to the running service. For the mount above, enter `/samples/orders.db`. SQLite only needs a file path.
-4. Choose **Test connection**, then **Save database**. Open the saved source and look for **orders**. Under **Source data → Sales orders → orders**, verify that you can see orders **1001–1006**. Continue with [the dashboard tutorial](getting-started.html).
+3. In **Admin → Data → Connections**, choose **Add connection**. Set the database type to **SQLite** and the display name to **Sales orders**. In **Database file**, enter the absolute path visible to the running service. For the mount above, enter `/samples/orders.db`. SQLite only needs a file path.
+4. Choose **Test connection**, then **Save connection**. Open the saved source and look for **orders**. Under **Source data → Sales orders → orders**, verify that you can see orders **1001–1006**. Continue with [the dashboard tutorial](getting-started.html).
 
-<figure><a href="../assets/guide-images/database-connect-en.jpg"><img src="../assets/guide-images/database-connect-en.jpg" alt="After the SQLite connection passes its test, Save database becomes available. Use the file path on your own server." width="680" height="720" loading="lazy"></a><figcaption>After the SQLite connection passes its test, Save database becomes available. Use the file path on your own server.</figcaption></figure>
+<figure><a href="../assets/guide-images/database-connect-en.jpg"><img src="../assets/guide-images/database-connect-en.jpg" alt="After the SQLite connection passes its test, Save connection becomes available. Use the file path on your own server." loading="lazy"></a><figcaption>After the SQLite connection passes its test, Save connection becomes available. Use the file path on your own server.</figcaption></figure>
 
 ## Set up a network database
 
-Use the same **Add database** dialog. For example, to connect a PostgreSQL database, select **PostgreSQL**, give it the display name **Sales reporting**, enter the hostname your administrator provided, port **5432**, the database name (such as `sales`), and the credentials of the reporting account. Use the database's actual listener port if it differs from the default.
+Use the same **Add connection** dialog. For example, to connect a PostgreSQL database, select **PostgreSQL**, give it the display name **Sales reporting**, enter the hostname your administrator provided, port **5432**, the database name (such as `sales`), and the credentials of the reporting account. Use the database's actual listener port if it differs from the default.
 
 | Driver | Default port in the form | What to enter |
 | --- | ---: | --- |
@@ -36,11 +36,11 @@ The **display name** is what your team sees in Topbase. **Server address** and *
 - **SSL and advanced** controls the transport setting for a network driver. Choose the mode required by the database administrator. The form offers automatic/preferred encryption, required encryption, encryption without certificate verification, and disabled encryption. Driver support and server configuration determine which connection succeeds.
 - **Connection string** accepts a driver-specific DSN. When supplied, it overrides the individual host, port, database and account fields. If you change a field and the test still reaches the old endpoint, check for an existing DSN. Keep DSNs containing passwords out of screenshots and messages.
 - **SSH jump host** is for network databases reached through a bastion. Keep the database's internal hostname and listener port in the connection tab. In the SSH tab enter the bastion hostname, its SSH port (default **22**) and the SSH username. Select password or private key authentication. An encrypted key also needs its passphrase. Enter the bastion's trusted SHA256 host-key fingerprint to verify the server.
-- **Test connection** enables **Save database** on success. Editing connection settings requires a fresh test. When modifying a saved source, test and choose **Save and rescan**.
+- **Test connection** enables **Save connection** on success. Editing connection settings requires a fresh test. When modifying a saved source, test and choose **Save and rescan**.
 
 ## Inspect the catalog or diagnose missing tables
 
-Open the connection under **Administration → Data → Remote sources**. Use **Sync schema** to refresh the table list, select a table to inspect fields and types, or choose **Rescan table** after a column change. Then reopen it under [Source data](browse.html) to check actual rows.
+Open the connection under **Admin → Data → Connections**. Use **Sync schema** to refresh the table list, select a table to inspect fields and types, or choose **Rescan table** after a column change. Then reopen it under [Source data](browse.html) to check actual rows.
 
 | Symptom | First check |
 | --- | --- |
@@ -48,4 +48,4 @@ Open the connection under **Administration → Data → Remote sources**. Use **
 | Test succeeds but the table is missing | Confirm the selected database and schema, grant the connection account access to the table, then refresh the schema. |
 | SQLite opens an empty source or cannot open the file | Check the full path, filename, file permissions and Docker mount. The download belongs in the sample/data directory you created for this exercise. |
 
-<figure><a href="../assets/guide-images/database-schema-en.jpg"><img src="../assets/guide-images/database-schema-en.jpg" alt="Selecting main.orders reveals its five fields. Sync schema refreshes the source catalog, while Rescan table refreshes the selected table." width="1360" height="850" loading="lazy"></a><figcaption>Selecting main.orders reveals its five fields. Sync schema refreshes the source catalog, while Rescan table refreshes the selected table.</figcaption></figure>
+<figure><a href="../assets/guide-images/database-schema-en.jpg"><img src="../assets/guide-images/database-schema-en.jpg" alt="Selecting main.orders reveals its five fields. Sync schema refreshes the source catalog, while Rescan table refreshes the selected table." loading="lazy"></a><figcaption>Selecting main.orders reveals its five fields. Sync schema refreshes the source catalog, while Rescan table refreshes the selected table.</figcaption></figure>

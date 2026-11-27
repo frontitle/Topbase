@@ -9,7 +9,7 @@
 3. 初次配置可保留平台默认样式。自定义标题或正文时，用 `{{title}}` 和 `{{body}}` 引用实际通知内容。自定义 JSON 需要填写目标平台接受的合法 JSON 对象。消息卡片要能打开仪表盘，还需在 **设置 → 访问与安全 → 域名与 SSL** 配置访问域名。
 4. 启用通道并发送测试。在实际群聊确认收到消息，再创建订阅。
 
-<figure><a href="../assets/guide-images/webhook-channel-zh.jpg"><img src="../assets/guide-images/webhook-channel-zh.jpg" alt="新建 Slack 通道时，填写目标聊天的 Webhook 地址，选择消息格式后保存。" width="480" height="606" loading="lazy"></a><figcaption>新建 Slack 通道时，填写目标聊天的 Webhook 地址，选择消息格式后保存。</figcaption></figure>
+<figure><a href="../assets/guide-images/webhook-channel-zh.jpg"><img src="../assets/guide-images/webhook-channel-zh.jpg" alt="新建 Slack 通道时，填写目标聊天的 Webhook 地址，选择消息格式后保存。" loading="lazy"></a><figcaption>新建 Slack 通道时，填写目标聊天的 Webhook 地址，选择消息格式后保存。</figcaption></figure>
 
 ## 选择目标平台并获取地址
 

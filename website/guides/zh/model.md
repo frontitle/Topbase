@@ -9,7 +9,7 @@
 3. 将 **表显示名称（别称）** 填为「订单明细」。在 **业务备注** 中填写「每行代表一笔订单。金额包含全部状态，统计已支付销售额时请筛选 status 为 paid。」工作台优先显示业务备注，编辑器里也可以查看源数据库的表注释。
 4. 输入后稍候，让自动保存完成。重新打开该表，核对别称和备注。字段较多时，可点击字段列表上方的 **全屏编辑**，按 **Esc** 返回。
 
-<figure><a href="../assets/guide-images/data-model-zh.jpg"><img src="../assets/guide-images/data-model-zh.jpg" alt="元数据编辑器在字段列表上方显示表别名和业务说明，字段列表左侧是原始字段名。" width="1360" height="850" loading="lazy"></a><figcaption>元数据编辑器在字段列表上方显示表别名和业务说明，字段列表左侧是原始字段名。</figcaption></figure>
+<figure><a href="../assets/guide-images/data-model-zh.jpg"><img src="../assets/guide-images/data-model-zh.jpg" alt="元数据编辑器在字段列表上方显示表别名和业务说明，字段列表左侧是原始字段名。" loading="lazy"></a><figcaption>元数据编辑器在字段列表上方显示表别名和业务说明，字段列表左侧是原始字段名。</figcaption></figure>
 
 ## 为字段设置业务含义
 

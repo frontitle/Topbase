@@ -5,12 +5,12 @@
 ## 添加人员并授予项目角色
 
 1. 管理员打开 **管理后台 → 人员与组**（`/admin/people/`）。若对方还没有本地账号，先点 **添加成员**，填写姓名和邮箱。
-2. 点击 **新建分组**，命名为「销售只读组」，再点 **创建分组**。切换到 **权限分组** 标签，在该组的卡片上点击 **管理分组**。
+2. 点击 **新建分组**，命名为「Sales readers」（销售只读组），再点 **创建分组**。切换到 **权限分组** 标签，在该组的卡片上点击 **管理分组**。
 3. 在 **分组成员** 中选择一个普通成员，按下表设置四项工作区能力。系统组和同步组的成员由各自的来源维护。
 4. 在同一窗口找到标有 **数据组 · 项目名** 的下拉框，为销售仪表盘所在项目选择 **查看**。每个已有团队数据组各有一项，可选 **不授予、查看、编辑、管理**。
 5. 点击 **保存分组配置**。重新打开 **管理分组**，核对成员、全局权限与项目角色。内置管理员组具有固定权限。
 
-<figure><a href="../assets/guide-images/permissions-zh.jpg"><img src="../assets/guide-images/permissions-zh.jpg" alt="分组弹窗列出了成员和工作区权限。图中 Sales analysts 分组尚未授予访问权限。" width="620" height="648" loading="lazy"></a><figcaption>分组弹窗列出了成员和工作区权限。图中 Sales analysts 分组尚未授予访问权限。</figcaption></figure>
+<figure><a href="../assets/guide-images/permissions-zh.jpg"><img src="../assets/guide-images/permissions-zh.jpg" alt="分组弹窗列出了成员和工作区权限。图中 Sales readers 分组尚未授予访问权限。" loading="lazy"></a><figcaption>分组弹窗列出了成员和工作区权限。图中 Sales readers 分组尚未授予访问权限。</figcaption></figure>
 
 ## 四项权限如何选择
 

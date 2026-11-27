@@ -4,12 +4,12 @@ Use **Share** at the top of an open dashboard to give guests a read-only view. S
 
 ## Publish a seven-day link
 
-1. A workspace administrator opens **Administration → Settings → Access and security → Public access**, allows public dashboard links and saves. If guests will access Topbase from another network, configure the external site address under **Settings → Access and security → Domain and SSL**.
+1. A workspace administrator opens **Admin → Settings → Access and security → Public access**, allows public dashboard links and saves. If guests will access Topbase from another network, configure the external site address under **Settings → Access and security → Domain and SSL**.
 2. As someone with permission to manage this dashboard, open **Share** and switch on public sharing. Choose **7 days** for a weekly review. The other choices are permanent, 1 day, 30 days or a custom future deadline in local time.
 3. To require a password, select **Require access password** and enter 8 to 128 characters. Click **Enable sharing**. Copy the public link that appears.
 4. Open the link in a private browser window. Enter the password if prompted, then compare a chart with the signed-in dashboard. Send the guest the public URL. The editing URL belongs to the workspace.
 
-<figure><a href="../assets/guide-images/dashboard-sharing-en.jpg"><img src="../assets/guide-images/dashboard-sharing-en.jpg" alt="Set a seven-day lifetime and select Require access password. The link is created after the password is entered and sharing is enabled." width="500" height="464" loading="lazy"></a><figcaption>Set a seven-day lifetime and select Require access password. The link is created after the password is entered and sharing is enabled.</figcaption></figure>
+<figure><a href="../assets/guide-images/dashboard-sharing-en.jpg"><img src="../assets/guide-images/dashboard-sharing-en.jpg" alt="Set a seven-day lifetime and select Require access password. The link is created after the password is entered and sharing is enabled." loading="lazy"></a><figcaption>Set a seven-day lifetime and select Require access password. The link is created after the password is entered and sharing is enabled.</figcaption></figure>
 
 ## Change access for an existing link
 

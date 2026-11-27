@@ -4,7 +4,7 @@
 
 ## 按渠道计算已支付销售额
 
-1. 打开 **源数据**，选择示例数据库，再点击 `orders` 表。工作区默认进入 **可视化查询**，下方可以看到逐笔订单。
+1. 打开 **源数据**，选择示例数据库，再点击 `orders` 表。如果编辑器已收起，点击 **展开查询编辑器**，再选择 **可视化查询**。下方可以看到逐笔订单。
 2. 在 **筛选** 中添加 `status` 条件，选择等于，勾选或输入 `paid`。在 **汇总 → 计算** 中选 **求和**，字段选 `amount`，**分组** 暂时留空。点击 **运行并预览**，应得到总额 **680**。
 3. 将 **分组** 改为 `channel`。打开 **排序**，选择汇总结果 `sum`，方向选 **降序**。再次运行，现在每一行代表一个渠道。
 
@@ -16,7 +16,7 @@
 
 4. 点击 **保存分析**，命名为「Sales by channel」，选择可写入的分组并确认。保存后会打开分析详情。以后可通过 **编辑** 修改查询。每次改好可视化步骤后，先运行，再保存，才能把最新查询写入分析。
 
-<figure><a href="../assets/guide-images/visual-query-zh.jpg"><img src="../assets/guide-images/visual-query-zh.jpg" alt="按 paid 筛选后对 amount 求和，并按 channel 分组，预览返回三行。保存前可在此核对各渠道金额。" width="754" height="876" loading="lazy"></a><figcaption>按 paid 筛选后对 amount 求和，并按 channel 分组，预览返回三行。保存前可在此核对各渠道金额。</figcaption></figure>
+<figure><a href="../assets/guide-images/visual-query-zh.jpg"><img src="../assets/guide-images/visual-query-zh.jpg" alt="按 paid 筛选后对 amount 求和，并按 channel 分组，预览返回三行。保存前可在此核对各渠道金额。" loading="lazy"></a><figcaption>按 paid 筛选后对 amount 求和，并按 channel 分组，预览返回三行。保存前可在此核对各渠道金额。</figcaption></figure>
 
 ## 决定每行结果代表什么
 

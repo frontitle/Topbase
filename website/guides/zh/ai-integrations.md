@@ -8,7 +8,7 @@
 2. 进入 **个人中心 → AI 与 API**，点击 **创建密钥**，按客户端命名。完整密钥仅显示一次，此时保存到客户端的密钥存储。日后在同一页面撤销，该客户端会立即失去访问权限。
 3. 在运行客户端的电脑上，通过环境变量或密钥存储提供 `TOPBASE_URL`（实例访问地址）和 `TOPBASE_API_KEY`。源码目录执行 `make build` 后，工具位于 `bin/topbase-cli` 和 `bin/topbase-mcp`。Docker 镜像中的工具位于 `/app/`。
 
-<figure><a href="../assets/guide-images/ai-settings-zh.jpg"><img src="../assets/guide-images/ai-settings-zh.jpg" alt="启用前的开发者设置页，可配置查询行数上限和密钥有效期，再保存设置。" width="980" height="621" loading="lazy"></a><figcaption>启用前的开发者设置页，可配置查询行数上限和密钥有效期，再保存设置。</figcaption></figure>
+<figure><a href="../assets/guide-images/ai-settings-zh.jpg"><img src="../assets/guide-images/ai-settings-zh.jpg" alt="打开开发者模式后，设置查询行数上限和新密钥的默认有效期，再点击「保存开发者设置」。" loading="lazy"></a><figcaption>打开开发者模式后，设置查询行数上限和新密钥的默认有效期，再点击「保存开发者设置」。</figcaption></figure>
 
 在 Bash 或 Zsh 中，将示例网址改为自己的实例地址，执行以下命令，在提示时粘贴密钥。密钥不会出现在命令历史中。
 

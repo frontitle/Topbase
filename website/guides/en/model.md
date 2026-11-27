@@ -4,12 +4,12 @@ A reader seeing `amount` needs to know whether a refunded order is included. An 
 
 ## Open the metadata editor
 
-1. Open **Administration → Data model**. For the sample database, select **Remote sources**, choose **Sales orders** under **Data source**, search for `orders` and click the table. The remote-sources tab includes configured database connections such as the sample SQLite file. For an uploaded Excel dataset, choose **Local warehouse** and select the imported dataset.
+1. Open **Admin → Data model**. For the sample database, select **Connections**, choose **Sales orders** under **Select a data source**, search for `orders` and click the table. The Connections tab includes configured database connections such as the sample SQLite file. For an uploaded Excel dataset, choose **Local warehouse** and select the imported dataset.
 2. You can also open a connected table from **Source data** and click **Edit metadata**. This administrator shortcut opens the corresponding database, schema and table. Compare the physical name above the editor with the table you intend to describe.
 3. Enter **Order details** under **Table alias**. Under **Business notes**, enter “One row per order. Amount includes all statuses. Filter status to paid to report paid sales.” Topbase shows this note in preference to the source table comment in the workspace.
 4. Pause after typing to allow the automatic save to finish. Reopen the table to check the alias and note. Use **Full screen** above the fields for a wider editor and **Esc** to return.
 
-<figure><a href="../assets/guide-images/data-model-en.jpg"><img src="../assets/guide-images/data-model-en.jpg" alt="The data model editor shows a table alias and business note above the field grid. The physical field names are listed on the left." width="1360" height="850" loading="lazy"></a><figcaption>The data model editor shows a table alias and business note above the field grid. The physical field names are listed on the left.</figcaption></figure>
+<figure><a href="../assets/guide-images/data-model-en.jpg"><img src="../assets/guide-images/data-model-en.jpg" alt="The data model editor shows a table alias and business note above the field grid. The physical field names are listed on the left." loading="lazy"></a><figcaption>The data model editor shows a table alias and business note above the field grid. The physical field names are listed on the left.</figcaption></figure>
 
 ## Give fields a business meaning
 

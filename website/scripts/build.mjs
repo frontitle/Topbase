@@ -1,8 +1,10 @@
-import {access, cp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {access, cp, mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {basename, dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {marked} from 'marked';
+import {imageSize} from 'image-size';
+import {siteChrome} from './site-chrome.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const website = dirname(here);
@@ -26,45 +28,23 @@ await cp(join(output, 'assets'), join(chinese, 'assets'), {
   recursive: true,
   filter: path => !['guide-images', 'samples'].includes(basename(path)),
 });
-function homeNavigation(english) {
-  const navLabel = english ? 'Main navigation' : '主导航';
-  const start = english ? 'Get started' : '开始使用';
-  const links = [
-    ['#product', english ? 'Product' : '产品'],
-    ['#workflow', english ? 'Workflow' : '工作方式'],
-    ['docs/', english ? 'Docs' : '文档'],
-    ['https://github.com/frontitle/Topbase', 'GitHub'],
-  ].map(([href, label]) => `<a href="${href}">${label}</a>`).join('\n');
-  const languages = [
-    {lang: 'en', label: 'EN', name: 'English', href: '../', current: english},
-    {lang: 'zh-CN', label: '中文', name: '简体中文', href: 'zh/', current: !english},
-  ].map(({lang, label, name, href, current}) => current
-    ? `<span lang="${lang}" aria-current="page" title="${name}">${label}</span>`
-    : `<a href="${href}" lang="${lang}" hreflang="${lang}" aria-label="${name}" title="${name}">${label}</a>`
-  ).join('');
-  return `<header class="site-header">
-    <div class="header-inner shell">
-      <a class="brand" href="./" aria-label="${english ? 'Topbase homepage' : 'Topbase 首页'}"><img src="assets/topbase-logo.png" alt=""><span>Topbase</span></a>
-      <nav class="primary-nav" aria-label="${navLabel}">${links}</nav>
-      <nav class="language-switch" aria-label="${english ? 'Language' : '语言'}">${languages}</nav>
-      <a class="header-start button button-small button-dark" href="docs/getting-started.html">${start}</a>
-      <details class="mobile-nav">
-        <summary aria-label="${english ? 'Navigation menu' : '导航菜单'}"><span class="menu-bars" aria-hidden="true"></span></summary>
-        <nav aria-label="${navLabel}">${links}<a class="mobile-start" href="docs/getting-started.html">${start}</a></nav>
-      </details>
-    </div>
-  </header>`;
+const fingerprint = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+const revisions = new Map();
+for (const name of ['styles.css', 'home-layout.css', 'site.js', 'docs.css', 'docs.js']) {
+  revisions.set(name, fingerprint(await readFile(join(source, 'assets', name))));
 }
-const homeAssets = ['styles.css', 'home-layout.css', 'site.js'];
-const homeAssetUrls = await Promise.all(homeAssets.map(async name => {
-  const bytes = await readFile(join(source, 'assets', name));
-  const revision = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
-  return [`"assets/${name}"`, `"assets/${name}?v=${revision}"`];
-}));
+function assetUrl(name, base = 'assets/') {
+  return base + name + '?v=' + revisions.get(name);
+}
 for (const english of [true, false]) {
   const template = await readFile(join(source, english ? 'home-en.html' : 'index.html'), 'utf8');
-  let home = template.replace('<!-- homepage navigation -->', homeNavigation(english)).replaceAll('__VERSION__', version);
-  for (const [asset, url] of homeAssetUrls) home = home.replace(asset, url);
+  let home = template.replaceAll('__VERSION__', version);
+  for (const [part, html] of Object.entries(siteChrome({english, version}))) {
+    home = home.replace(`<!-- site ${part} -->`, html);
+  }
+  for (const asset of ['styles.css', 'home-layout.css', 'site.js']) {
+    home = home.replace(`"assets/${asset}"`, `"${assetUrl(asset)}"`);
+  }
   await writeFile(english ? indexPath : join(chinese, 'index.html'), home);
 }
 await rm(join(output, 'home-en.html'));
@@ -80,6 +60,15 @@ const sections = [
 ];
 const slugs = sections.flatMap(section => section.slugs);
 const illustrations = new Map();
+// Capture guides at 2× device scale. Reserve the original layout size before image load.
+const screenshots = new Map();
+const imageDir = join(source, 'assets', 'guide-images');
+for (const name of await readdir(imageDir)) {
+  if (!name.endsWith('.jpg')) continue;
+  const bytes = await readFile(join(imageDir, name));
+  const {width, height} = imageSize(bytes);
+  screenshots.set(name, {revision: fingerprint(bytes), width: Math.round(width / 2), height: Math.round(height / 2)});
+}
 for (const locale of ['en', 'zh']) {
   const english = locale === 'en';
   const folder = join(english ? output : chinese, 'docs');
@@ -119,15 +108,26 @@ for (const locale of ['en', 'zh']) {
   ).join('\n');
   for (const chapter of chapters) {
     const route = chapter.slug + '.html';
-    const alternate = (english ? '../zh/docs/' : '../../docs/') + route;
+    const {header, install, footer} = siteChrome({english, version, chapter: route});
+    const guideLabel = english ? 'User guide' : '使用手册';
     const assetBase = english ? '../assets/' : '../../assets/';
-    const content = (await marked.parse(chapter.markdown)).replaceAll('../assets/samples/', assetBase + 'samples/').replaceAll('../assets/guide-images/', assetBase + 'guide-images/');
+    const content = (await marked.parse(chapter.markdown))
+      .replaceAll('../assets/samples/', assetBase + 'samples/')
+      .replace(/(src|href)="\.\.\/assets\/guide-images\/([^"]+)"/g, (_, attr, name) => {
+        const {width, height, revision} = screenshots.get(name);
+        const link = `${attr}="${assetBase}guide-images/${name}?v=${revision}"`;
+        return attr === 'src' ? `${link} width="${width}" height="${height}"` : link;
+      });
     await writeFile(join(folder, route), `<!doctype html>
 <html lang="${english ? 'en' : 'zh-CN'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${chapter.title} | Topbase Docs</title><link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/docs.css"></head>
-<body class="docs-body"><header class="docs-header"><a class="brand" href="../"><img src="../assets/topbase-logo.png" alt="">Topbase Docs</a>
-<a href="${alternate}" lang="${english ? 'zh-CN' : 'en'}">${english ? '简体中文' : 'English'}</a><button type="button" aria-expanded="false" aria-controls="docs-nav">${english ? 'Contents' : '目录'}</button></header>
-<div class="docs-layout"><aside id="docs-nav"><nav aria-label="${english ? 'User guide' : '使用手册'}">${nav}</nav></aside><main class="docs-content">${content}</main>
-<div class="docs-toc">${english ? 'On this page' : '本页目录'}<nav id="toc"></nav></div></div><script src="../assets/docs.js"></script></body></html>`);
+<title>${chapter.title} | Topbase Docs</title><link rel="icon" href="${assetBase}topbase-logo.png">
+${['styles.css', 'home-layout.css', 'docs.css'].map(name => `<link rel="stylesheet" href="${assetUrl(name, assetBase)}">`).join('\n')}</head>
+<body class="docs-body" id="top">${header}
+<nav class="docs-chapter-bar" aria-label="${guideLabel}"><a href="./">${guideLabel}</a><button type="button" aria-expanded="false" aria-controls="docs-nav">${english ? 'Chapters' : '章节目录'}</button></nav>
+<div class="docs-layout"><aside id="docs-nav"><nav aria-label="${guideLabel}">${nav}</nav></aside><main class="docs-content">${content}</main>
+<div class="docs-toc">${english ? 'On this page' : '本页目录'}<nav id="toc"></nav></div></div>
+${install}
+${footer}
+<script src="${assetUrl('docs.js', assetBase)}"></script><script src="${assetUrl('site.js', assetBase)}"></script></body></html>`);
   }
 }

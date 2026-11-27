@@ -19,7 +19,7 @@
 3. 在本地数仓列表找到 **orders**。数据集名称取自文件名。卡片应显示来源文件 **orders.xlsx**、工作表 **orders**、**6 行**和 **5 个字段**。
 4. 点击「预览记录」。找到订单 **1003**，核对其 `amount` 为 **50**、`status` 为 **refunded**，确认表头与单元格没有错位。
 
-<figure><a href="../assets/guide-images/excel-library-zh.jpg"><img src="../assets/guide-images/excel-library-zh.jpg" alt="「本地数仓」中的 orders 卡片列出文件名、工作表名和行列数，右上角是「上传 Excel」入口。" width="1360" height="850" loading="lazy"></a><figcaption>「本地数仓」中的 orders 卡片列出文件名、工作表名和行列数，右上角是「上传 Excel」入口。</figcaption></figure>
+<figure><a href="../assets/guide-images/excel-library-zh.jpg"><img src="../assets/guide-images/excel-library-zh.jpg" alt="「本地数仓」中的 orders 卡片列出文件名、工作表名和行列数，右上角是「上传 Excel」入口。" loading="lazy"></a><figcaption>「本地数仓」中的 orders 卡片列出文件名、工作表名和行列数，右上角是「上传 Excel」入口。</figcaption></figure>
 
 ## 读懂预览并修正导入结果
 
@@ -32,4 +32,4 @@
 | 列表里出现了两个同名数据集 | 每次上传都会创建独立副本。可给修订文件换个名字，重新上传并预览，确认无误后用「删除」移除旧副本。删除操作仅清理 Topbase 内的导入数据。 |
 | 想对这些订单做 SQL 查询或制图 | Excel 导入结果可在本地数仓预览。查询编辑器和 SQL 使用已连接的数据库。下载[同一批订单的 SQLite 文件](../assets/samples/orders.db)，按[创建第一张销售仪表盘](getting-started.html)继续。 |
 
-<figure><a href="../assets/guide-images/excel-preview-zh.jpg"><img src="../assets/guide-images/excel-preview-zh.jpg" alt="在工作表预览中可以找到已退款的 Web 订单 1003，金额为 50。" width="900" height="424" loading="lazy"></a><figcaption>在工作表预览中可以找到已退款的 Web 订单 1003，金额为 50。</figcaption></figure>
+<figure><a href="../assets/guide-images/excel-preview-zh.jpg"><img src="../assets/guide-images/excel-preview-zh.jpg" alt="在工作表预览中可以找到已退款的 Web 订单 1003，金额为 50。" loading="lazy"></a><figcaption>在工作表预览中可以找到已退款的 Web 订单 1003，金额为 50。</figcaption></figure>

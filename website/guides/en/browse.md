@@ -5,17 +5,17 @@ Use the table browser when you want to see the records behind a number. You can 
 ## Open a table
 
 1. In the workspace, open **Source data**. Search for the database by its connection name and select its card. If you need a sample, use the database in [Getting started](getting-started.html).
-2. Use **Search tables** in the left panel. You can search by table name, alias or column name. Tables are grouped under their database schema. Select `orders` and check the schema and physical table name under **Data**.
+2. Use **Search tables** above the table browser. You can search by table name, alias or column name. Tables are grouped under their database schema. Select `orders` and check the schema and physical table name under **Data**.
 3. Wait for the row count beneath the query editor. Opening a table runs a read-only preview with a default limit of 1,000 rows. A count of 1,000 in a large table tells you how many rows came back. For the table's full row count, run **Summarize → Row count** with no filters or grouping.
 
-**Source data** queries a connected database when you run the query. An administrator can preview an uploaded Excel worksheet separately under **Administration → Data → Local warehouse**. To try these query steps with the same spreadsheet records, connect the sample SQLite database. See [Upload and preview an Excel worksheet](excel.html).
+**Source data** queries a connected database when you run the query. An administrator can preview an uploaded Excel worksheet separately under **Admin → Data → Local warehouse**. To try these query steps with the same spreadsheet records, connect the sample SQLite database. See [Upload and preview an Excel worksheet](excel.html).
 
-<figure><a href="../assets/guide-images/browse-orders-en.jpg"><img src="../assets/guide-images/browse-orders-en.jpg" alt="The source browser shows the six orders in main.orders. Expand the query editor above the rows to add a filter." width="1360" height="850" loading="lazy"></a><figcaption>The source browser shows the six orders in main.orders. Expand the query editor above the rows to add a filter.</figcaption></figure>
+<figure><a href="../assets/guide-images/browse-orders-en.jpg"><img src="../assets/guide-images/browse-orders-en.jpg" alt="The source browser shows the six orders in main.orders. Click Show query editor above the rows to add a filter." loading="lazy"></a><figcaption>The source browser shows the six orders in main.orders. Click Show query editor above the rows to add a filter.</figcaption></figure>
 
 ## Inspect the records for one channel
 
 1. Open **Visual query → Data** and expand the field list. Select `order_id`, `channel`, `amount` and `status`. Clear the fields you do not need.
-2. Under **Filter**, add `channel` equal to `Web` and `status` equal to `paid`. Keep **Calculate** on **No aggregation**. Click **Run and preview**.
+2. Under **Filter**, add `channel` equal to `Web` and `status` equal to `paid`. Keep **Calculate** on **No aggregation**. Click **Run query**.
 3. Read the order IDs and amounts in the result. In the sample, the visible amounts should add up to **300**. To verify that in the database, change **Calculate** to **Sum**, select `amount`, leave **Group** empty and run again.
 4. To export individual orders, restore **No aggregation** and run again before saving. Use **Sort** if the CSV needs a particular ordering. For a larger dataset, check the **Row limit** before interpreting the result as all matching orders.
 

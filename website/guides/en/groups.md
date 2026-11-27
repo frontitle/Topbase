@@ -8,7 +8,7 @@ Use a personal group to organize reports you own, or a team project when several
 2. In the analysis groups area, open **Sales reporting**. Choose **New subgroup**, enter **Monthly** and create it. The group page lists its subgroups, saved analyses and dashboards.
 3. Open the saved **Sales by channel** analysis. Choose **Move to group**, select **Monthly** under the group you created and confirm. Check the group name above the analysis, then reopen **Monthly** and find the analysis there. Existing dashboard cards can continue to reference it.
 
-<figure><a href="../assets/guide-images/analysis-library-en.jpg"><img src="../assets/guide-images/analysis-library-en.jpg" alt="The Analyses page shows the Sales reporting group above the search field and the two saved analyses below it." width="1360" height="850" loading="lazy"></a><figcaption>The Analyses page shows the Sales reporting group above the search field and the two saved analyses below it.</figcaption></figure>
+<figure><a href="../assets/guide-images/analysis-library-en.jpg"><img src="../assets/guide-images/analysis-library-en.jpg" alt="The Analyses page shows the Sales reporting group above the search field and the two saved analyses below it." loading="lazy"></a><figcaption>The Analyses page shows the Sales reporting group above the search field and the two saved analyses below it.</figcaption></figure>
 
 ## Give someone access
 

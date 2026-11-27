@@ -8,7 +8,7 @@
 2. 在「界面语言」选择 **English** 或 **简体中文**，点击「保存个人资料」。重新打开账户菜单，核对姓名和语言。自行填写的分析名、表名、仪表盘名保留原文。
 3. 更换登录邮箱时，输入新地址，在出现的验证栏填写当前密码并保存。下次登录使用更新后的邮箱。
 
-<figure><a href="../assets/guide-images/account-profile-zh.jpg"><img src="../assets/guide-images/account-profile-zh.jpg" alt="在「资料与头像」中修改姓名、邮箱或界面语言，再保存个人资料。" width="1360" height="850" loading="lazy"></a><figcaption>在「资料与头像」中修改姓名、邮箱或界面语言，再保存个人资料。</figcaption></figure>
+<figure><a href="../assets/guide-images/account-profile-zh.jpg"><img src="../assets/guide-images/account-profile-zh.jpg" alt="在「资料与头像」中修改姓名、邮箱或界面语言，再保存个人资料。" loading="lazy"></a><figcaption>在「资料与头像」中修改姓名、邮箱或界面语言，再保存个人资料。</figcaption></figure>
 
 ## 修改密码
 

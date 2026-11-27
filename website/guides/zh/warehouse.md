@@ -18,11 +18,11 @@
 3. **保存表名** 填 `paid_sales_by_channel`。表名允许 1 至 60 个字母、数字或下划线。Topbase 会转为小写，在 `warehouse.wh_*` 下创建托管表。
 4. **更新频率** 选 **每天 09:00**，**保存方式** 选 **全量刷新**。从此入口建立的计划使用 **Asia/Shanghai（UTC+8）**，创建后可在计划列表查看时区。也可选择每小时或每周一 09:00。全量刷新时水位字段留空。
 
-<figure><a href="../assets/guide-images/warehouse-schedule-zh.jpg"><img src="../assets/guide-images/warehouse-schedule-zh.jpg" alt="PostgreSQL 示例选择每天全量刷新 paid_sales_by_channel，水位字段留空。" width="620" height="700" loading="lazy"></a><figcaption>PostgreSQL 示例选择每天全量刷新 paid_sales_by_channel，水位字段留空。</figcaption></figure>
+<figure><a href="../assets/guide-images/warehouse-schedule-zh.jpg"><img src="../assets/guide-images/warehouse-schedule-zh.jpg" alt="PostgreSQL 示例选择每天全量刷新 paid_sales_by_channel，水位字段留空。" loading="lazy"></a><figcaption>PostgreSQL 示例选择每天全量刷新 paid_sales_by_channel，水位字段留空。</figcaption></figure>
 
 5. 点击 **创建并立即沉淀**。成功后列表显示实际表名、已保存行数、来源、计划及最后运行时间。点击该行的 **创建分析** 检查结果，应有三个渠道，金额分别为 **300、200、180**，合计 **680**。
 
-<figure><a href="../assets/guide-images/warehouse-results-zh.jpg"><img src="../assets/guide-images/warehouse-results-zh.jpg" alt="沉淀成功后的列表显示已保存三行及物理目标表。点击「创建分析」可核对各渠道金额。" width="1360" height="850" loading="lazy"></a><figcaption>沉淀成功后的列表显示已保存三行及物理目标表。点击「创建分析」可核对各渠道金额。</figcaption></figure>
+<figure><a href="../assets/guide-images/warehouse-results-zh.jpg"><img src="../assets/guide-images/warehouse-results-zh.jpg" alt="沉淀成功后的列表显示已保存三行及物理目标表。点击「创建分析」可核对各渠道金额。" loading="lazy"></a><figcaption>沉淀成功后的列表显示已保存三行及物理目标表。点击「创建分析」可核对各渠道金额。</figcaption></figure>
 
 ## 选择后续写入方式
 

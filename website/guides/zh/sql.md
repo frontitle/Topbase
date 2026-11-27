@@ -30,9 +30,9 @@ ORDER BY revenue DESC
 3. 在分析详情页点 **查询参数**，输入 `Web`，无需加引号，点击运行。应只返回一行，金额为 **300**。再次打开 **查询参数**，清空该值并运行，应恢复全部三个渠道。
 4. 如果每次都必须选定渠道，去掉外层方括号，改为 `AND channel = {{channel}}`。打开这条分析时，页面会等待读者填写必填项。参数名可以用 `channel`、`start_date` 等。SQL 内的占位符本身无需加引号，Topbase 会绑定输入值。
 
-<figure><a href="../assets/guide-images/sql-parameters-zh.jpg"><img src="../assets/guide-images/sql-parameters-zh.jpg" alt="打开已保存 SQL 分析的「查询参数」，在 channel 中填入 Web。" width="480" height="254" loading="lazy"></a><figcaption>打开已保存 SQL 分析的「查询参数」，在 channel 中填入 Web。</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-parameters-zh.jpg"><img src="../assets/guide-images/sql-parameters-zh.jpg" alt="打开已保存 SQL 分析的「查询参数」，在 channel 中填入 Web。" loading="lazy"></a><figcaption>打开已保存 SQL 分析的「查询参数」，在 channel 中填入 Web。</figcaption></figure>
 
-<figure><a href="../assets/guide-images/sql-parameter-result-zh.jpg"><img src="../assets/guide-images/sql-parameter-result-zh.jpg" alt="使用 Web 运行后，结果中仅有该渠道的一行记录，revenue 为 300。" width="1150" height="756" loading="lazy"></a><figcaption>使用 Web 运行后，结果中仅有该渠道的一行记录，revenue 为 300。</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-parameter-result-zh.jpg"><img src="../assets/guide-images/sql-parameter-result-zh.jpg" alt="使用 Web 运行后，结果中仅有该渠道的一行记录，revenue 为 300。" loading="lazy"></a><figcaption>使用 Web 运行后，结果中仅有该渠道的一行记录，revenue 为 300。</figcaption></figure>
 
 ## 为仪表盘增加按日趋势
 
@@ -48,7 +48,7 @@ ORDER BY order_date
 
 结果包含 2026 年 10 月的三个日期。1 日合计 **200**，3 日合计 **300**，4 日合计 **180**。2 日只有退款单，因此当天没有结果行。将分析保存为 **Paid sales by day**，图表选「折线图」，横轴选 `order_date`，纵轴选 `revenue`。
 
-<figure><a href="../assets/guide-images/sql-editor-zh.jpg"><img src="../assets/guide-images/sql-editor-zh.jpg" alt="按日查询返回三个日期。先在预览中核对 revenue，再选择折线图。" width="754" height="876" loading="lazy"></a><figcaption>按日查询返回三个日期。先在预览中核对 revenue，再选择折线图。</figcaption></figure>
+<figure><a href="../assets/guide-images/sql-editor-zh.jpg"><img src="../assets/guide-images/sql-editor-zh.jpg" alt="按日查询返回三个日期。先在预览中核对 revenue，再选择折线图。" loading="lazy"></a><figcaption>按日查询返回三个日期。先在预览中核对 revenue，再选择折线图。</figcaption></figure>
 
 ## 复用、导出和排查
 

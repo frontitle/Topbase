@@ -24,14 +24,14 @@
 
 三个渠道合计 **680**，对应五笔已支付订单。如果 Web 为 **350**，检查状态筛选是否生效；如果为 **2**，说明算出了 Web 的订单数。将计算改为「求和」后再次运行。
 
-<figure><a href="../assets/guide-images/visual-query-zh.jpg"><img src="../assets/guide-images/visual-query-zh.jpg" alt="对照筛选、计算与分组设置，再检查结果中的 Web、Partner 和 Store。" width="754" height="876" loading="lazy"></a><figcaption>对照筛选、计算与分组设置，再检查结果中的 Web、Partner 和 Store。</figcaption></figure>
+<figure><a href="../assets/guide-images/visual-query-zh.jpg"><img src="../assets/guide-images/visual-query-zh.jpg" alt="对照筛选、计算与分组设置，再检查结果中的 Web、Partner 和 Store。" loading="lazy"></a><figcaption>对照筛选、计算与分组设置，再检查结果中的 Web、Partner 和 Store。</figcaption></figure>
 
 ## 保存为渠道销售图
 
 1. 点击「保存分析」，名称填「Sales by channel」，选择可写入的分组。自己练习可保存在个人分组，需要同事打开这份分析时，选择对方有权访问的分组。
 2. 在保存后的分析页面选择柱状图，类别选 `channel`，数值选金额的汇总结果。将鼠标移到 Web 的柱子上，应看到 **300**。坐标轴和数值格式见[图表配置](charts.html)。
 
-<figure><a href="../assets/guide-images/chart-settings-zh.jpg"><img src="../assets/guide-images/chart-settings-zh.jpg" alt="保存后的分析中 Web 为 300。图表上方选「柱状图」，在右侧设置 channel 和 sum。" width="1360" height="850" loading="lazy"></a><figcaption>保存后的分析中 Web 为 300。图表上方选「柱状图」，在右侧设置 channel 和 sum。</figcaption></figure>
+<figure><a href="../assets/guide-images/chart-settings-zh.jpg"><img src="../assets/guide-images/chart-settings-zh.jpg" alt="保存后的分析中 Web 为 300。图表上方选「柱状图」，在右侧设置 channel 和 sum。" loading="lazy"></a><figcaption>保存后的分析中 Web 为 300。图表上方选「柱状图」，在右侧设置 channel 和 sum。</figcaption></figure>
 
 ## 把图表放入仪表盘
 
