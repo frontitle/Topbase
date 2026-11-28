@@ -50,20 +50,20 @@ TOPBASE_DATA_DIR=/var/lib/topbase ./bin/topbase-backup /secure/backups/topbase-b
 
 ## Docker 升级
 
-使用发布镜像时，先拉取要安装的 Git 标签。以 0.2.6 为例：
+使用发布镜像时，先拉取要安装的 Git 标签。以 0.2.7 为例：
 
 ```bash
-git fetch --tags
-git checkout v0.2.6
+git fetch --depth 1 origin tag v0.2.7
+git checkout v0.2.7
 ```
 
-在**已有的** `.env` 中设置 `TOPBASE_VERSION=0.2.6`，保留数据库密码、`TOPBASE_MASTER_KEY` 和宿主机端口。然后核对镜像：
+在**已有的** `.env` 中设置 `TOPBASE_VERSION=0.2.7`，保留数据库密码、`TOPBASE_MASTER_KEY` 和宿主机端口。然后核对镜像：
 
 ```bash
 docker compose -f docker-compose.release.yml config --images
 ```
 
-确认包含 `ghcr.io/frontitle/topbase:0.2.6` 后启动。自定义宿主机端口时，将下方的 8101 换成实际值。
+确认包含 `ghcr.io/frontitle/topbase:0.2.7` 后启动。自定义宿主机端口时，将下方的 8101 换成实际值。
 
 ```bash
 docker compose -f docker-compose.release.yml pull

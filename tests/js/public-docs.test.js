@@ -7,7 +7,6 @@ const publicFiles = [
   'docs/README.md',
   'docs/architecture.md',
   'docs/ai-integrations.md',
-  'docs/assets/topbase-dashboard-demo.jpg',
   'docs/assets/topbase-logo.png',
   'docs/configuration.md',
   'docs/database-drivers.md',
@@ -22,6 +21,7 @@ const publicFiles = [
   'docs/releases/0.2.4.md',
   'docs/releases/0.2.5.md',
   'docs/releases/0.2.6.md',
+  'docs/releases/0.2.7.md',
   'docs/upgrading.md',
 ];
 
@@ -38,12 +38,11 @@ test('docs contains only reviewed public documentation', () => {
 
 const projectMarkdown = [
   'README.md', 'README.zh-CN.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md',
-  'SECURITY.md', 'SECURITY.zh-CN.md', 'website/README.md', ...publicFiles.filter(file => file.endsWith('.md')),
+  'SECURITY.md', 'SECURITY.zh-CN.md', ...publicFiles.filter(file => file.endsWith('.md')),
 ];
 
 test('published documentation does not contain local user paths', () => {
-  const sources = [...projectMarkdown, ...walk('website/guides'), 'website/src/home-en.html', 'website/src/index.html'];
-  for (const file of sources) {
+  for (const file of projectMarkdown) {
     assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /\/Users\/[^/\s]+\/|[a-z]:\\Users\\[^\\\s]+\\/i, file);
   }
 });

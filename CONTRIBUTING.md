@@ -4,7 +4,7 @@ English · [简体中文](CONTRIBUTING.zh-CN.md)
 
 ## Run the project
 
-Install the Go version specified in [go.mod](go.mod) and Node.js 22 or newer for the browser checks, tests and website build. Run:
+Install the Go version specified in [go.mod](go.mod) and Node.js 22 or newer for the browser JavaScript checks and tests. Run:
 
 ```bash
 go mod download
@@ -20,7 +20,7 @@ The development server stores its data in `./data`. Set `TOPBASE_DATA_DIR` to a 
 2. Cover the relevant domain and application behavior, implement the API and interface, then update documentation and tests together.
 3. Keep dependencies flowing from `platform` to `app` to `core`. The Go server serves the browser interface and HTTP API. Application services implement analysis, dashboard and warehouse workflows. Database and integration adapters connect those services to external systems. Versioned SQL migrations ship with the binary.
 4. Reuse the existing navigation, forms, dialogs, popovers, grids and chart renderers. Check keyboard navigation, focus restoration and narrow screens. Keep UI text localizable.
-5. Run `make check`. For website changes, build both languages using the [website instructions](website/README.md).
+5. Run `make check`.
 
 ## Pull request checklist
 
@@ -36,6 +36,6 @@ Core tests live in `internal/core/`; use-case tests in `internal/app/`; adapter 
 
 ## What belongs in the repository
 
-Commit the source, tests, deployment files, user documentation and synthetic fixtures needed for the open-source product. Keep private planning, competitor materials, customer records, credentials, runtime backups and temporary working files out of Git. User guides are maintained in pairs under `website/guides/{en,zh}/`.
+Commit the source, tests, deployment files, user documentation and synthetic fixtures needed for the open-source product. Keep private planning, competitor materials, customer records, credentials, runtime backups and temporary working files out of Git. Submit changes to the English and Chinese user guides in the [website repository](https://github.com/frontitle/frontitle.github.io/tree/main/Topbase).
 
 Describe changes to stored formats or public APIs and how an existing installation handles them. Follow the [security policy](SECURITY.md) when reporting a vulnerability. Topbase uses the [Apache License 2.0](LICENSE). Verify the license for any bundled third-party component and retain its applicable copyright and license notices.

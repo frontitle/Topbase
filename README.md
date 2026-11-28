@@ -1,7 +1,7 @@
 # Topbase
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.2.6-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.7-111111.svg)](CHANGELOG.md)
 
 English · [简体中文](README.zh-CN.md) · [Website](https://frontitle.github.io/Topbase/) · [Documentation](https://frontitle.github.io/Topbase/docs/)
 
@@ -23,9 +23,8 @@ Choose one method. On first launch, open the server address in a browser and cre
 Install Docker with Compose, then run:
 
 ```bash
-git clone https://github.com/frontitle/Topbase.git
+git clone --depth 1 --branch v0.2.7 https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.6
 cp -n .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -45,9 +44,8 @@ Open `http://YOUR_SERVER:8101`. The default mapping is **8101 on the server → 
 Install the Go version specified in [go.mod](go.mod), then run:
 
 ```bash
-git clone https://github.com/frontitle/Topbase.git
+git clone --depth 1 --branch v0.2.7 https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.6
 go build -o topbase ./cmd/topbase
 TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```

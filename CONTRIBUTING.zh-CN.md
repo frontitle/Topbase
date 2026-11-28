@@ -6,7 +6,7 @@
 
 ## 开发环境
 
-要求 Go 版本以 `go.mod` 为准，并安装 Node.js 22 或更高版本，用于浏览器 JavaScript 检查、测试和官网构建。
+要求 Go 版本以 `go.mod` 为准，并安装 Node.js 22 或更高版本，用于浏览器 JavaScript 检查和测试。
 
 ```bash
 go mod download
@@ -56,6 +56,6 @@ TOPBASE_ADDR=127.0.0.1:8080 go run ./cmd/topbase
 
 ## 提交到公开仓库的内容
 
-提交运行、测试、部署和使用 Topbase 所需的源码、文档及模拟数据。内部规划、竞品材料、客户内容、运行备份、密钥和临时工作底稿均不纳入 Git。在线手册在 `website/guides/{en,zh}/` 中同步维护；参见[官网维护说明](website/README.md)。
+提交运行、测试、部署和使用 Topbase 所需的源码、文档及模拟数据。内部规划、竞品材料、客户内容、运行备份、密钥和临时工作底稿均不纳入 Git。中英文用户手册的改动请提交到[官网仓库](https://github.com/frontitle/frontitle.github.io/tree/main/Topbase)。
 
 Go 服务提供浏览器界面和 HTTP API，应用服务负责分析、仪表盘及数仓工作流，数据库适配器负责访问应用库与业务数据库。程序内置按版本管理的 SQL 迁移。前端请复用共享导航、表单、弹窗、表格和图表，并验证键盘使用、关闭后的焦点归还和窄屏布局。

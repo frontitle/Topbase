@@ -11,7 +11,15 @@ test('release version is synchronized across build and public documentation', ()
   assert.match(fs.readFileSync('.env.example', 'utf8'), new RegExp(`TOPBASE_VERSION=${version.replaceAll('.', '\\.')}`));
   assert.ok(fs.existsSync(`docs/releases/${version}.md`));
   assert.match(fs.readFileSync('CHANGELOG.md', 'utf8'), new RegExp(`## \\[${version.replaceAll('.', '\\.')}\\]`));
-  assert.match(fs.readFileSync('README.md', 'utf8'), new RegExp(`version-${version.replaceAll('.', '\\.')}`));
+  for (const file of ['README.md', 'README.zh-CN.md']) {
+    const readme = fs.readFileSync(file, 'utf8');
+    assert.ok(readme.includes(`version-${version}-`), file);
+    const clones = readme.split('\n').filter(line => line.startsWith('git clone '));
+    assert.ok(clones.length > 0, `${file}: missing release checkout`);
+    for (const clone of clones) {
+      assert.ok(clone.includes(`--branch v${version} `) && clone.includes('--depth 1 '), clone);
+    }
+  }
 });
 
 test('every compose deployment uses the current release default', () => {

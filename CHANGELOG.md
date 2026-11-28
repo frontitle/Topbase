@@ -2,6 +2,13 @@
 
 Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明和可复现构建元数据。
 
+## [0.2.7] - 2026-11-28
+
+- The website and bilingual user guides now have their own repository. Installation examples download a shallow checkout of the product release.
+- 官网和中英文用户手册已迁入独立仓库。安装示例使用浅克隆，只下载本次产品发行所需的源码。
+
+[Release notes / 发行说明](docs/releases/0.2.7.md)
+
 ## [0.2.6] - 2026-11-27
 
 - Package license notices with the release image, restrict the Docker build context and use the public Go module path.
@@ -111,3 +118,4 @@ Topbase 遵循语义化版本。每个正式版本对应 Git tag、升级说明�
 [0.2.5]: docs/releases/0.2.5.md
 
 [0.2.6]: docs/releases/0.2.6.md
+[0.2.7]: docs/releases/0.2.7.md

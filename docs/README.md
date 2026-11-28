@@ -7,6 +7,7 @@
 - [部署](deployment.md)：Docker Compose 与二进制部署
 - [性能与容量](performance.md)：内存保护、查询并发、页面加载和验收方法
 - [升级与备份](upgrading.md)：版本策略、migration、备份和回滚
+- [0.2.7 发行说明](releases/0.2.7.md)：独立官网仓库与轻量安装
 - [0.2.6 发行说明](releases/0.2.6.md)：安装文档、发行包许可与 Excel 预览
 - [0.2.5 升级说明](releases/0.2.5.md)：仪表盘分享、数仓可靠性、国际化与官网文档
 - [0.2.4 升级说明](releases/0.2.4.md)：可视化、数据治理、企业接入与性能保护

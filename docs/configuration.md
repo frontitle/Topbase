@@ -35,7 +35,7 @@ Topbase 使用环境变量配置进程。生产环境不要把真实值写入镜
 | `TOPBASE_INSTANCE_ID` | 自动生成 | 多节点中可读且唯一的节点标识 |
 | `TOPBASE_CRON` | 开启 | 设置为 `off` 时停用进程内调度，仅建议测试使用 |
 | `TOPBASE_SECURE_COOKIES` | `false` | HTTPS 生产环境必须设为 `true`，为会话和 CSRF Cookie 启用 Secure |
-| `TOPBASE_VERSION` | 当前发布版本 | 正式镜像的版本标签（例如 `0.2.6`），源码镜像构建时也用此值记录版本 |
+| `TOPBASE_VERSION` | 当前发布版本 | 正式镜像的版本标签（例如 `0.2.7`），源码镜像构建时也用此值记录版本 |
 | `TOPBASE_COMMIT` | `unknown` | Docker 构建时注入的 Git commit |
 | `TOPBASE_BUILD_TIME` | `unknown` | Docker 构建时注入的 UTC 构建时间 |
 | `FEISHU_APP_ID` | 空 | 飞书应用 ID |

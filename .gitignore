@@ -26,7 +26,6 @@ Thumbs.db
 *.db-wal
 *.sqlite
 *.sqlite3
-!website/src/assets/samples/orders.db
 
 # Build and test output
 /topbase

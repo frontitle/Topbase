@@ -6,5 +6,4 @@ Describe the user-visible effect and link the issue when available.
 ## Verification / 验证
 
 - [ ] Ran `make check` for product changes. 产品改动已通过 `make check`。
-- [ ] Built and checked both languages for website changes. 官网改动已构建并核对中英文。
 - [ ] Included updated guides or examples where behavior changed. 涉及操作变化时已更新指南或示例。

@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/frontitle/Topbase/actions/workflows/ci.yml/badge.svg)](https://github.com/frontitle/Topbase/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-111111.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.6-111111.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.7-111111.svg)](CHANGELOG.md)
 
 > **看见数据，理解业务，沉淀增长。**
 
@@ -31,9 +31,8 @@ Topbase 是一站式数据分析与可视化数仓平台，让团队通过连接
 适合已安装 Go 的单机服务器。Topbase 直接运行时默认监听 `:80`；为避免首次运行需要低位端口权限，下面显式改为 `8080`，应用数据保存到当前目录的 `data/`：
 
 ```bash
-git clone https://github.com/frontitle/Topbase.git
+git clone --depth 1 --branch v0.2.7 https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.6
 go build -o topbase ./cmd/topbase
 TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 ```
@@ -45,9 +44,8 @@ TOPBASE_PORT=8080 TOPBASE_DATA_DIR=./data ./topbase
 适合大多数服务器。先安装 [Docker](https://docs.docker.com/get-docker/) 与 Docker Compose，然后执行：
 
 ```bash
-git clone https://github.com/frontitle/Topbase.git
+git clone --depth 1 --branch v0.2.7 https://github.com/frontitle/Topbase.git
 cd Topbase
-git checkout v0.2.6
 cp -n .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -71,7 +69,7 @@ Docker 方案将应用数据库存放在 PostgreSQL 命名卷中。切换版本�
 - [版本升级](docs/upgrading.md)
 - [数据库支持](docs/database-drivers.md)
 - [AI、MCP 与 CLI](docs/ai-integrations.md)
-- [0.2.6 发布说明](docs/releases/0.2.6.md)
+- [0.2.7 发布说明](docs/releases/0.2.7.md)
 - [更新日志](CHANGELOG.md)
 
 ## 开源说明
